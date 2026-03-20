@@ -90,9 +90,9 @@
 
         .warehouse-card:hover { background: #f5f5f5; }
         .warehouse-card.active { background: #e5f1fb; border-color: var(--primary-light); }
-        .warehouse-card.work { border-left: 3px solid var(--success-border); }
-        .warehouse-card.home { border-left: 3px solid var(--warning-border); }
-        .warehouse-card.other { border-left: 3px solid var(--info); }
+        .warehouse-card.work { border-left: 3px solid #107c10; }
+        .warehouse-card.home { border-left: 3px solid #eaa300; }
+        .warehouse-card.other { border-left: 3px solid #0078d4; }
 
         .warehouse-actions { position: absolute; right: 8px; top: 8px; opacity: 0; transition: opacity 0.15s; }
         .warehouse-card:hover .warehouse-actions { opacity: 1; }
@@ -159,12 +159,12 @@
         .stat-card:hover { box-shadow: var(--shadow); }
         .stat-card h3 { font-size: 28px; font-weight: 600; margin: 0; color: var(--text-primary); }
         .stat-card p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
-        .stat-card.success { border-left: 3px solid var(--success-border); }
-        .stat-card.success h3 { color: var(--success); }
-        .stat-card.warning { border-left: 3px solid var(--warning-border); }
-        .stat-card.warning h3 { color: var(--warning); }
-        .stat-card.info { border-left: 3px solid var(--info); }
-        .stat-card.info h3 { color: var(--info); }
+        .stat-card.success { border-left: 3px solid #107c10; background: linear-gradient(135deg, #f1faf1 0%, #ffffff 100%); }
+        .stat-card.success h3 { color: #107c10; }
+        .stat-card.warning { border-left: 3px solid #eaa300; background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%); }
+        .stat-card.warning h3 { color: #b8860b; }
+        .stat-card.info { border-left: 3px solid #0078d4; background: linear-gradient(135deg, #f0f7fd 0%, #ffffff 100%); }
+        .stat-card.info h3 { color: #0078d4; }
 
         /* 标题栏 */
         .page-header {
@@ -227,10 +227,10 @@
             overflow-y: auto;
         }
 
-        .in-stock-section .device-section-header { border-top: 3px solid var(--success-border); }
-        .in-stock-section .device-section-header .badge { background: var(--success-bg); color: var(--success); }
-        .checked-out-section .device-section-header { border-top: 3px solid var(--warning-border); }
-        .checked-out-section .device-section-header .badge { background: var(--warning-bg); color: var(--warning); }
+        .in-stock-section .device-section-header { border-top: 3px solid #107c10; }
+        .in-stock-section .device-section-header .badge { background: #107c10; color: #ffffff; }
+        .checked-out-section .device-section-header { border-top: 3px solid #eaa300; }
+        .checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
 
         /* 设备项 */
         .device-item {
@@ -244,33 +244,33 @@
         }
 
         .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
-        .device-item.checked-out { border-left-color: var(--warning-border); background: #fffef8; }
+        .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
         .device-item strong { color: var(--text-primary); font-weight: 600; }
 
         /* 状态徽章 - Win11风格 */
         .status-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
-        .status-normal { background: var(--success-bg); color: var(--success); }
-        .status-abnormal { background: var(--danger-bg); color: var(--danger); }
-        .status-maintenance { background: var(--warning-bg); color: var(--warning); }
+        .status-normal { background: #d4edda; color: #155724; }
+        .status-abnormal { background: #f8d7da; color: #721c24; }
+        .status-maintenance { background: #fff3cd; color: #856404; }
 
         /* 操作按钮 */
         .checkout-btn, .checkin-btn { padding: 5px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; }
-        .checkout-btn { color: var(--warning); border-color: var(--warning-border); background: var(--warning-bg); }
-        .checkout-btn:hover { background: var(--warning); color: white; border-color: var(--warning); }
-        .checkin-btn { color: var(--success); border-color: var(--success-border); background: var(--success-bg); }
-        .checkin-btn:hover { background: var(--success); color: white; border-color: var(--success); }
+        .checkout-btn { color: #8b6914; border-color: #eaa300; background: #fff8e6; }
+        .checkout-btn:hover { background: #eaa300; color: white; border-color: #eaa300; }
+        .checkin-btn { color: #0d5d0d; border-color: #107c10; background: #e6f5e6; }
+        .checkin-btn:hover { background: #107c10; color: white; border-color: #107c10; }
 
         /* 去向标签 */
         .destination-tag {
-            background: var(--warning-bg);
-            color: var(--warning);
+            background: #fff3cd;
+            color: #856404;
             padding: 2px 8px;
             border-radius: 4px;
             font-size: 11px;
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            border: 1px solid var(--warning-border);
+            border: 1px solid #ffc107;
         }
 
         /* Modal 样式 - Win11风格 */
@@ -303,8 +303,8 @@
 
         /* Alert样式 */
         .alert { border-radius: 4px; border: none; }
-        .alert-warning { background: var(--warning-bg); color: var(--warning); }
-        .alert-success { background: var(--success-bg); color: var(--success); }
+        .alert-warning { background: #fff3cd; color: #856404; }
+        .alert-success { background: #d4edda; color: #155724; }
     </style>
 </head>
 <body>
@@ -652,8 +652,8 @@
                         <i class="bi ${w.type === 'work' ? 'bi-briefcase' : w.type === 'home' ? 'bi-house' : 'bi-box'}"></i> ${w.name}
                         <small class="d-block text-muted">${w.description || ''}</small>
                         <div class="mt-1">
-                            <span class="badge bg-success" style="font-size: 10px;">在库 ${inStock}</span>
-                            <span class="badge bg-warning text-dark" style="font-size: 10px;">出库 ${checkedOut}</span>
+                            <span class="badge" style="background:#107c10;color:#fff;font-size:10px;">在库 ${inStock}</span>
+                            <span class="badge" style="background:#eaa300;color:#fff;font-size:10px;">出库 ${checkedOut}</span>
                         </div>
                         ${tagHtml ? `<div class="mt-1">${tagHtml}</div>` : ''}
                     </div>
