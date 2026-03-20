@@ -289,7 +289,9 @@
             font-size: 13px;
         }
 
-        .tag-list-item:hover { background: #f5f5f5; }
+        .tag-list-item:hover { background: #f5f5f5; cursor: pointer; }
+        .tag-list-item.active { background: #e5f1fb; color: var(--primary); }
+        .tag-list-item.active .count { background: var(--primary); color: white; }
         .tag-list-item .count { background: #e5e5e5; color: var(--text-secondary); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
         .tag-list-item .tag-actions { opacity: 0; transition: opacity 0.15s; }
         .tag-list-item:hover .tag-actions { opacity: 1; }
@@ -441,7 +443,7 @@
         }
         /* 数量列 */
         .device-details .detail-item.quantity {
-            width: 50px;
+            width: 60px;
         }
         /* 位置列 */
         .device-details .detail-item.position {
@@ -915,6 +917,7 @@
         let allDevices = [];
         let warehouses = [];
         let tagStats = [];
+        let currentTagFilter = null;
 
         // 格式化时间
         function formatTime(timeStr) {
@@ -1015,16 +1018,29 @@
             const list = document.getElementById('tagStatsList');
             if (tagStats.length === 0) { list.innerHTML = '<div class="text-muted small">暂无标签数据</div>'; return; }
             list.innerHTML = tagStats.map(tag => `
-                <div class="tag-list-item">
+                <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${tag.name}')" style="cursor:pointer;">
                     <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
                 </div>
             `).join('');
+        }
+
+        // 按标签筛选
+        function filterByTag(tagName) {
+            if (currentTagFilter === tagName) {
+                // 再次点击取消筛选
+                currentTagFilter = null;
+            } else {
+                currentTagFilter = tagName;
+            }
+            renderTagStats();
+            loadDevices();
         }
 
         // 选择仓库
         async function selectWarehouse(id, name) {
             currentWarehouseId = id;
             currentWarehouseName = name === '总仓库' ? null : name;
+            currentTagFilter = null; // 切换仓库时清除标签筛选
             document.querySelectorAll('.warehouse-card').forEach(card => { card.classList.toggle('active', card.dataset.id == id); });
             document.getElementById('currentWarehouseTitle').innerHTML = `<i class="bi bi-folder"></i> ${name}`;
             document.getElementById('mobileWarehouseTitle').textContent = name;
@@ -1046,8 +1062,15 @@
                     url += `?warehouseId=${currentWarehouseId}`;
                 }
                 const res = await fetch(url);
-                allDevices = await res.json();
-                renderDevices(allDevices);
+                let devices = await res.json();
+                
+                // 应用标签筛选
+                if (currentTagFilter) {
+                    devices = devices.filter(d => d.tag_name === currentTagFilter);
+                }
+                
+                allDevices = devices;
+                renderDevices(devices);
                 await updateStats();
             } catch (e) { console.error('加载设备失败:', e); }
         }
