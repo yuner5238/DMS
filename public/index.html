@@ -47,6 +47,16 @@
             border: 1px solid var(--border-color);
         }
 
+        .main-card > .row {
+            display: flex;
+            flex-wrap: nowrap;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
         /* 侧边栏 - Win11风格浅色 */
         .sidebar {
             background: var(--bg-sidebar);
@@ -54,15 +64,69 @@
             min-height: 600px;
             padding: 0;
             border-right: 1px solid var(--border-color);
+            position: relative;
+            min-width: 200px;
+            max-width: 400px;
+            transition: width 0.2s ease, min-width 0.2s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0;
+            padding: 0;
+            border-right: none;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .sidebar-header,
+        .sidebar.collapsed .sidebar-content {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        /* 侧边栏拖拽调整宽度 */
+        .sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 10;
+        }
+
+        .sidebar-resize-handle:hover,
+        .sidebar-resize-handle.dragging {
+            background: var(--primary-light);
         }
 
         .sidebar-header {
             padding: 20px 16px;
             border-bottom: 1px solid var(--border-color);
             background: var(--bg-card);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .sidebar-header h5 { font-weight: 600; font-size: 16px; margin: 0; color: var(--text-primary); }
+
+        .sidebar-toggle-pc {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle-pc:hover { background: #f0f0f0; }
+        .sidebar-toggle-pc i { font-size: 14px; color: var(--text-secondary); }
 
         .sidebar .nav-link {
             color: var(--text-secondary);
@@ -305,56 +369,195 @@
         .alert { border-radius: 4px; border: none; }
         .alert-warning { background: #fff3cd; color: #856404; }
         .alert-success { background: #d4edda; color: #155724; }
+
+        /* 侧边栏收纳/展开控制 */
+        .sidebar-toggle-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle-btn:hover { background: #f5f5f5; }
+        .sidebar-toggle-btn i { font-size: 18px; color: var(--text-secondary); }
+
+        /* PC端侧边栏收起后的展开按钮 */
+        .sidebar-expand-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            margin-right: 12px;
+        }
+        .sidebar-expand-btn:hover { background: #f5f5f5; }
+        .sidebar-expand-btn i { font-size: 18px; color: var(--text-secondary); }
+
+        @media (min-width: 769px) {
+            .sidebar.collapsed + .main-content .sidebar-expand-btn {
+                display: flex;
+            }
+        }
+
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-secondary);
+            z-index: 10;
+        }
+        .sidebar-close-btn:hover { background: #f0f0f0; color: var(--text-primary); }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.show { display: block; opacity: 1; }
+
+        @media (max-width: 768px) {
+            body { padding: 8px; }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                width: 280px;
+                height: 100vh;
+                z-index: 1050;
+                transition: left 0.3s ease;
+                min-height: auto;
+                border-right: none;
+                box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+                overflow-y: auto;
+            }
+            .sidebar.show { left: 0; }
+
+            .sidebar-toggle-btn { display: flex; }
+            .sidebar-close-btn { display: flex; align-items: center; justify-content: center; }
+
+            .sidebar-header { position: relative; padding-right: 48px; }
+
+            .main-content { padding: 12px; width: 100%; }
+
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .mobile-header .page-title {
+                flex: 1;
+                font-weight: 600;
+                font-size: 15px;
+                color: var(--text-primary);
+                margin: 0;
+            }
+
+            /* 统计卡片横向紧凑排列 */
+            .stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+            .stat-row .col-md-4 { flex: 1; padding: 0; }
+            .stat-card {
+                padding: 10px 12px;
+                margin-bottom: 0;
+                text-align: center;
+            }
+            .stat-card h3 { font-size: 18px; margin-bottom: 2px; }
+            .stat-card p { font-size: 10px; margin: 0; }
+
+            .page-header { display: none; }
+
+            .device-section { margin-bottom: 12px; }
+            .device-item { padding: 10px 12px; margin: 6px; }
+        }
+
+        @media (min-width: 769px) {
+            .mobile-header { display: none; }
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <div class="main-card">
             <div class="row g-0">
+                <!-- 遮罩层 -->
+                <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
                 <!-- 侧边栏 -->
-                <div class="col-md-3 sidebar">
+                <div class="col-md-3 sidebar" id="sidebar">
+                    <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+                    <button class="sidebar-close-btn" onclick="toggleSidebar()" title="关闭">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                     <div class="sidebar-header">
                         <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统</h5>
-                    </div>
-                    <div class="p-3">
-                        <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
-                            <i class="bi bi-plus-circle"></i> 新建仓库
+                        <button class="sidebar-toggle-pc" onclick="toggleSidebarPC()" title="收起侧边栏">
+                            <i class="bi bi-chevron-left"></i>
                         </button>
                     </div>
-                    <div class="nav flex-column" id="warehouseList"></div>
-                    <div class="tag-section">
-                        <div class="tag-section-header">
-                            <h6><i class="bi bi-tags"></i> 标签管理</h6>
-                            <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
-                                <i class="bi bi-plus"></i>
+                    <div class="sidebar-content">
+                        <div class="p-3">
+                            <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
+                                <i class="bi bi-plus-circle"></i> 新建仓库
                             </button>
                         </div>
-                        <div id="tagStatsList"></div>
+                        <div class="nav flex-column" id="warehouseList"></div>
+                        <div class="tag-section">
+                            <div class="tag-section-header">
+                                <h6><i class="bi bi-tags"></i> 标签管理</h6>
+                                <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            <div id="tagStatsList"></div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 主内容区 -->
-                <div class="col-md-9 main-content">
-                    <!-- 统计卡片 -->
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="stat-card success">
-                                <h3 id="inStockCount">0</h3>
-                                <p>在库设备</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card warning">
-                                <h3 id="checkedOutCount">0</h3>
-                                <p>已出库</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card info">
-                                <h3 id="warehouseCount">0</h3>
-                                <p>仓库数量</p>
-                            </div>
-                        </div>
+                <div class="main-content">
+                    <!-- 移动端顶部工具栏 -->
+                    <div class="mobile-header">
+                        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="打开菜单">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <h5 class="page-title" id="mobileWarehouseTitle">请选择仓库</h5>
+                    </div>
+
+                    <!-- PC端收起后的展开按钮 -->
+                    <div class="d-none d-md-flex align-items-center mb-3" id="pcToolbar">
+                        <button class="sidebar-expand-btn" onclick="toggleSidebarPC()" title="展开侧边栏">
+                            <i class="bi bi-list"></i>
+                        </button>
                     </div>
 
                     <!-- 标题栏 -->
@@ -682,8 +885,11 @@
             currentWarehouseName = name;
             document.querySelectorAll('.warehouse-card').forEach(card => { card.classList.toggle('active', card.dataset.id == id); });
             document.getElementById('currentWarehouseTitle').innerHTML = `<i class="bi bi-folder"></i> ${name}`;
+            document.getElementById('mobileWarehouseTitle').textContent = name;
             document.getElementById('deviceWarehouse').value = name;
             await loadDevices();
+            // 移动端选择仓库后自动收起侧边栏
+            if (window.innerWidth <= 768) toggleSidebar();
         }
 
         // 加载设备
@@ -774,14 +980,11 @@
             renderDevices(filtered);
         }
 
-        // 更新统计
+        // 更新统计（仓库在库/出库数量）
         async function updateStats() {
-            document.getElementById('warehouseCount').textContent = warehouses.length;
             try {
                 const res = await fetch(`${API_BASE}/devices`);
                 const allData = await res.json();
-                document.getElementById('inStockCount').textContent = allData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
-                document.getElementById('checkedOutCount').textContent = allData.filter(d => d.location_status === 'checked_out').length;
                 warehouses = warehouses.map(w => {
                     const wd = allData.filter(d => d.warehouse_name === w.name);
                     w.inStockCount = wd.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
@@ -789,7 +992,7 @@
                     return w;
                 });
                 renderWarehouseList();
-            } catch (e) {}
+            } catch (e) { console.error('更新统计失败:', e); }
         }
 
         // ============ 出库操作 ============
@@ -1025,8 +1228,57 @@
             } catch (e) { alert('删除失败: ' + e.message); }
         }
 
+        // 侧边栏收纳/展开控制（移动端）
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
+        // 侧边栏收纳/展开控制（PC端）
+        function toggleSidebarPC() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        // 侧边栏拖拽调整宽度
+        function initSidebarResize() {
+            const handle = document.getElementById('sidebarResizeHandle');
+            const sidebar = document.getElementById('sidebar');
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = sidebar.offsetWidth;
+                handle.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const diff = e.clientX - startX;
+                const newWidth = Math.max(200, Math.min(400, startWidth + diff));
+                sidebar.style.width = newWidth + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    handle.classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
+
         // 页面初始化
         document.addEventListener('DOMContentLoaded', async () => {
+            initSidebarResize();
             await loadWarehouses();
             await loadTagStats();
             if (warehouses.length > 0) selectWarehouse(warehouses[0].id, warehouses[0].name);
