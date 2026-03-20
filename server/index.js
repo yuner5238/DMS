@@ -48,31 +48,11 @@ const query = (sql, values = []) => {
 
 // ============ 仓库 API ============
 
-// 获取所有仓库（带标签统计）
+// 获取所有仓库
 app.get('/api/warehouses', async (req, res) => {
     try {
         const warehouses = await query('SELECT * FROM warehouses ORDER BY id');
-        
-        // 获取所有设备的标签统计
-        const devices = await query(`
-            SELECT d.warehouse_name, d.quantity, t.name as tag_name 
-            FROM devices d 
-            LEFT JOIN device_tags dt ON d.id = dt.device_id 
-            LEFT JOIN tags t ON dt.tag_id = t.id
-        `);
-        
-        // 为每个仓库添加标签统计
-        const result = warehouses.map(w => {
-            const tagCount = {};
-            devices.filter(d => d.warehouse_name === w.name).forEach(d => {
-                if (d.tag_name) {
-                    tagCount[d.tag_name] = (tagCount[d.tag_name] || 0) + (d.quantity || 1);
-                }
-            });
-            return { ...w, tagCount };
-        });
-        
-        res.json(result);
+        res.json(warehouses);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -186,11 +166,9 @@ app.get('/api/devices', async (req, res) => {
     try {
         const { warehouseId, warehouseName } = req.query;
         let sql = `
-            SELECT d.*, w.name as warehouse_name, GROUP_CONCAT(DISTINCT t.name) as tag_names, GROUP_CONCAT(DISTINCT t.id) as tag_ids
+            SELECT d.*, w.name as warehouse_name
             FROM devices d
             LEFT JOIN warehouses w ON d.warehouse_name = w.name
-            LEFT JOIN device_tags dt ON d.id = dt.device_id
-            LEFT JOIN tags t ON dt.tag_id = t.id
         `;
         let params = [];
         
@@ -206,17 +184,9 @@ app.get('/api/devices', async (req, res) => {
             params = [warehouseName];
         }
         
-        sql += ' GROUP BY d.id ORDER BY d.id';
+        sql += ' ORDER BY d.id';
         
-        let devices = await query(sql, params);
-        
-        // 解析标签
-        devices = devices.map(d => {
-            d.tags = d.tag_names ? [...new Set(d.tag_names.split(','))] : []; // 去重
-            d.tagIds = d.tag_ids ? [...new Set(d.tag_ids.split(','))].map(Number) : [];
-            d.warehouseId = d.warehouse_name;
-            return d;
-        });
+        const devices = await query(sql, params);
         
         res.json(devices);
     } catch (err) {
@@ -227,7 +197,7 @@ app.get('/api/devices', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { warehouseId, warehouseName, name, tag_name, status, quantity, storage_location, remark, tags, location_status, destination } = req.body;
+        const { warehouseId, warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination } = req.body;
         
         // 获取仓库名称
         let whName = warehouseName;
@@ -249,38 +219,15 @@ app.post('/api/devices', async (req, res) => {
             [whName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime]
         );
         
-        const deviceId = result.insertId;
-        
-        // 添加标签关联
-        if (tags && tags.length > 0) {
-            // 去重标签
-            const uniqueTags = [...new Set(tags)];
-            
-            for (const tagName of uniqueTags) {
-                let tagRows = await query('SELECT id FROM tags WHERE name = ?', [tagName]);
-                let tagId;
-                
-                if (tagRows.length === 0) {
-                    const tagResult = await query('INSERT INTO tags (name) VALUES (?)', [tagName]);
-                    tagId = tagResult.insertId;
-                } else {
-                    tagId = tagRows[0].id;
-                }
-                
-                await query('INSERT IGNORE INTO device_tags (device_id, tag_id) VALUES (?, ?)', [deviceId, tagId]);
-            }
-        }
-        
         res.json({ 
-            id: deviceId, 
+            id: result.insertId, 
             warehouseName: whName, 
             name, 
             tag_name: tag_name || '', 
             storage_location: storage_location || '',
             status: status || '正常', 
             quantity: quantity || 1, 
-            remark: remark || '', 
-            tags: tags || []
+            remark: remark || ''
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -290,7 +237,7 @@ app.post('/api/devices', async (req, res) => {
 // 更新设备
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, tags, location_status, destination, checkin_time, checkout_time } = req.body;
+        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = req.body;
         
         // 将 ISO 格式时间转换为 MySQL datetime 格式
         function formatDateTimeForMySQL(dateStr) {
@@ -317,28 +264,7 @@ app.put('/api/devices/:id', async (req, res) => {
             [warehouseName, name, tag_name || '', status, quantity, storage_location || '', location_status || 'in_stock', destination || '', remark, checkinTime, checkoutTime, req.params.id]
         );
         
-        // 更新标签关联
-        await query('DELETE FROM device_tags WHERE device_id=?', [req.params.id]);
-        
-        if (tags && tags.length > 0) {
-            const uniqueTags = [...new Set(tags)]; // 去重
-            
-            for (const tagName of uniqueTags) {
-                let tagRows = await query('SELECT id FROM tags WHERE name = ?', [tagName]);
-                let tagId;
-                
-                if (tagRows.length === 0) {
-                    const tagResult = await query('INSERT INTO tags (name) VALUES (?)', [tagName]);
-                    tagId = tagResult.insertId;
-                } else {
-                    tagId = tagRows[0].id;
-                }
-                
-                await query('INSERT IGNORE INTO device_tags (device_id, tag_id) VALUES (?, ?)', [req.params.id, tagId]);
-            }
-        }
-        
-        res.json({ id: req.params.id, warehouseName, name, tag_name, status, quantity, storage_location, remark, tags });
+        res.json({ id: req.params.id, warehouseName, name, tag_name, status, quantity, storage_location, remark });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -357,19 +283,23 @@ app.delete('/api/devices/:id', async (req, res) => {
 // ============ 标签统计 API（用于侧边栏）============
 app.get('/api/tag-stats', async (req, res) => {
     try {
-        const tagStats = await query(`
-            SELECT t.id, t.name, 
-                   COUNT(DISTINCT dt.device_id) as device_count,
-                   COALESCE(SUM(d.quantity), 0) as total_count,
-                   COUNT(DISTINCT d.warehouse_name) as warehouse_count
-            FROM tags t
-            LEFT JOIN device_tags dt ON t.id = dt.tag_id
-            LEFT JOIN devices d ON dt.device_id = d.id
-            GROUP BY t.id, t.name
-            HAVING total_count > 0
-            ORDER BY total_count DESC
-        `);
+        const { warehouseName } = req.query;
+        let sql = `
+            SELECT tag_name as name, 
+                   COUNT(*) as device_count,
+                   SUM(quantity) as total_count,
+                   COUNT(DISTINCT warehouse_name) as warehouse_count
+            FROM devices
+            WHERE tag_name IS NOT NULL AND tag_name != ''
+        `;
         
+        if (warehouseName) {
+            sql += ` AND warehouse_name = '${warehouseName}'`;
+        }
+        
+        sql += ` GROUP BY tag_name ORDER BY total_count DESC`;
+        
+        const tagStats = await query(sql);
         res.json(tagStats);
     } catch (err) {
         res.status(500).json({ error: err.message });

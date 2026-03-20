@@ -145,22 +145,110 @@
         .warehouse-card {
             cursor: pointer;
             transition: all 0.15s ease;
-            border: 1px solid transparent;
             border-radius: 6px;
             position: relative;
             background: transparent;
-            margin: 4px 8px;
+            margin: 2px 6px;
+            padding: 8px 10px 8px 13px;
+            border-left: 3px solid transparent;
         }
 
         .warehouse-card:hover { background: #f5f5f5; }
-        .warehouse-card.active { background: #e5f1fb; border-color: var(--primary-light); }
-        .warehouse-card.work { border-left: 3px solid #107c10; }
-        .warehouse-card.home { border-left: 3px solid #eaa300; }
-        .warehouse-card.other { border-left: 3px solid #0078d4; }
+        .warehouse-card.active { background: #e5f1fb; }
+        .warehouse-card.work { border-left-color: #107c10; }
+        .warehouse-card.home { border-left-color: #eaa300; }
+        .warehouse-card.other { border-left-color: #0078d4; }
+        .warehouse-card.all { border-left-color: #6c757d; background: #f8f9fa; font-weight: 600; }
+        .warehouse-card.all.active { background: #e5f1fb; border-left-color: #0067c0; }
 
-        .warehouse-actions { position: absolute; right: 8px; top: 8px; opacity: 0; transition: opacity 0.15s; }
+        .warehouse-card .warehouse-name {
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .warehouse-card .warehouse-name i {
+            font-size: 12px;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: #e5f1fb;
+            color: #0067c0;
+        }
+
+        .warehouse-card.all .warehouse-name i {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .warehouse-card .warehouse-stats {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .warehouse-card .stat-item {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .warehouse-card .stat-item.in-stock { color: #107c10; }
+        .warehouse-card .stat-item.checked-out { color: #b8860b; }
+
+        .warehouse-actions {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.15s;
+            display: flex;
+            gap: 2px;
+        }
         .warehouse-card:hover .warehouse-actions { opacity: 1; }
-        .warehouse-actions .btn { padding: 4px 8px; font-size: 11px; }
+        .warehouse-actions .btn-sm {
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            padding: 0 !important;
+            margin: 0;
+            line-height: 1 !important;
+            border-radius: 4px;
+        }
+        .warehouse-actions .btn-sm i {
+            display: inline-block;
+            width: 100%;
+            height: 100%;
+            font-size: 12px;
+            line-height: 22px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .warehouse-actions .btn-outline-light {
+            background: #f0f0f0;
+            border-color: #ccc;
+            color: #555;
+        }
+        .warehouse-actions .btn-outline-light:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .warehouse-actions .btn-outline-danger {
+            background: #ffeef0;
+            border-color: #f5c6cb;
+            color: #c82333;
+        }
+        .warehouse-actions .btn-outline-danger:hover {
+            background: #dc3545;
+            color: #fff;
+        }
+        .warehouse-actions .btn { padding: 2px 6px; font-size: 11px; }
 
         /* 标签徽章 - Win11风格 */
         .tag-badge {
@@ -310,6 +398,65 @@
         .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
         .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
         .device-item strong { color: var(--text-primary); font-weight: 600; }
+
+        /* 设备详情表格样式 */
+        .device-details {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0;
+            font-size: 12px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .device-details .detail-item {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            padding-right: 10px;
+            margin-right: 10px;
+            border-right: 1px solid #eee;
+        }
+        .device-details .detail-item:last-child {
+            border-right: none;
+            margin-right: 0;
+            padding-right: 0;
+            flex: 1;
+            min-width: 200px;
+        }
+        .device-details .detail-label {
+            color: var(--text-muted);
+            margin-right: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .device-details .detail-value {
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .device-details .detail-item:hover .detail-value {
+            white-space: normal;
+            word-break: break-all;
+        }
+        /* 数量列 */
+        .device-details .detail-item.quantity {
+            width: 50px;
+        }
+        /* 位置列 */
+        .device-details .detail-item.position {
+            width: 120px;
+        }
+        /* 入库时间列 */
+        .device-details .detail-item.checkin {
+            width: 130px;
+        }
+        /* 备注列 */
+        .device-details .detail-item.remark {
+            flex: 1;
+            min-width: 250px;
+            width: 400px;
+        }
 
         /* 状态徽章 - Win11风格 */
         .status-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
@@ -533,10 +680,7 @@
                         <div class="nav flex-column" id="warehouseList"></div>
                         <div class="tag-section">
                             <div class="tag-section-header">
-                                <h6><i class="bi bi-tags"></i> 标签管理</h6>
-                                <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
-                                    <i class="bi bi-plus"></i>
-                                </button>
+                                <h6><i class="bi bi-tags"></i> 标签统计</h6>
                             </div>
                             <div id="tagStatsList"></div>
                         </div>
@@ -643,22 +787,8 @@
                         <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">类别 *</label>
-                        <select class="form-select" id="deviceCategory">
-                            <option value="电脑">电脑</option>
-                            <option value="显示器">显示器</option>
-                            <option value="配件">配件</option>
-                            <option value="线缆">线缆</option>
-                            <option value="办公设备">办公设备</option>
-                            <option value="家具">家具</option>
-                            <option value="电器">电器</option>
-                            <option value="酒类">酒类</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">标签（用逗号分隔）</label>
-                        <input type="text" class="form-control" id="deviceTags" placeholder="例如：神舟,显示器,27寸">
+                        <label class="form-label">标签名</label>
+                        <input type="text" class="form-control" id="deviceTagName" placeholder="例如：电脑、显示器">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">数量 *</label>
@@ -667,6 +797,10 @@
                     <div class="mb-3">
                         <label class="form-label">存放位置</label>
                         <input type="text" class="form-control" id="deviceStorageLocation" placeholder="例如：A区货架2层">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">入库时间</label>
+                        <input type="date" class="form-control" id="deviceCheckinTime">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">在库状态</label>
@@ -789,6 +923,13 @@
             return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         }
 
+        // 格式化日期（设备列表用）
+        function formatDate(timeStr) {
+            if (!timeStr) return '';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
         // 格式化日期为 MySQL datetime 格式
         function formatDateTime(date) {
             const d = new Date(date);
@@ -812,19 +953,22 @@
             try {
                 const res = await fetch(`${API_BASE}/warehouses`);
                 warehouses = await res.json();
+                // 在顶部添加"总仓库"选项
+                warehouses.unshift({ id: 0, name: '总仓库', type: 'all' });
                 renderWarehouseList();
                 updateWarehouseSelect();
-                updateStats();
+                await updateStats();
                 if (warehouses.length > 0 && !currentWarehouseId) {
-                    selectWarehouse(warehouses[0].id, warehouses[0].name);
+                    selectWarehouse(0, '总仓库');
                 }
             } catch (e) { console.error('加载仓库失败:', e); }
         }
 
-        // 加载标签统计
-        async function loadTagStats() {
+        // 加载标签统计（支持按仓库筛选）
+        async function loadTagStats(warehouseName = null) {
             try {
-                const res = await fetch(`${API_BASE}/tag-stats`);
+                const url = warehouseName ? `${API_BASE}/tag-stats?warehouseName=${encodeURIComponent(warehouseName)}` : `${API_BASE}/tag-stats`;
+                const res = await fetch(url);
                 tagStats = await res.json();
                 renderTagStats();
             } catch (e) { console.error('加载标签统计失败:', e); }
@@ -841,24 +985,26 @@
         function renderWarehouseList() {
             const list = document.getElementById('warehouseList');
             list.innerHTML = warehouses.map(w => {
-                const tagHtml = Object.entries(w.tagCount || {}).map(([tag, count]) =>
-                    `<span class="tag-badge">${tag} <span class="tag-count">${count}</span></span>`
-                ).join('');
                 const inStock = w.inStockCount || 0;
                 const checkedOut = w.checkedOutCount || 0;
+                const isAll = w.id === 0;
+                const icon = isAll ? 'bi-grid' : (w.type === 'work' ? 'bi-briefcase' : w.type === 'home' ? 'bi-house' : 'bi-box');
+                const actionsHtml = isAll ? '' : `
+                    <div class="warehouse-actions" onclick="event.stopPropagation()">
+                        <button class="btn btn-sm btn-outline-light" onclick="editWarehouse(${w.id})" title="编辑"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteWarehouseConfirm(${w.id})" title="删除"><i class="bi bi-trash"></i></button>
+                    </div>
+                `;
                 return `
-                    <div class="nav-link warehouse-card ${w.type}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
-                        <div class="warehouse-actions" onclick="event.stopPropagation()">
-                            <button class="btn btn-sm btn-outline-light" onclick="editWarehouse(${w.id})" title="编辑"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteWarehouseConfirm(${w.id})" title="删除"><i class="bi bi-trash"></i></button>
+                    <div class="nav-link warehouse-card ${w.type}${isAll ? ' all' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
+                        ${actionsHtml}
+                        <div class="warehouse-name">
+                            <i class="bi ${icon}"></i> ${w.name}
                         </div>
-                        <i class="bi ${w.type === 'work' ? 'bi-briefcase' : w.type === 'home' ? 'bi-house' : 'bi-box'}"></i> ${w.name}
-                        <small class="d-block text-muted">${w.description || ''}</small>
-                        <div class="mt-1">
-                            <span class="badge" style="background:#107c10;color:#fff;font-size:10px;">在库 ${inStock}</span>
-                            <span class="badge" style="background:#eaa300;color:#fff;font-size:10px;">出库 ${checkedOut}</span>
+                        <div class="warehouse-stats">
+                            <span class="stat-item in-stock">在库 ${inStock}</span>
+                            <span class="stat-item checked-out">出库 ${checkedOut}</span>
                         </div>
-                        ${tagHtml ? `<div class="mt-1">${tagHtml}</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -871,10 +1017,6 @@
             list.innerHTML = tagStats.map(tag => `
                 <div class="tag-list-item">
                     <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
-                    <div class="tag-actions">
-                        <button class="btn btn-sm btn-outline-light" onclick="editTag(${tag.id}, '${tag.name}')" title="编辑"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTagConfirm(${tag.id})" title="删除"><i class="bi bi-trash"></i></button>
-                    </div>
                 </div>
             `).join('');
         }
@@ -882,24 +1024,31 @@
         // 选择仓库
         async function selectWarehouse(id, name) {
             currentWarehouseId = id;
-            currentWarehouseName = name;
+            currentWarehouseName = name === '总仓库' ? null : name;
             document.querySelectorAll('.warehouse-card').forEach(card => { card.classList.toggle('active', card.dataset.id == id); });
             document.getElementById('currentWarehouseTitle').innerHTML = `<i class="bi bi-folder"></i> ${name}`;
             document.getElementById('mobileWarehouseTitle').textContent = name;
             document.getElementById('deviceWarehouse').value = name;
             await loadDevices();
+            // 加载标签统计（总仓库时传 null，其他传仓库名）
+            await loadTagStats(currentWarehouseName);
             // 移动端选择仓库后自动收起侧边栏
             if (window.innerWidth <= 768) toggleSidebar();
         }
 
         // 加载设备
         async function loadDevices() {
-            if (!currentWarehouseId) return;
+            if (!currentWarehouseId && currentWarehouseId !== 0) return;
             try {
-                const res = await fetch(`${API_BASE}/devices?warehouseId=${currentWarehouseId}`);
+                let url = `${API_BASE}/devices`;
+                // 总仓库(id=0)加载所有设备，其他按仓库筛选
+                if (currentWarehouseId > 0) {
+                    url += `?warehouseId=${currentWarehouseId}`;
+                }
+                const res = await fetch(url);
                 allDevices = await res.json();
                 renderDevices(allDevices);
-                updateStats();
+                await updateStats();
             } catch (e) { console.error('加载设备失败:', e); }
         }
 
@@ -916,14 +1065,12 @@
             const statusClass = { '正常': 'status-normal', '异常': 'status-abnormal', '维修中': 'status-maintenance' };
 
             const renderDeviceItem = (device, isOut) => {
-                const tagHtml = [...new Set(device.tags || [])].map(tag => `<span class="tag-badge">${tag}</span>`).join('');
+                const tagHtml = device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '';
                 const actionBtn = isOut
                     ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i> 入库</button>`
                     : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i> 出库</button>`;
                 const destinationTag = isOut && device.destination ? `<span class="destination-tag ms-2"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
-                const timeInfo = isOut
-                    ? (device.checkout_time ? ' | 出库: ' + formatTime(device.checkout_time) : '')
-                    : (device.checkin_time ? ' | 入库: ' + formatTime(device.checkin_time) : '');
+                const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
 
                 return `
                     <div class="device-item ${isOut ? 'checked-out' : ''}">
@@ -931,9 +1078,14 @@
                             <div class="flex-grow-1">
                                 <strong>${device.name}</strong>
                                 <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
+                                ${tagHtml}
                                 ${destinationTag}
-                                ${tagHtml ? `<span class="ms-1">${tagHtml}</span>` : ''}
-                                <div class="text-muted small mt-1">数量: ${device.quantity} | 存放位置: ${device.storage_location || '未设置'} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${timeInfo} | 备注: ${device.remark || '无'}</div>
+                                <div class="device-details">
+                                    <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
+                                    <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
+                                    <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
+                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value" title="${device.remark || ''}">${device.remark || ''}</span></span>
+                                </div>
                             </div>
                             <div class="d-flex gap-2">
                                 ${actionBtn}
@@ -976,7 +1128,11 @@
         // 搜索过滤
         function filterDevices() {
             const keyword = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allDevices.filter(d => d.name.toLowerCase().includes(keyword) || (d.tags || []).some(t => t.toLowerCase().includes(keyword)) || (d.destination && d.destination.toLowerCase().includes(keyword)));
+            const filtered = allDevices.filter(d => 
+                d.name.toLowerCase().includes(keyword) || 
+                (d.tag_name && d.tag_name.toLowerCase().includes(keyword)) || 
+                (d.destination && d.destination.toLowerCase().includes(keyword))
+            );
             renderDevices(filtered);
         }
 
@@ -986,9 +1142,15 @@
                 const res = await fetch(`${API_BASE}/devices`);
                 const allData = await res.json();
                 warehouses = warehouses.map(w => {
-                    const wd = allData.filter(d => d.warehouse_name === w.name);
-                    w.inStockCount = wd.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
-                    w.checkedOutCount = wd.filter(d => d.location_status === 'checked_out').length;
+                    if (w.id === 0) {
+                        // 总仓库统计所有设备
+                        w.inStockCount = allData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+                        w.checkedOutCount = allData.filter(d => d.location_status === 'checked_out').length;
+                    } else {
+                        const wd = allData.filter(d => d.warehouse_name === w.name);
+                        w.inStockCount = wd.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+                        w.checkedOutCount = wd.filter(d => d.location_status === 'checked_out').length;
+                    }
                     return w;
                 });
                 renderWarehouseList();
@@ -1012,9 +1174,9 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        warehouseName: device.warehouse_name, name: device.name, tag_name: device.tag_name || device.category,
+                        warehouseName: device.warehouse_name, name: device.name, tag_name: device.tag_name || '',
                         status: device.status, quantity: device.quantity, storage_location: device.storage_location,
-                        location_status: 'checked_out', destination: destination || '', remark: device.remark, tags: device.tags,
+                        location_status: 'checked_out', destination: destination || '', remark: device.remark,
                         checkin_time: device.checkin_time, checkout_time: formatDateTime(new Date())
                     })
                 });
@@ -1039,9 +1201,9 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        warehouseName: device.warehouse_name, name: device.name, tag_name: device.tag_name || device.category,
+                        warehouseName: device.warehouse_name, name: device.name, tag_name: device.tag_name || '',
                         status: device.status, quantity: device.quantity, storage_location: device.storage_location,
-                        location_status: 'in_stock', destination: '', remark: device.remark, tags: device.tags,
+                        location_status: 'in_stock', destination: '', remark: device.remark,
                         checkin_time: formatDateTime(new Date()), checkout_time: null
                     })
                 });
@@ -1114,10 +1276,16 @@
                 document.getElementById('deviceId').value = d.id;
                 document.getElementById('deviceWarehouse').value = d.warehouse_name;
                 document.getElementById('deviceName').value = d.name;
-                document.getElementById('deviceCategory').value = d.tag_name || d.category || '电脑';
-                document.getElementById('deviceTags').value = (d.tags || []).join(', ');
+                document.getElementById('deviceTagName').value = d.tag_name || '';
                 document.getElementById('deviceQuantity').value = d.quantity;
                 document.getElementById('deviceStorageLocation').value = d.storage_location || '';
+                // 入库时间
+                if (d.checkin_time) {
+                    const checkinDate = new Date(d.checkin_time);
+                    document.getElementById('deviceCheckinTime').value = checkinDate.toISOString().split('T')[0];
+                } else {
+                    document.getElementById('deviceCheckinTime').value = '';
+                }
                 document.getElementById('deviceLocationStatus').value = d.location_status || 'in_stock';
                 document.getElementById('deviceDestination').value = d.destination || '';
                 document.getElementById('deviceStatus').value = d.status;
@@ -1127,10 +1295,11 @@
             } else {
                 document.getElementById('deviceId').value = '';
                 document.getElementById('deviceName').value = '';
-                document.getElementById('deviceCategory').value = '电脑';
-                document.getElementById('deviceTags').value = '';
+                document.getElementById('deviceTagName').value = '';
                 document.getElementById('deviceQuantity').value = 1;
                 document.getElementById('deviceStorageLocation').value = '';
+                // 新增设备默认入库时间为今天
+                document.getElementById('deviceCheckinTime').value = new Date().toISOString().split('T')[0];
                 document.getElementById('deviceLocationStatus').value = 'in_stock';
                 document.getElementById('deviceDestination').value = '';
                 document.getElementById('deviceStatus').value = '正常';
@@ -1146,21 +1315,21 @@
 
         async function saveDevice() {
             const id = document.getElementById('deviceId').value;
-            const tags = [...new Set(document.getElementById('deviceTags').value.split(',').map(t => t.trim()).filter(t => t))];
             const location_status = document.getElementById('deviceLocationStatus').value;
             const destination = location_status === 'checked_out' ? document.getElementById('deviceDestination').value : '';
+            const checkinTimeInput = document.getElementById('deviceCheckinTime').value;
 
             const data = {
                 warehouseName: document.getElementById('deviceWarehouse').value,
                 name: document.getElementById('deviceName').value,
-                tag_name: document.getElementById('deviceCategory').value,
+                tag_name: document.getElementById('deviceTagName').value,
                 quantity: parseInt(document.getElementById('deviceQuantity').value),
                 storage_location: document.getElementById('deviceStorageLocation').value,
                 location_status: location_status,
                 destination: destination,
                 status: document.getElementById('deviceStatus').value,
                 remark: document.getElementById('deviceRemark').value,
-                tags: tags
+                checkin_time: checkinTimeInput ? checkinTimeInput + ' ' + new Date().toTimeString().slice(0,8) : null
             };
 
             if (!data.name) { alert('请输入设备名称'); return; }
