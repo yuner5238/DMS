@@ -1,0 +1,54 @@
+{
+  "warehouses": [
+    {
+      "id": 1,
+      "name": "工作仓库",
+      "description": "办公设备存放",
+      "type": "work"
+    },
+    {
+      "id": 2,
+      "name": "家居仓库",
+      "description": "家居物品存放",
+      "type": "home"
+    }
+  ],
+  "assets": [
+    {
+      "id": 1,
+      "warehouseId": 1,
+      "name": "Dell电脑主机",
+      "category": "电脑",
+      "status": "正常",
+      "quantity": 1,
+      "remark": ""
+    },
+    {
+      "id": 2,
+      "warehouseId": 1,
+      "name": "27寸显示器",
+      "category": "显示器",
+      "status": "正常",
+      "quantity": 2,
+      "remark": ""
+    },
+    {
+      "id": 3,
+      "warehouseId": 2,
+      "name": "HDMI线",
+      "category": "线缆",
+      "status": "正常",
+      "quantity": 5,
+      "remark": "2米规格"
+    },
+    {
+      "id": 4,
+      "warehouseId": 2,
+      "name": "无线鼠标",
+      "category": "配件",
+      "status": "正常",
+      "quantity": 3,
+      "remark": ""
+    }
+  ]
+}

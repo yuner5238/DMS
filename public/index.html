@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库资产管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a365d;
+            --primary-light: #2c5282;
+            --secondary: #4a5568;
+            --success: #276749;
+            --success-light: #48bb78;
+            --warning: #c05621;
+            --warning-light: #ed8936;
+            --danger: #9b2c2c;
+            --info: #2b6cb0;
+            --bg-main: #f7fafc;
+            --bg-card: #ffffff;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        * {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        body {
+            background: var(--bg-main);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        .main-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* 侧边栏 */
+        .sidebar {
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            min-height: 600px;
+            padding: 0;
+        }
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .sidebar-header h5 {
+            font-weight: 600;
+            font-size: 18px;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 14px 20px;
+            margin: 2px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            font-weight: 400;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        /* 仓库卡片 */
+        .warehouse-card {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            position: relative;
+            background: rgba(255,255,255,0.05);
+            margin: 8px 12px;
+        }
+        
+        .warehouse-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .warehouse-card.active {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.3);
+        }
+        
+        .warehouse-card.work { border-left: 3px solid var(--success-light); }
+        .warehouse-card.home { border-left: 3px solid var(--warning-light); }
+        .warehouse-card.other { border-left: 3px solid var(--info); }
+        
+        .warehouse-actions {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .warehouse-card:hover .warehouse-actions {
+            opacity: 1;
+        }
+        
+        .warehouse-actions .btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        
+        /* 标签 */
+        .tag-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.9);
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin: 2px;
+            font-weight: 400;
+        }
+        
+        .tag-count {
+            background: rgba(255,255,255,0.25);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+        
+        /* 标签区域 */
+        .tag-section {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 16px;
+            padding: 16px 0;
+        }
+        
+        .tag-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 12px;
+            margin-bottom: 12px;
+        }
+        
+        .tag-section-header h6 {
+            color: rgba(255,255,255,0.9);
+            margin: 0;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        
+        .tag-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            margin: 4px 12px;
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+        }
+        
+        .tag-list-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .tag-list-item .count {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+        
+        .tag-list-item .tag-actions {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .tag-list-item:hover .tag-actions {
+            opacity: 1;
+        }
+        
+        /* 主内容区 */
+        .main-content {
+            padding: 24px;
+            background: var(--bg-main);
+        }
+        
+        /* 统计卡片 */
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+        }
+        
+        .stat-card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-card h3 {
+            font-size: 32px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--primary);
+        }
+        
+        .stat-card p {
+            margin: 4px 0 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        
+        .stat-card.success h3 { color: var(--success); }
+        .stat-card.warning h3 { color: var(--warning); }
+        .stat-card.info h3 { color: var(--info); }
+        
+        /* 标题栏 */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .page-header h5 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 18px;
+        }
+        
+        /* 搜索框 */
+        .search-box {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 13px;
+            transition: all 0.2s;
+            background: var(--bg-card);
+        }
+        
+        .search-box:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
+            outline: none;
+        }
+        
+        /* 按钮样式 */
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-light);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* 设备分区 */
+        .device-section {
+            margin-bottom: 24px;
+        }
+        
+        .device-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .device-section-header:hover {
+            background: #f8fafc;
+        }
+        
+        .device-section-header h6 {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .device-section-header .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            font-weight: 500;
+        }
+        
+        .device-section-body {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 10px 10px;
+            max-height: 450px;
+            overflow-y: auto;
+        }
+        
+        .in-stock-section .device-section-header {
+            border-top: 3px solid var(--success);
+        }
+        
+        .in-stock-section .device-section-header .badge {
+            background: var(--success);
+        }
+        
+        .checked-out-section .device-section-header {
+            border-top: 3px solid var(--warning);
+        }
+        
+        .checked-out-section .device-section-header .badge {
+            background: var(--warning);
+        }
+        
+        /* 设备项 */
+        .device-item {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin: 10px;
+            transition: all 0.2s;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--success);
+        }
+        
+        .device-item:hover {
+            box-shadow: var(--shadow);
+            border-color: var(--primary-light);
+        }
+        
+        .device-item.checked-out {
+            border-left-color: var(--warning);
+            background: #fffbf5;
+        }
+        
+        .device-item strong {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        /* 状态徽章 */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .status-normal {
+            background: #e6fffa;
+            color: var(--success);
+        }
+        
+        .status-abnormal {
+            background: #fff5f5;
+            color: var(--danger);
+        }
+        
+        .status-maintenance {
+            background: #fffaf0;
+            color: var(--warning);
+        }
+        
+        /* 操作按钮 */
+        .checkout-btn, .checkin-btn {
+            padding: 6px 14px;
+            font-size: 12px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .checkout-btn {
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+        
+        .checkout-btn:hover {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .checkin-btn {
+            color: var(--success);
+            border-color: var(--success);
+        }
+        
+        .checkin-btn:hover {
+            background: var(--success);
+            color: white;
+        }
+        
+        /* 去向标签 */
+        .destination-tag {
+            background: #fef3c7;
+            color: var(--warning);
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Modal 样式 */
+        .modal-header {
+            background: var(--primary);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
+        
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+            background: #f8fafc;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        /* 表单样式 */
+        .form-control, .form-select {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        /* 折叠箭头 */
+        .chevron-icon {
+            transition: transform 0.2s;
+        }
+        
+        .chevron-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state p {
+            margin: 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-card">
+            <div class="row g-0">
+                <!-- 侧边栏 -->
+                <div class="col-md-3 sidebar">
+                    <div class="sidebar-header">
+                        <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统</h5>
+                    </div>
+                    <div class="p-3">
+                        <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
+                            <i class="bi bi-plus-circle"></i> 新建仓库
+                        </button>
+                    </div>
+                    <div class="nav flex-column" id="warehouseList"></div>
+                    
+                    <!-- 标签统计区域 -->
+                    <div class="tag-section">
+                        <div class="tag-section-header">
+                            <h6><i class="bi bi-tags"></i> 标签管理</h6>
+                            <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div id="tagStatsList"></div>
+                    </div>
+                </div>
+                
+                <!-- 主内容区 -->
+                <div class="col-md-9 main-content">
+                    <!-- 统计卡片 -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-card success">
+                                <h3 id="inStockCount">0</h3>
+                                <p>在库设备</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card warning">
+                                <h3 id="checkedOutCount">0</h3>
+                                <p>已出库</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card info">
+                                <h3 id="warehouseCount">0</h3>
+                                <p>仓库数量</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 标题栏 -->
+                    <div class="page-header">
+                        <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
+                                <option value="name">按名称排序</option>
+                                <option value="checkin">按入库时间排序</option>
+                                <option value="checkout">按出库时间排序</option>
+                            </select>
+                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                            <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
+                                <i class="bi bi-plus-lg"></i> 添加设备
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 设备列表 -->
+                    <div id="deviceList">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>请先选择或创建一个仓库</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+                <div class="col-md-3 sidebar p-3">
+                    <h5 class="text-center py-3 border-bottom border-secondary">
+                        <i class="bi bi-box-seam"></i> 仓库资产管理系统
+                    </h5>
+                    <div class="mb-3">
+                        <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
+                            <i class="bi bi-plus-circle"></i> 新建仓库
+                        </button>
+                    </div>
+                    <div class="nav flex-column" id="warehouseList"></div>
+                    
+                    <!-- 标签统计区域 -->
+                    <div class="tag-section">
+                        <div class="tag-section-header">
+                            <h6><i class="bi bi-tags"></i> 标签管理</h6>
+                            <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div id="tagStatsList"></div>
+                    </div>
+                </div>
+                
+                <!-- 主内容区 -->
+                <div class="col-md-9 p-4">
+                    <!-- 统计卡片 -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                                <h3 id="inStockCount">0</h3>
+                                <p>在库设备</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                                <h3 id="checkedOutCount">0</h3>
+                                <p>已出库</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card" style="background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);">
+                                <h3 id="warehouseCount">0</h3>
+                                <p>仓库数量</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 工具栏 -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
+                                <option value="name">按名称排序</option>
+                                <option value="checkin">按入库时间排序</option>
+                                <option value="checkout">按出库时间排序</option>
+                            </select>
+                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                            <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
+                                <i class="bi bi-plus-lg"></i> 添加设备
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 设备列表 - Todo风格 -->
+                    <div id="deviceList">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                            <p class="mt-2">请先选择或创建一个仓库</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 仓库Modal -->
+    <div class="modal fade" id="warehouseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="warehouseModalTitle">新建仓库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="warehouseId">
+                    <div class="mb-3">
+                        <label class="form-label">仓库名称 *</label>
+                        <input type="text" class="form-control" id="warehouseName" placeholder="例如：工作仓库">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">仓库类型</label>
+                        <select class="form-select" id="warehouseType">
+                            <option value="work">工作</option>
+                            <option value="home">家居</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" id="warehouseDesc" rows="2" placeholder="仓库描述（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteWarehouseBtn" style="display:none;" onclick="deleteWarehouse()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveWarehouse()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设备Modal -->
+    <div class="modal fade" id="deviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceModalTitle">添加设备</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deviceId">
+                    <div class="mb-3">
+                        <label class="form-label">所属仓库 *</label>
+                        <select class="form-select" id="deviceWarehouse">
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">设备名称 *</label>
+                        <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">类别 *</label>
+                        <select class="form-select" id="deviceCategory">
+                            <option value="电脑">电脑</option>
+                            <option value="显示器">显示器</option>
+                            <option value="配件">配件</option>
+                            <option value="线缆">线缆</option>
+                            <option value="办公设备">办公设备</option>
+                            <option value="家具">家具</option>
+                            <option value="电器">电器</option>
+                            <option value="酒类">酒类</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">标签（用逗号分隔）</label>
+                        <input type="text" class="form-control" id="deviceTags" placeholder="例如：神舟,显示器,27寸">
+                        <small class="text-muted">输入标签后，标签统计会自动更新</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">数量 *</label>
+                        <input type="number" class="form-control" id="deviceQuantity" value="1" min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">在库状态</label>
+                        <select class="form-select" id="deviceLocationStatus">
+                            <option value="in_stock">在库</option>
+                            <option value="checked_out">已出库</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="destinationField" style="display:none;">
+                        <label class="form-label">去向 *</label>
+                        <input type="text" class="form-control" id="deviceDestination" placeholder="例如：同事张三借用">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" id="deviceStatus">
+                            <option value="正常">正常</option>
+                            <option value="异常">异常</option>
+                            <option value="维修中">维修中</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="deviceRemark" rows="2" placeholder="其他说明（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none;" onclick="deleteDevice()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveDevice()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 出库Modal -->
+    <div class="modal fade" id="checkoutModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-right"></i> 设备出库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="checkoutDeviceId">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        确定要将设备 <strong id="checkoutDeviceName"></strong> 出库吗？
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">去向 *</label>
+                        <input type="text" class="form-control" id="checkoutDestination" placeholder="例如：同事张三借用、项目A使用中">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="confirmCheckout()">确认出库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 入库Modal -->
+    <div class="modal fade" id="checkinModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-left"></i> 设备入库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="checkinDeviceId">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> 
+                        确定要将设备 <strong id="checkinDeviceName"></strong> 重新入库吗？
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="confirmCheckin()">确认入库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标签Modal -->
+    <div class="modal fade" id="tagModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tagModalTitle">添加标签</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="tagId">
+                    <div class="mb-3">
+                        <label class="form-label">标签名称 *</label>
+                        <input type="text" class="form-control" id="tagName" placeholder="例如：电脑">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteTagBtn" style="display:none;" onclick="deleteTag()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTag()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        let currentWarehouseId = null;
+        let currentWarehouseName = null;
+        let allDevices = [];
+        let warehouses = [];
+        let tagStats = [];
+        let allDevicesData = []; // 全局所有设备数据
+
+        // 格式化时间
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            const date = new Date(timeStr);
+            return date.toLocaleString('zh-CN', { 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        // 排序设备
+        function sortDevices() {
+            const sortType = document.getElementById('sortSelect').value;
+            let sorted = [...allDevices];
+            
+            switch(sortType) {
+                case 'name':
+                    sorted.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+                    break;
+                case 'checkin':
+                    sorted.sort((a, b) => {
+                        if (!a.checkin_time) return 1;
+                        if (!b.checkin_time) return -1;
+                        return new Date(b.checkin_time) - new Date(a.checkin_time);
+                    });
+                    break;
+                case 'checkout':
+                    sorted.sort((a, b) => {
+                        if (!a.checkout_time) return 1;
+                        if (!b.checkout_time) return -1;
+                        return new Date(b.checkout_time) - new Date(a.checkout_time);
+                    });
+                    break;
+            }
+            renderDevices(sorted);
+        }
+
+        // 加载仓库列表
+        async function loadWarehouses() {
+            try {
+                const res = await fetch(`${API_BASE}/warehouses`);
+                warehouses = await res.json();
+                
+                // 先加载所有设备数据用于统计
+                try {
+                    const devicesRes = await fetch(`${API_BASE}/devices`);
+                    allDevicesData = await devicesRes.json();
+                } catch (e) {
+                    allDevicesData = [];
+                }
+                
+                // 更新仓库统计
+                warehouses = warehouses.map(w => {
+                    const warehouseDevices = allDevicesData.filter(d => d.warehouse_name === w.name);
+                    w.inStockCount = warehouseDevices.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+                    w.checkedOutCount = warehouseDevices.filter(d => d.location_status === 'checked_out').length;
+                    return w;
+                });
+                
+                renderWarehouseList();
+                updateWarehouseSelect();
+                
+                // 更新顶部统计
+                const inStockCount = allDevicesData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+                const checkedOutCount = allDevicesData.filter(d => d.location_status === 'checked_out').length;
+                document.getElementById('inStockCount').textContent = inStockCount;
+                document.getElementById('checkedOutCount').textContent = checkedOutCount;
+                document.getElementById('warehouseCount').textContent = warehouses.length;
+                
+                if (warehouses.length > 0 && !currentWarehouseId) {
+                    selectWarehouse(warehouses[0].id, warehouses[0].name);
+                }
+            } catch (e) {
+                console.error('加载仓库失败:', e);
+            }
+        }
+
+        // 加载标签统计
+        async function loadTagStats() {
+            try {
+                const res = await fetch(`${API_BASE}/tag-stats`);
+                tagStats = await res.json();
+                renderTagStats();
+            } catch (e) {
+                console.error('加载标签统计失败:', e);
+            }
+        }
+
+        // 更新仓库下拉框
+        function updateWarehouseSelect() {
+            const select = document.getElementById('deviceWarehouse');
+            select.innerHTML = warehouses.map(w => 
+                `<option value="${w.name}">${w.name}</option>`
+            ).join('');
+            
+            if (currentWarehouseName) {
+                select.value = currentWarehouseName;
+            }
+        }
+
+        // 渲染仓库列表
+        function renderWarehouseList() {
+            const list = document.getElementById('warehouseList');
+            list.innerHTML = warehouses.map(w => {
+                const tagHtml = Object.entries(w.tagCount || {}).map(([tag, count]) => 
+                    `<span class="tag-badge">${tag} <span class="tag-count">${count}</span></span>`
+                ).join('');
+                
+                const inStock = w.inStockCount || 0;
+                const checkedOut = w.checkedOutCount || 0;
+                
+                return `
+                    <div class="nav-link warehouse-card ${w.type}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
+                        <div class="warehouse-actions" onclick="event.stopPropagation()">
+                            <button class="btn btn-sm btn-outline-light" onclick="editWarehouse(${w.id})" title="编辑">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteWarehouseConfirm(${w.id})" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <i class="bi ${w.type === 'work' ? 'bi-briefcase' : w.type === 'home' ? 'bi-house' : 'bi-box'}"></i>
+                        ${w.name}
+                        <small class="d-block text-muted">${w.description || ''}</small>
+                        <div class="mt-1">
+                            <span class="badge bg-success" style="font-size: 10px;">在库 ${inStock}</span>
+                            <span class="badge bg-warning text-dark" style="font-size: 10px;">出库 ${checkedOut}</span>
+                        </div>
+                        ${tagHtml ? `<div class="mt-1">${tagHtml}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 渲染标签统计（可编辑）
+        function renderTagStats() {
+            const list = document.getElementById('tagStatsList');
+            if (tagStats.length === 0) {
+                list.innerHTML = '<div class="text-muted small">暂无标签数据</div>';
+                return;
+            }
+            
+            list.innerHTML = tagStats.map(tag => `
+                <div class="tag-list-item">
+                    <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
+                    <div class="tag-actions">
+                        <button class="btn btn-sm btn-outline-light" onclick="editTag(${tag.id}, '${tag.name}')" title="编辑">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTagConfirm(${tag.id})" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 选择仓库
+        async function selectWarehouse(id, name) {
+            currentWarehouseId = id;
+            currentWarehouseName = name;
+            
+            document.querySelectorAll('.warehouse-card').forEach(card => {
+                card.classList.toggle('active', card.dataset.id == id);
+            });
+
+            document.getElementById('currentWarehouseTitle').innerHTML = 
+                `<i class="bi bi-folder"></i> ${name}`;
+            
+            // 更新设备表单中的仓库选择
+            document.getElementById('deviceWarehouse').value = name;
+            
+            await loadDevices();
+        }
+
+        // 加载设备
+        async function loadDevices() {
+            if (!currentWarehouseId) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/devices?warehouseId=${currentWarehouseId}`);
+                allDevices = await res.json();
+                renderDevices(allDevices);
+                updateStats();
+            } catch (e) {
+                console.error('加载设备失败:', e);
+            }
+        }
+
+        // 渲染设备列表 - Todo风格
+        function renderDevices(devices) {
+            const list = document.getElementById('deviceList');
+            
+            if (devices.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                        <p class="mt-2">该仓库暂无设备，点击上方"添加设备"按钮</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 分离在库和已出库设备
+            const inStockDevices = devices.filter(d => d.location_status === 'in_stock' || !d.location_status);
+            const checkedOutDevices = devices.filter(d => d.location_status === 'checked_out');
+
+            const statusClass = {
+                '正常': 'status-normal',
+                '异常': 'status-abnormal',
+                '维修中': 'status-maintenance'
+            };
+
+            // 渲染在库列表
+            const inStockHtml = inStockDevices.length > 0 ? inStockDevices.map(device => {
+                const uniqueTags = [...new Set(device.tags || [])];
+                const tagHtml = uniqueTags.map(tag => 
+                    `<span class="tag-badge">${tag}</span>`
+                ).join('');
+                
+                return `
+                    <div class="device-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong>${device.name}</strong>
+                                <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
+                                ${tagHtml ? `<div class="mt-2">${tagHtml}</div>` : ''}
+                                <div class="text-muted small mt-1">
+                                    数量: ${device.quantity} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkin_time ? ' | 入库: ' + formatTime(device.checkin_time) : ''} | 备注: ${device.remark || '无'}
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-warning checkout-btn" onclick="showCheckoutModal(${device.id}, '${device.name}')" title="出库">
+                                    <i class="bi bi-box-arrow-right"></i> 出库
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') : '<div class="text-center text-muted py-3">暂无在库设备</div>';
+
+            // 渲染已出库列表
+            const checkedOutHtml = checkedOutDevices.length > 0 ? checkedOutDevices.map(device => {
+                const uniqueTags = [...new Set(device.tags || [])];
+                const tagHtml = uniqueTags.map(tag => 
+                    `<span class="tag-badge">${tag}</span>`
+                ).join('');
+                
+                return `
+                    <div class="device-item checked-out">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong>${device.name}</strong>
+                                <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
+                                ${device.destination ? `<span class="destination-tag ms-2"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : ''}
+                                ${tagHtml ? `<div class="mt-2">${tagHtml}</div>` : ''}
+                                <div class="text-muted small mt-1">
+                                    数量: ${device.quantity} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkout_time ? ' | 出库: ' + formatTime(device.checkout_time) : ''} | 备注: ${device.remark || '无'}
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-success checkin-btn" onclick="showCheckinModal(${device.id}, '${device.name}')" title="入库">
+                                    <i class="bi bi-box-arrow-left"></i> 入库
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') : '<div class="text-center text-muted py-3">暂无已出库设备</div>';
+
+            // 组合两个列表
+            list.innerHTML = `
+                <!-- 在库列表 - 默认展开 -->
+                <div class="device-section in-stock-section">
+                    <div class="device-section-header" onclick="toggleSection('inStockBody')">
+                        <h6><i class="bi bi-box-seam"></i> 📦 在库设备 <span class="badge bg-success">${inStockDevices.length}</span></h6>
+                        <i class="bi bi-chevron-down chevron-icon"></i>
+                    </div>
+                    <div class="device-section-body" id="inStockBody">
+                        ${inStockHtml}
+                    </div>
+                </div>
+                
+                <!-- 已出库列表 - 默认隐藏 -->
+                <div class="device-section checked-out-section">
+                    <div class="device-section-header" onclick="toggleSection('checkedOutBody')">
+                        <h6><i class="bi bi-box-arrow-right"></i> 🚚 已出库设备 <span class="badge bg-warning text-dark">${checkedOutDevices.length}</span></h6>
+                        <i class="bi bi-chevron-down chevron-icon collapsed"></i>
+                    </div>
+                    <div class="device-section-body" id="checkedOutBody" style="display: none;">
+                        ${checkedOutHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 切换列表展开/折叠
+        function toggleSection(bodyId) {
+            const body = document.getElementById(bodyId);
+            const header = body.previousElementSibling;
+            const icon = header.querySelector('.chevron-icon');
+            
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.classList.remove('collapsed');
+            } else {
+                body.style.display = 'none';
+                icon.classList.add('collapsed');
+            }
+        }
+
+        // 搜索过滤
+        function filterDevices() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allDevices.filter(d => 
+                d.name.toLowerCase().includes(keyword) || 
+                d.category.toLowerCase().includes(keyword) ||
+                (d.tags || []).some(t => t.toLowerCase().includes(keyword)) ||
+                (d.destination && d.destination.toLowerCase().includes(keyword))
+            );
+            renderDevices(filtered);
+        }
+
+        // 更新统计
+        async function updateStats() {
+            document.getElementById('warehouseCount').textContent = warehouses.length;
+            
+            // 获取所有设备用于统计
+            try {
+                const res = await fetch(`${API_BASE}/devices`);
+                allDevicesData = await res.json();
+            } catch (e) {
+                allDevicesData = [];
+            }
+            
+            // 更新顶部统计卡片
+            const inStockCount = allDevicesData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+            const checkedOutCount = allDevicesData.filter(d => d.location_status === 'checked_out').length;
+            
+            document.getElementById('inStockCount').textContent = inStockCount;
+            document.getElementById('checkedOutCount').textContent = checkedOutCount;
+            
+            // 更新仓库列表中的统计
+            warehouses = warehouses.map(w => {
+                const warehouseDevices = allDevicesData.filter(d => d.warehouse_name === w.name);
+                w.inStockCount = warehouseDevices.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
+                w.checkedOutCount = warehouseDevices.filter(d => d.location_status === 'checked_out').length;
+                return w;
+            });
+            renderWarehouseList();
+        }
+
+        // ============ 出库操作 ============
+        function showCheckoutModal(id, name) {
+            document.getElementById('checkoutDeviceId').value = id;
+            document.getElementById('checkoutDeviceName').textContent = name;
+            document.getElementById('checkoutDestination').value = '';
+            new bootstrap.Modal(document.getElementById('checkoutModal')).show();
+        }
+
+        async function confirmCheckout() {
+            const id = document.getElementById('checkoutDeviceId').value;
+            const destination = document.getElementById('checkoutDestination').value;
+            
+            try {
+                // 获取设备当前信息
+                const device = allDevices.find(d => d.id == id);
+                
+                await fetch(`${API_BASE}/devices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        warehouseName: device.warehouse_name,
+                        name: device.name,
+                        category: device.category,
+                        status: device.status,
+                        quantity: device.quantity,
+                        location_status: 'checked_out',
+                        destination: destination || '',
+                        remark: device.remark,
+                        tags: device.tags,
+                        checkin_time: device.checkin_time,
+                        checkout_time: formatDateTime(new Date())
+                    })
+                });
+                
+                bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
+                await loadDevices();
+                await loadWarehouses();
+                await loadTagStats();
+            } catch (e) {
+                alert('出库失败: ' + e.message);
+            }
+        }
+
+        // ============ 入库操作 ============
+        function showCheckinModal(id, name) {
+            document.getElementById('checkinDeviceId').value = id;
+            document.getElementById('checkinDeviceName').textContent = name;
+            new bootstrap.Modal(document.getElementById('checkinModal')).show();
+        }
+
+        // 格式化日期为 MySQL datetime 格式
+        function formatDateTime(date) {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            const seconds = String(d.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+
+        async function confirmCheckin() {
+            const id = document.getElementById('checkinDeviceId').value;
+            
+            try {
+                const device = allDevices.find(d => d.id == id);
+                
+                if (!device) {
+                    alert('未找到设备信息');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/devices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        warehouseName: device.warehouse_name,
+                        name: device.name,
+                        category: device.category,
+                        status: device.status,
+                        quantity: device.quantity,
+                        location_status: 'in_stock',
+                        destination: '',
+                        remark: device.remark,
+                        tags: device.tags,
+                        checkin_time: formatDateTime(new Date()),
+                        checkout_time: null
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || '入库失败');
+                }
+                
+                bootstrap.Modal.getInstance(document.getElementById('checkinModal')).hide();
+                await loadDevices();
+                await loadWarehouses();
+                await loadTagStats();
+            } catch (e) {
+                alert('入库失败: ' + e.message);
+            }
+        }
+
+        // ============ 仓库操作 ============
+        function showWarehouseModal(id = null) {
+            const modal = new bootstrap.Modal(document.getElementById('warehouseModal'));
+            document.getElementById('warehouseModalTitle').textContent = id ? '编辑仓库' : '新建仓库';
+            document.getElementById('deleteWarehouseBtn').style.display = id ? 'block' : 'none';
+            
+            if (id) {
+                const w = warehouses.find(wh => wh.id === id);
+                document.getElementById('warehouseId').value = w.id;
+                document.getElementById('warehouseName').value = w.name;
+                document.getElementById('warehouseType').value = w.type;
+                document.getElementById('warehouseDesc').value = w.description || '';
+            } else {
+                document.getElementById('warehouseId').value = '';
+                document.getElementById('warehouseName').value = '';
+                document.getElementById('warehouseType').value = 'work';
+                document.getElementById('warehouseDesc').value = '';
+            }
+            
+            modal.show();
+        }
+
+        function editWarehouse(id) { showWarehouseModal(id); }
+
+        function deleteWarehouseConfirm(id) {
+            if (!confirm('删除仓库将同时删除该仓库下所有设备，确定要删除吗？')) return;
+            currentWarehouseId = id;
+            deleteWarehouse();
+        }
+
+        async function saveWarehouse() {
+            const id = document.getElementById('warehouseId').value;
+            const data = {
+                name: document.getElementById('warehouseName').value,
+                type: document.getElementById('warehouseType').value,
+                description: document.getElementById('warehouseDesc').value
+            };
+
+            if (!data.name) {
+                alert('请输入仓库名称');
+                return;
+            }
+
+            try {
+                if (id) {
+                    await fetch(`${API_BASE}/warehouses/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await fetch(`${API_BASE}/warehouses`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                bootstrap.Modal.getInstance(document.getElementById('warehouseModal')).hide();
+                await loadWarehouses();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        async function deleteWarehouse() {
+            try {
+                await fetch(`${API_BASE}/warehouses/${currentWarehouseId}`, { method: 'DELETE' });
+                currentWarehouseId = null;
+                currentWarehouseName = null;
+                // 安全地关闭 Modal（如果打开的话）
+                const modalEl = document.getElementById('warehouseModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                await loadWarehouses();
+                await loadTagStats();
+                document.getElementById('deviceList').innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                        <p class="mt-2">请先选择或创建一个仓库</p>
+                    </div>
+                `;
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // ============ 设备操作 ============
+        function showDeviceModal(id = null) {
+            if (warehouses.length === 0) {
+                alert('请先创建仓库');
+                return;
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+            document.getElementById('deviceModalTitle').textContent = id ? '编辑设备' : '添加设备';
+            
+            // 更新仓库下拉框
+            updateWarehouseSelect();
+            
+            // 监听在库状态变化，显示/隐藏去向字段
+            document.getElementById('deviceLocationStatus').onchange = function() {
+                const destField = document.getElementById('destinationField');
+                destField.style.display = this.value === 'checked_out' ? 'block' : 'none';
+            };
+            
+            if (id) {
+                const d = allDevices.find(dev => dev.id === id);
+                document.getElementById('deviceId').value = d.id;
+                document.getElementById('deviceWarehouse').value = d.warehouse_name;
+                document.getElementById('deviceName').value = d.name;
+                document.getElementById('deviceCategory').value = d.category;
+                document.getElementById('deviceTags').value = (d.tags || []).join(', ');
+                document.getElementById('deviceQuantity').value = d.quantity;
+                document.getElementById('deviceLocationStatus').value = d.location_status || 'in_stock';
+                document.getElementById('deviceDestination').value = d.destination || '';
+                document.getElementById('deviceStatus').value = d.status;
+                document.getElementById('deviceRemark').value = d.remark || '';
+                document.getElementById('deleteDeviceBtn').style.display = 'block';
+                
+                // 显示/隐藏去向字段
+                document.getElementById('destinationField').style.display = (d.location_status === 'checked_out') ? 'block' : 'none';
+            } else {
+                document.getElementById('deviceId').value = '';
+                document.getElementById('deviceName').value = '';
+                document.getElementById('deviceCategory').value = '电脑';
+                document.getElementById('deviceTags').value = '';
+                document.getElementById('deviceQuantity').value = 1;
+                document.getElementById('deviceLocationStatus').value = 'in_stock';
+                document.getElementById('deviceDestination').value = '';
+                document.getElementById('deviceStatus').value = '正常';
+                document.getElementById('deviceRemark').value = '';
+                document.getElementById('deleteDeviceBtn').style.display = 'none';
+                document.getElementById('destinationField').style.display = 'none';
+                
+                // 默认选择当前仓库
+                if (currentWarehouseName) {
+                    document.getElementById('deviceWarehouse').value = currentWarehouseName;
+                }
+            }
+            
+            modal.show();
+        }
+
+        function editDevice(id) { showDeviceModal(id); }
+
+        async function saveDevice() {
+            const id = document.getElementById('deviceId').value;
+            const tagsStr = document.getElementById('deviceTags').value;
+            const tags = [...new Set(tagsStr.split(',').map(t => t.trim()).filter(t => t))];
+            const location_status = document.getElementById('deviceLocationStatus').value;
+            const destination = location_status === 'checked_out' ? document.getElementById('deviceDestination').value : '';
+            
+            const data = {
+                warehouseName: document.getElementById('deviceWarehouse').value,
+                name: document.getElementById('deviceName').value,
+                category: document.getElementById('deviceCategory').value,
+                quantity: parseInt(document.getElementById('deviceQuantity').value),
+                location_status: location_status,
+                destination: destination,
+                status: document.getElementById('deviceStatus').value,
+                remark: document.getElementById('deviceRemark').value,
+                tags: tags
+            };
+
+            if (!data.name) {
+                alert('请输入设备名称');
+                return;
+            }
+
+            if (location_status === 'checked_out' && !destination) {
+                alert('已出库设备必须填写去向');
+                return;
+            }
+
+            try {
+                if (id) {
+                    await fetch(`${API_BASE}/devices/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await fetch(`${API_BASE}/devices`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
+                await loadDevices();
+                await loadWarehouses();
+                await loadTagStats();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        async function deleteDevice() {
+            if (!confirm('确定要删除该设备吗？')) return;
+            
+            const id = document.getElementById('deviceId').value;
+            try {
+                await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
+                bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
+                await loadDevices();
+                await loadWarehouses();
+                await loadTagStats();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // ============ 标签操作 ============
+        function showTagModal(id = null) {
+            const modal = new bootstrap.Modal(document.getElementById('tagModal'));
+            document.getElementById('tagModalTitle').textContent = id ? '编辑标签' : '添加标签';
+            document.getElementById('deleteTagBtn').style.display = id ? 'block' : 'none';
+            
+            if (id) {
+                const tag = tagStats.find(t => t.id === id);
+                document.getElementById('tagId').value = tag.id;
+                document.getElementById('tagName').value = tag.name;
+            } else {
+                document.getElementById('tagId').value = '';
+                document.getElementById('tagName').value = '';
+            }
+            
+            modal.show();
+        }
+
+        function editTag(id, name) { showTagModal(id); }
+
+        function deleteTagConfirm(id) {
+            if (!confirm('确定要删除该标签吗？')) return;
+            document.getElementById('tagId').value = id;
+            deleteTag();
+        }
+
+        async function saveTag() {
+            const id = document.getElementById('tagId').value;
+            const data = {
+                name: document.getElementById('tagName').value
+            };
+
+            if (!data.name) {
+                alert('请输入标签名称');
+                return;
+            }
+
+            try {
+                if (id) {
+                    await fetch(`${API_BASE}/tags/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await fetch(`${API_BASE}/tags`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
+                await loadTagStats();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        async function deleteTag() {
+            const id = document.getElementById('tagId').value;
+            try {
+                await fetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
+                bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
+                await loadTagStats();
+                await loadWarehouses();
+                await loadDevices();
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 页面加载时自动初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('页面加载完成，开始初始化数据...');
+            await loadWarehouses();
+            await loadTagStats();
+            
+            // 如果有仓库，自动选择第一个
+            if (warehouses.length > 0) {
+                selectWarehouse(warehouses[0].id, warehouses[0].name);
+            }
+        });
+    </script>
+</body>
+</html>
