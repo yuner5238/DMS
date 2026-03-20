@@ -227,7 +227,7 @@ app.get('/api/devices', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { warehouseId, warehouseName, name, category, status, quantity, remark, tags, location_status, destination } = req.body;
+        const { warehouseId, warehouseName, name, tag_name, status, quantity, storage_location, remark, tags, location_status, destination } = req.body;
         
         // 获取仓库名称
         let whName = warehouseName;
@@ -245,8 +245,8 @@ app.post('/api/devices', async (req, res) => {
         const checkinTime = locStatus === 'in_stock' ? new Date() : null;
         
         const result = await query(
-            'INSERT INTO devices (warehouse_name, name, category, status, quantity, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [whName, name, category, status || '正常', quantity || 1, locStatus, destination || '', remark || '', checkinTime]
+            'INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [whName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime]
         );
         
         const deviceId = result.insertId;
@@ -275,7 +275,8 @@ app.post('/api/devices', async (req, res) => {
             id: deviceId, 
             warehouseName: whName, 
             name, 
-            category, 
+            tag_name: tag_name || '', 
+            storage_location: storage_location || '',
             status: status || '正常', 
             quantity: quantity || 1, 
             remark: remark || '', 
@@ -289,7 +290,7 @@ app.post('/api/devices', async (req, res) => {
 // 更新设备
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { warehouseName, name, category, status, quantity, remark, tags, location_status, destination, checkin_time, checkout_time } = req.body;
+        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, tags, location_status, destination, checkin_time, checkout_time } = req.body;
         
         // 将 ISO 格式时间转换为 MySQL datetime 格式
         function formatDateTimeForMySQL(dateStr) {
@@ -312,8 +313,8 @@ app.put('/api/devices/:id', async (req, res) => {
         const checkoutTime = formatDateTimeForMySQL(checkout_time);
         
         await query(
-            'UPDATE devices SET warehouse_name=?, name=?, category=?, status=?, quantity=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=? WHERE id=?',
-            [warehouseName, name, category, status, quantity, location_status || 'in_stock', destination || '', remark, checkinTime, checkoutTime, req.params.id]
+            'UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=? WHERE id=?',
+            [warehouseName, name, tag_name || '', status, quantity, storage_location || '', location_status || 'in_stock', destination || '', remark, checkinTime, checkoutTime, req.params.id]
         );
         
         // 更新标签关联
@@ -337,7 +338,7 @@ app.put('/api/devices/:id', async (req, res) => {
             }
         }
         
-        res.json({ id: req.params.id, warehouseName, name, category, status, quantity, remark, tags });
+        res.json({ id: req.params.id, warehouseName, name, tag_name, status, quantity, storage_location, remark, tags });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

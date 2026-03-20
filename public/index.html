@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>仓库资产管理系统</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --primary: #1a365d;
@@ -27,17 +29,17 @@
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        
+
         * {
             font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
         }
-        
+
         body {
             background: var(--bg-main);
             min-height: 100vh;
             padding: 24px;
         }
-        
+
         .main-card {
             background: var(--bg-card);
             border-radius: 12px;
@@ -45,7 +47,7 @@
             overflow: hidden;
             border: 1px solid var(--border-color);
         }
-        
+
         /* 侧边栏 */
         .sidebar {
             background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
@@ -53,70 +55,78 @@
             min-height: 600px;
             padding: 0;
         }
-        
+
         .sidebar-header {
             padding: 24px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.1);
         }
-        
+
         .sidebar-header h5 {
             font-weight: 600;
             font-size: 18px;
             margin: 0;
             letter-spacing: 0.5px;
         }
-        
+
         .sidebar .nav-link {
-            color: rgba(255,255,255,0.8);
+            color: rgba(255, 255, 255, 0.8);
             padding: 14px 20px;
             margin: 2px 12px;
             border-radius: 8px;
             transition: all 0.2s ease;
             font-weight: 400;
         }
-        
+
         .sidebar .nav-link:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             color: white;
         }
-        
+
         .sidebar .nav-link.active {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             color: white;
             font-weight: 500;
         }
-        
+
         .sidebar .nav-link i {
             margin-right: 10px;
             font-size: 16px;
         }
-        
+
         /* 仓库卡片 */
         .warehouse-card {
             cursor: pointer;
             transition: all 0.2s ease;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             position: relative;
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             margin: 8px 12px;
         }
-        
+
         .warehouse-card:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             transform: translateY(-1px);
         }
-        
+
         .warehouse-card.active {
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
         }
-        
-        .warehouse-card.work { border-left: 3px solid var(--success-light); }
-        .warehouse-card.home { border-left: 3px solid var(--warning-light); }
-        .warehouse-card.other { border-left: 3px solid var(--info); }
-        
+
+        .warehouse-card.work {
+            border-left: 3px solid var(--success-light);
+        }
+
+        .warehouse-card.home {
+            border-left: 3px solid var(--warning-light);
+        }
+
+        .warehouse-card.other {
+            border-left: 3px solid var(--info);
+        }
+
         .warehouse-actions {
             position: absolute;
             right: 8px;
@@ -124,43 +134,43 @@
             opacity: 0;
             transition: opacity 0.2s;
         }
-        
+
         .warehouse-card:hover .warehouse-actions {
             opacity: 1;
         }
-        
+
         .warehouse-actions .btn {
             padding: 4px 8px;
             font-size: 11px;
         }
-        
+
         /* 标签 */
         .tag-badge {
             display: inline-block;
-            background: rgba(255,255,255,0.15);
-            color: rgba(255,255,255,0.9);
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.9);
             padding: 3px 10px;
             border-radius: 4px;
             font-size: 11px;
             margin: 2px;
             font-weight: 400;
         }
-        
+
         .tag-count {
-            background: rgba(255,255,255,0.25);
+            background: rgba(255, 255, 255, 0.25);
             padding: 1px 6px;
             border-radius: 10px;
             font-size: 10px;
             margin-left: 4px;
         }
-        
+
         /* 标签区域 */
         .tag-section {
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             margin-top: 16px;
             padding: 16px 0;
         }
-        
+
         .tag-section-header {
             display: flex;
             justify-content: space-between;
@@ -168,53 +178,53 @@
             padding: 0 12px;
             margin-bottom: 12px;
         }
-        
+
         .tag-section-header h6 {
-            color: rgba(255,255,255,0.9);
+            color: rgba(255, 255, 255, 0.9);
             margin: 0;
             font-weight: 500;
             font-size: 13px;
         }
-        
+
         .tag-list-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 10px 12px;
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 6px;
             margin: 4px 12px;
-            color: rgba(255,255,255,0.85);
+            color: rgba(255, 255, 255, 0.85);
             font-size: 13px;
         }
-        
+
         .tag-list-item:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
-        
+
         .tag-list-item .count {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             color: white;
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 11px;
         }
-        
+
         .tag-list-item .tag-actions {
             opacity: 0;
             transition: opacity 0.2s;
         }
-        
+
         .tag-list-item:hover .tag-actions {
             opacity: 1;
         }
-        
+
         /* 主内容区 */
         .main-content {
             padding: 24px;
             background: var(--bg-main);
         }
-        
+
         /* 统计卡片 */
         .stat-card {
             background: var(--bg-card);
@@ -225,28 +235,36 @@
             box-shadow: var(--shadow);
             transition: all 0.2s;
         }
-        
+
         .stat-card:hover {
             box-shadow: var(--shadow-lg);
         }
-        
+
         .stat-card h3 {
             font-size: 32px;
             font-weight: 600;
             margin: 0;
             color: var(--primary);
         }
-        
+
         .stat-card p {
             margin: 4px 0 0;
             color: var(--text-muted);
             font-size: 13px;
         }
-        
-        .stat-card.success h3 { color: var(--success); }
-        .stat-card.warning h3 { color: var(--warning); }
-        .stat-card.info h3 { color: var(--info); }
-        
+
+        .stat-card.success h3 {
+            color: var(--success);
+        }
+
+        .stat-card.warning h3 {
+            color: var(--warning);
+        }
+
+        .stat-card.info h3 {
+            color: var(--info);
+        }
+
         /* 标题栏 */
         .page-header {
             display: flex;
@@ -256,14 +274,14 @@
             padding-bottom: 16px;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .page-header h5 {
             margin: 0;
             font-weight: 600;
             color: var(--text-primary);
             font-size: 18px;
         }
-        
+
         /* 搜索框 */
         .search-box {
             border: 1px solid var(--border-color);
@@ -273,40 +291,40 @@
             transition: all 0.2s;
             background: var(--bg-card);
         }
-        
+
         .search-box:focus {
             border-color: var(--primary-light);
             box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
             outline: none;
         }
-        
+
         /* 按钮样式 */
         .btn-primary {
             background: var(--primary);
             border-color: var(--primary);
             font-weight: 500;
         }
-        
+
         .btn-primary:hover {
             background: var(--primary-light);
             border-color: var(--primary-light);
         }
-        
+
         .btn-outline-primary {
             color: var(--primary);
             border-color: var(--primary);
         }
-        
+
         .btn-outline-primary:hover {
             background: var(--primary);
             border-color: var(--primary);
         }
-        
+
         /* 设备分区 */
         .device-section {
             margin-bottom: 24px;
         }
-        
+
         .device-section-header {
             display: flex;
             justify-content: space-between;
@@ -319,11 +337,11 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         .device-section-header:hover {
             background: #f8fafc;
         }
-        
+
         .device-section-header h6 {
             margin: 0;
             display: flex;
@@ -332,13 +350,13 @@
             font-weight: 500;
             color: var(--text-primary);
         }
-        
+
         .device-section-header .badge {
             font-size: 11px;
             padding: 4px 10px;
             font-weight: 500;
         }
-        
+
         .device-section-body {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -346,23 +364,23 @@
             max-height: 450px;
             overflow-y: auto;
         }
-        
+
         .in-stock-section .device-section-header {
             border-top: 3px solid var(--success);
         }
-        
+
         .in-stock-section .device-section-header .badge {
             background: var(--success);
         }
-        
+
         .checked-out-section .device-section-header {
             border-top: 3px solid var(--warning);
         }
-        
+
         .checked-out-section .device-section-header .badge {
             background: var(--warning);
         }
-        
+
         /* 设备项 */
         .device-item {
             background: var(--bg-card);
@@ -373,22 +391,22 @@
             border: 1px solid var(--border-color);
             border-left: 3px solid var(--success);
         }
-        
+
         .device-item:hover {
             box-shadow: var(--shadow);
             border-color: var(--primary-light);
         }
-        
+
         .device-item.checked-out {
             border-left-color: var(--warning);
             background: #fffbf5;
         }
-        
+
         .device-item strong {
             color: var(--text-primary);
             font-weight: 500;
         }
-        
+
         /* 状态徽章 */
         .status-badge {
             padding: 4px 12px;
@@ -396,50 +414,51 @@
             font-size: 11px;
             font-weight: 500;
         }
-        
+
         .status-normal {
             background: #e6fffa;
             color: var(--success);
         }
-        
+
         .status-abnormal {
             background: #fff5f5;
             color: var(--danger);
         }
-        
+
         .status-maintenance {
             background: #fffaf0;
             color: var(--warning);
         }
-        
+
         /* 操作按钮 */
-        .checkout-btn, .checkin-btn {
+        .checkout-btn,
+        .checkin-btn {
             padding: 6px 14px;
             font-size: 12px;
             border-radius: 6px;
             font-weight: 500;
         }
-        
+
         .checkout-btn {
             color: var(--warning);
             border-color: var(--warning);
         }
-        
+
         .checkout-btn:hover {
             background: var(--warning);
             color: white;
         }
-        
+
         .checkin-btn {
             color: var(--success);
             border-color: var(--success);
         }
-        
+
         .checkin-btn:hover {
             background: var(--success);
             color: white;
         }
-        
+
         /* 去向标签 */
         .destination-tag {
             background: #fef3c7;
@@ -451,97 +470,100 @@
             align-items: center;
             gap: 4px;
         }
-        
+
         /* Modal 样式 */
         .modal-header {
             background: var(--primary);
             color: white;
             border-radius: 12px 12px 0 0;
         }
-        
+
         .modal-header .btn-close {
             filter: invert(1);
         }
-        
+
         .modal-content {
             border-radius: 12px;
             border: none;
             box-shadow: var(--shadow-lg);
         }
-        
+
         .modal-footer {
             border-top: 1px solid var(--border-color);
             background: #f8fafc;
             border-radius: 0 0 12px 12px;
         }
-        
+
         /* 表单样式 */
-        .form-control, .form-select {
+        .form-control,
+        .form-select {
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 10px 14px;
             font-size: 14px;
         }
-        
-        .form-control:focus, .form-select:focus {
+
+        .form-control:focus,
+        .form-select:focus {
             border-color: var(--primary-light);
             box-shadow: 0 0 0 3px rgba(44, 82, 130, 0.1);
         }
-        
+
         .form-label {
             font-weight: 500;
             color: var(--text-secondary);
             font-size: 13px;
         }
-        
+
         /* 折叠箭头 */
         .chevron-icon {
             transition: transform 0.2s;
         }
-        
+
         .chevron-icon.collapsed {
             transform: rotate(-90deg);
         }
-        
+
         /* 滚动条美化 */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
         }
-        
+
         ::-webkit-scrollbar-track {
             background: #f1f5f9;
             border-radius: 3px;
         }
-        
+
         ::-webkit-scrollbar-thumb {
             background: #cbd5e0;
             border-radius: 3px;
         }
-        
+
         ::-webkit-scrollbar-thumb:hover {
             background: #a0aec0;
         }
-        
+
         /* 空状态 */
         .empty-state {
             text-align: center;
             padding: 48px 24px;
             color: var(--text-muted);
         }
-        
+
         .empty-state i {
             font-size: 48px;
             margin-bottom: 16px;
             opacity: 0.5;
         }
-        
+
         .empty-state p {
             margin: 0;
             font-size: 14px;
         }
     </style>
 </head>
+
 <body>
     <div class="container-fluid">
         <div class="main-card">
@@ -557,7 +579,7 @@
                         </button>
                     </div>
                     <div class="nav flex-column" id="warehouseList"></div>
-                    
+
                     <!-- 标签统计区域 -->
                     <div class="tag-section">
                         <div class="tag-section-header">
@@ -569,7 +591,7 @@
                         <div id="tagStatsList"></div>
                     </div>
                 </div>
-                
+
                 <!-- 主内容区 -->
                 <div class="col-md-9 main-content">
                     <!-- 统计卡片 -->
@@ -593,23 +615,25 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- 标题栏 -->
                     <div class="page-header">
                         <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
                         <div class="d-flex gap-2">
-                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
+                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()"
+                                style="width: auto;">
                                 <option value="name">按名称排序</option>
                                 <option value="checkin">按入库时间排序</option>
                                 <option value="checkout">按出库时间排序</option>
                             </select>
-                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..."
+                                oninput="filterDevices()">
                             <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
                                 <i class="bi bi-plus-lg"></i> 添加设备
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- 设备列表 -->
                     <div id="deviceList">
                         <div class="empty-state">
@@ -621,79 +645,10 @@
             </div>
         </div>
     </div>
-                <div class="col-md-3 sidebar p-3">
-                    <h5 class="text-center py-3 border-bottom border-secondary">
-                        <i class="bi bi-box-seam"></i> 仓库资产管理系统
-                    </h5>
-                    <div class="mb-3">
-                        <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
-                            <i class="bi bi-plus-circle"></i> 新建仓库
-                        </button>
-                    </div>
-                    <div class="nav flex-column" id="warehouseList"></div>
-                    
-                    <!-- 标签统计区域 -->
-                    <div class="tag-section">
-                        <div class="tag-section-header">
-                            <h6><i class="bi bi-tags"></i> 标签管理</h6>
-                            <button class="btn btn-sm btn-outline-light" onclick="showTagModal()" title="添加标签">
-                                <i class="bi bi-plus"></i>
-                            </button>
-                        </div>
-                        <div id="tagStatsList"></div>
-                    </div>
-                </div>
-                
-                <!-- 主内容区 -->
-                <div class="col-md-9 p-4">
-                    <!-- 统计卡片 -->
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
-                                <h3 id="inStockCount">0</h3>
-                                <p>在库设备</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
-                                <h3 id="checkedOutCount">0</h3>
-                                <p>已出库</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card" style="background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);">
-                                <h3 id="warehouseCount">0</h3>
-                                <p>仓库数量</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 工具栏 -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
-                        <div class="d-flex gap-2">
-                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
-                                <option value="name">按名称排序</option>
-                                <option value="checkin">按入库时间排序</option>
-                                <option value="checkout">按出库时间排序</option>
-                            </select>
-                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
-                            <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
-                                <i class="bi bi-plus-lg"></i> 添加设备
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- 设备列表 - Todo风格 -->
-                    <div id="deviceList">
-                        <div class="text-center text-muted py-5">
-                            <i class="bi bi-inbox" style="font-size: 48px;"></i>
-                            <p class="mt-2">请先选择或创建一个仓库</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+    </div>
+    </div>
+    </div>
     </div>
 
     <!-- 仓库Modal -->
@@ -725,7 +680,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" id="deleteWarehouseBtn" style="display:none;" onclick="deleteWarehouse()">删除</button>
+                    <button type="button" class="btn btn-danger" id="deleteWarehouseBtn" style="display:none;"
+                        onclick="deleteWarehouse()">删除</button>
                     <button type="button" class="btn btn-primary" onclick="saveWarehouse()">保存</button>
                 </div>
             </div>
@@ -775,6 +731,10 @@
                         <input type="number" class="form-control" id="deviceQuantity" value="1" min="1">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">存放位置</label>
+                        <input type="text" class="form-control" id="deviceStorageLocation" placeholder="例如：A区货架2层">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">在库状态</label>
                         <select class="form-select" id="deviceLocationStatus">
                             <option value="in_stock">在库</option>
@@ -800,7 +760,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none;" onclick="deleteDevice()">删除</button>
+                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none;"
+                        onclick="deleteDevice()">删除</button>
                     <button type="button" class="btn btn-primary" onclick="saveDevice()">保存</button>
                 </div>
             </div>
@@ -818,7 +779,7 @@
                 <div class="modal-body">
                     <input type="hidden" id="checkoutDeviceId">
                     <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i> 
+                        <i class="bi bi-exclamation-triangle"></i>
                         确定要将设备 <strong id="checkoutDeviceName"></strong> 出库吗？
                     </div>
                     <div class="mb-3">
@@ -845,7 +806,7 @@
                 <div class="modal-body">
                     <input type="hidden" id="checkinDeviceId">
                     <div class="alert alert-success">
-                        <i class="bi bi-check-circle"></i> 
+                        <i class="bi bi-check-circle"></i>
                         确定要将设备 <strong id="checkinDeviceName"></strong> 重新入库吗？
                     </div>
                 </div>
@@ -874,7 +835,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" id="deleteTagBtn" style="display:none;" onclick="deleteTag()">删除</button>
+                    <button type="button" class="btn btn-danger" id="deleteTagBtn" style="display:none;"
+                        onclick="deleteTag()">删除</button>
                     <button type="button" class="btn btn-primary" onclick="saveTag()">保存</button>
                 </div>
             </div>
@@ -895,11 +857,11 @@
         function formatTime(timeStr) {
             if (!timeStr) return '';
             const date = new Date(timeStr);
-            return date.toLocaleString('zh-CN', { 
-                month: '2-digit', 
-                day: '2-digit', 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
             });
         }
 
@@ -907,8 +869,8 @@
         function sortDevices() {
             const sortType = document.getElementById('sortSelect').value;
             let sorted = [...allDevices];
-            
-            switch(sortType) {
+
+            switch (sortType) {
                 case 'name':
                     sorted.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
                     break;
@@ -935,7 +897,7 @@
             try {
                 const res = await fetch(`${API_BASE}/warehouses`);
                 warehouses = await res.json();
-                
+
                 // 先加载所有设备数据用于统计
                 try {
                     const devicesRes = await fetch(`${API_BASE}/devices`);
@@ -943,7 +905,7 @@
                 } catch (e) {
                     allDevicesData = [];
                 }
-                
+
                 // 更新仓库统计
                 warehouses = warehouses.map(w => {
                     const warehouseDevices = allDevicesData.filter(d => d.warehouse_name === w.name);
@@ -951,17 +913,17 @@
                     w.checkedOutCount = warehouseDevices.filter(d => d.location_status === 'checked_out').length;
                     return w;
                 });
-                
+
                 renderWarehouseList();
                 updateWarehouseSelect();
-                
+
                 // 更新顶部统计
                 const inStockCount = allDevicesData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
                 const checkedOutCount = allDevicesData.filter(d => d.location_status === 'checked_out').length;
                 document.getElementById('inStockCount').textContent = inStockCount;
                 document.getElementById('checkedOutCount').textContent = checkedOutCount;
                 document.getElementById('warehouseCount').textContent = warehouses.length;
-                
+
                 if (warehouses.length > 0 && !currentWarehouseId) {
                     selectWarehouse(warehouses[0].id, warehouses[0].name);
                 }
@@ -984,10 +946,10 @@
         // 更新仓库下拉框
         function updateWarehouseSelect() {
             const select = document.getElementById('deviceWarehouse');
-            select.innerHTML = warehouses.map(w => 
+            select.innerHTML = warehouses.map(w =>
                 `<option value="${w.name}">${w.name}</option>`
             ).join('');
-            
+
             if (currentWarehouseName) {
                 select.value = currentWarehouseName;
             }
@@ -997,13 +959,13 @@
         function renderWarehouseList() {
             const list = document.getElementById('warehouseList');
             list.innerHTML = warehouses.map(w => {
-                const tagHtml = Object.entries(w.tagCount || {}).map(([tag, count]) => 
+                const tagHtml = Object.entries(w.tagCount || {}).map(([tag, count]) =>
                     `<span class="tag-badge">${tag} <span class="tag-count">${count}</span></span>`
                 ).join('');
-                
+
                 const inStock = w.inStockCount || 0;
                 const checkedOut = w.checkedOutCount || 0;
-                
+
                 return `
                     <div class="nav-link warehouse-card ${w.type}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
                         <div class="warehouse-actions" onclick="event.stopPropagation()">
@@ -1034,7 +996,7 @@
                 list.innerHTML = '<div class="text-muted small">暂无标签数据</div>';
                 return;
             }
-            
+
             list.innerHTML = tagStats.map(tag => `
                 <div class="tag-list-item">
                     <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
@@ -1054,24 +1016,24 @@
         async function selectWarehouse(id, name) {
             currentWarehouseId = id;
             currentWarehouseName = name;
-            
+
             document.querySelectorAll('.warehouse-card').forEach(card => {
                 card.classList.toggle('active', card.dataset.id == id);
             });
 
-            document.getElementById('currentWarehouseTitle').innerHTML = 
+            document.getElementById('currentWarehouseTitle').innerHTML =
                 `<i class="bi bi-folder"></i> ${name}`;
-            
+
             // 更新设备表单中的仓库选择
             document.getElementById('deviceWarehouse').value = name;
-            
+
             await loadDevices();
         }
 
         // 加载设备
         async function loadDevices() {
             if (!currentWarehouseId) return;
-            
+
             try {
                 const res = await fetch(`${API_BASE}/devices?warehouseId=${currentWarehouseId}`);
                 allDevices = await res.json();
@@ -1085,7 +1047,7 @@
         // 渲染设备列表 - Todo风格
         function renderDevices(devices) {
             const list = document.getElementById('deviceList');
-            
+
             if (devices.length === 0) {
                 list.innerHTML = `
                     <div class="text-center text-muted py-5">
@@ -1109,19 +1071,19 @@
             // 渲染在库列表
             const inStockHtml = inStockDevices.length > 0 ? inStockDevices.map(device => {
                 const uniqueTags = [...new Set(device.tags || [])];
-                const tagHtml = uniqueTags.map(tag => 
+                const tagHtml = uniqueTags.map(tag =>
                     `<span class="tag-badge">${tag}</span>`
                 ).join('');
-                
+
                 return `
                     <div class="device-item">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
                                 <strong>${device.name}</strong>
                                 <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
-                                ${tagHtml ? `<div class="mt-2">${tagHtml}</div>` : ''}
+                                ${tagHtml ? `<span class="ms-1">${tagHtml}</span>` : ''}
                                 <div class="text-muted small mt-1">
-                                    数量: ${device.quantity} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkin_time ? ' | 入库: ' + formatTime(device.checkin_time) : ''} | 备注: ${device.remark || '无'}
+                                    数量: ${device.quantity} | 存放位置: ${device.storage_location || '未设置'} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkin_time ? ' | 入库: ' + formatTime(device.checkin_time) : ''} | 备注: ${device.remark || '无'}
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
@@ -1140,10 +1102,10 @@
             // 渲染已出库列表
             const checkedOutHtml = checkedOutDevices.length > 0 ? checkedOutDevices.map(device => {
                 const uniqueTags = [...new Set(device.tags || [])];
-                const tagHtml = uniqueTags.map(tag => 
+                const tagHtml = uniqueTags.map(tag =>
                     `<span class="tag-badge">${tag}</span>`
                 ).join('');
-                
+
                 return `
                     <div class="device-item checked-out">
                         <div class="d-flex justify-content-between align-items-start">
@@ -1151,9 +1113,9 @@
                                 <strong>${device.name}</strong>
                                 <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
                                 ${device.destination ? `<span class="destination-tag ms-2"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : ''}
-                                ${tagHtml ? `<div class="mt-2">${tagHtml}</div>` : ''}
+                                ${tagHtml ? `<span class="ms-1">${tagHtml}</span>` : ''}
                                 <div class="text-muted small mt-1">
-                                    数量: ${device.quantity} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkout_time ? ' | 出库: ' + formatTime(device.checkout_time) : ''} | 备注: ${device.remark || '无'}
+                                    数量: ${device.quantity} | 存放位置: ${device.storage_location || '未设置'} | 仓库: ${device.warehouse_name || currentWarehouseName || '未知'}${device.checkout_time ? ' | 出库: ' + formatTime(device.checkout_time) : ''} | 备注: ${device.remark || '无'}
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
@@ -1200,7 +1162,7 @@
             const body = document.getElementById(bodyId);
             const header = body.previousElementSibling;
             const icon = header.querySelector('.chevron-icon');
-            
+
             if (body.style.display === 'none') {
                 body.style.display = 'block';
                 icon.classList.remove('collapsed');
@@ -1213,8 +1175,8 @@
         // 搜索过滤
         function filterDevices() {
             const keyword = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allDevices.filter(d => 
-                d.name.toLowerCase().includes(keyword) || 
+            const filtered = allDevices.filter(d =>
+                d.name.toLowerCase().includes(keyword) ||
                 d.category.toLowerCase().includes(keyword) ||
                 (d.tags || []).some(t => t.toLowerCase().includes(keyword)) ||
                 (d.destination && d.destination.toLowerCase().includes(keyword))
@@ -1225,7 +1187,7 @@
         // 更新统计
         async function updateStats() {
             document.getElementById('warehouseCount').textContent = warehouses.length;
-            
+
             // 获取所有设备用于统计
             try {
                 const res = await fetch(`${API_BASE}/devices`);
@@ -1233,14 +1195,14 @@
             } catch (e) {
                 allDevicesData = [];
             }
-            
+
             // 更新顶部统计卡片
             const inStockCount = allDevicesData.filter(d => d.location_status === 'in_stock' || !d.location_status).length;
             const checkedOutCount = allDevicesData.filter(d => d.location_status === 'checked_out').length;
-            
+
             document.getElementById('inStockCount').textContent = inStockCount;
             document.getElementById('checkedOutCount').textContent = checkedOutCount;
-            
+
             // 更新仓库列表中的统计
             warehouses = warehouses.map(w => {
                 const warehouseDevices = allDevicesData.filter(d => d.warehouse_name === w.name);
@@ -1262,11 +1224,11 @@
         async function confirmCheckout() {
             const id = document.getElementById('checkoutDeviceId').value;
             const destination = document.getElementById('checkoutDestination').value;
-            
+
             try {
                 // 获取设备当前信息
                 const device = allDevices.find(d => d.id == id);
-                
+
                 await fetch(`${API_BASE}/devices/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1284,7 +1246,7 @@
                         checkout_time: formatDateTime(new Date())
                     })
                 });
-                
+
                 bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
                 await loadDevices();
                 await loadWarehouses();
@@ -1315,15 +1277,15 @@
 
         async function confirmCheckin() {
             const id = document.getElementById('checkinDeviceId').value;
-            
+
             try {
                 const device = allDevices.find(d => d.id == id);
-                
+
                 if (!device) {
                     alert('未找到设备信息');
                     return;
                 }
-                
+
                 const response = await fetch(`${API_BASE}/devices/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1341,13 +1303,13 @@
                         checkout_time: null
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (!response.ok) {
                     throw new Error(result.error || '入库失败');
                 }
-                
+
                 bootstrap.Modal.getInstance(document.getElementById('checkinModal')).hide();
                 await loadDevices();
                 await loadWarehouses();
@@ -1362,7 +1324,7 @@
             const modal = new bootstrap.Modal(document.getElementById('warehouseModal'));
             document.getElementById('warehouseModalTitle').textContent = id ? '编辑仓库' : '新建仓库';
             document.getElementById('deleteWarehouseBtn').style.display = id ? 'block' : 'none';
-            
+
             if (id) {
                 const w = warehouses.find(wh => wh.id === id);
                 document.getElementById('warehouseId').value = w.id;
@@ -1375,7 +1337,7 @@
                 document.getElementById('warehouseType').value = 'work';
                 document.getElementById('warehouseDesc').value = '';
             }
-            
+
             modal.show();
         }
 
@@ -1414,7 +1376,7 @@
                         body: JSON.stringify(data)
                     });
                 }
-                
+
                 bootstrap.Modal.getInstance(document.getElementById('warehouseModal')).hide();
                 await loadWarehouses();
             } catch (e) {
@@ -1452,33 +1414,34 @@
                 alert('请先创建仓库');
                 return;
             }
-            
+
             const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
             document.getElementById('deviceModalTitle').textContent = id ? '编辑设备' : '添加设备';
-            
+
             // 更新仓库下拉框
             updateWarehouseSelect();
-            
+
             // 监听在库状态变化，显示/隐藏去向字段
-            document.getElementById('deviceLocationStatus').onchange = function() {
+            document.getElementById('deviceLocationStatus').onchange = function () {
                 const destField = document.getElementById('destinationField');
                 destField.style.display = this.value === 'checked_out' ? 'block' : 'none';
             };
-            
+
             if (id) {
                 const d = allDevices.find(dev => dev.id === id);
                 document.getElementById('deviceId').value = d.id;
                 document.getElementById('deviceWarehouse').value = d.warehouse_name;
                 document.getElementById('deviceName').value = d.name;
-                document.getElementById('deviceCategory').value = d.category;
+                document.getElementById('deviceCategory').value = d.tag_name || d.category || '电脑';
                 document.getElementById('deviceTags').value = (d.tags || []).join(', ');
                 document.getElementById('deviceQuantity').value = d.quantity;
+                document.getElementById('deviceStorageLocation').value = d.storage_location || '';
                 document.getElementById('deviceLocationStatus').value = d.location_status || 'in_stock';
                 document.getElementById('deviceDestination').value = d.destination || '';
                 document.getElementById('deviceStatus').value = d.status;
                 document.getElementById('deviceRemark').value = d.remark || '';
                 document.getElementById('deleteDeviceBtn').style.display = 'block';
-                
+
                 // 显示/隐藏去向字段
                 document.getElementById('destinationField').style.display = (d.location_status === 'checked_out') ? 'block' : 'none';
             } else {
@@ -1487,19 +1450,20 @@
                 document.getElementById('deviceCategory').value = '电脑';
                 document.getElementById('deviceTags').value = '';
                 document.getElementById('deviceQuantity').value = 1;
+                document.getElementById('deviceStorageLocation').value = '';
                 document.getElementById('deviceLocationStatus').value = 'in_stock';
                 document.getElementById('deviceDestination').value = '';
                 document.getElementById('deviceStatus').value = '正常';
                 document.getElementById('deviceRemark').value = '';
                 document.getElementById('deleteDeviceBtn').style.display = 'none';
                 document.getElementById('destinationField').style.display = 'none';
-                
+
                 // 默认选择当前仓库
                 if (currentWarehouseName) {
                     document.getElementById('deviceWarehouse').value = currentWarehouseName;
                 }
             }
-            
+
             modal.show();
         }
 
@@ -1511,12 +1475,13 @@
             const tags = [...new Set(tagsStr.split(',').map(t => t.trim()).filter(t => t))];
             const location_status = document.getElementById('deviceLocationStatus').value;
             const destination = location_status === 'checked_out' ? document.getElementById('deviceDestination').value : '';
-            
+
             const data = {
                 warehouseName: document.getElementById('deviceWarehouse').value,
                 name: document.getElementById('deviceName').value,
-                category: document.getElementById('deviceCategory').value,
+                tag_name: document.getElementById('deviceCategory').value,
                 quantity: parseInt(document.getElementById('deviceQuantity').value),
+                storage_location: document.getElementById('deviceStorageLocation').value,
                 location_status: location_status,
                 destination: destination,
                 status: document.getElementById('deviceStatus').value,
@@ -1548,7 +1513,7 @@
                         body: JSON.stringify(data)
                     });
                 }
-                
+
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
                 await loadDevices();
                 await loadWarehouses();
@@ -1560,7 +1525,7 @@
 
         async function deleteDevice() {
             if (!confirm('确定要删除该设备吗？')) return;
-            
+
             const id = document.getElementById('deviceId').value;
             try {
                 await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
@@ -1578,7 +1543,7 @@
             const modal = new bootstrap.Modal(document.getElementById('tagModal'));
             document.getElementById('tagModalTitle').textContent = id ? '编辑标签' : '添加标签';
             document.getElementById('deleteTagBtn').style.display = id ? 'block' : 'none';
-            
+
             if (id) {
                 const tag = tagStats.find(t => t.id === id);
                 document.getElementById('tagId').value = tag.id;
@@ -1587,7 +1552,7 @@
                 document.getElementById('tagId').value = '';
                 document.getElementById('tagName').value = '';
             }
-            
+
             modal.show();
         }
 
@@ -1624,7 +1589,7 @@
                         body: JSON.stringify(data)
                     });
                 }
-                
+
                 bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
                 await loadTagStats();
             } catch (e) {
@@ -1650,7 +1615,7 @@
             console.log('页面加载完成，开始初始化数据...');
             await loadWarehouses();
             await loadTagStats();
-            
+
             // 如果有仓库，自动选择第一个
             if (warehouses.length > 0) {
                 selectWarehouse(warehouses[0].id, warehouses[0].name);
@@ -1658,4 +1623,5 @@
         });
     </script>
 </body>
+
 </html>
