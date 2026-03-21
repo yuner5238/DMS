@@ -1001,6 +1001,14 @@
             .checkout-btn::before { content: "出库"; }
             .checkin-btn::before { content: "入库"; }
 
+            /* 删除按钮和修改按钮显示文字 */
+            .btn-outline-danger::before { content: "删除"; }
+            .btn-outline-primary::before { content: "修改"; }
+
+            /* 小屏上隐藏图标 */
+            .btn-outline-danger i,
+            .btn-outline-primary i { display: none; }
+
             /* 小屏手机详情更紧凑 */
             .device-item .device-details {
                 gap: 6px 8px;
@@ -1641,6 +1649,7 @@
                             <div class="d-flex gap-2 device-actions">
                                 ${actionBtn}
                                 <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                     </div>
@@ -1970,6 +1979,15 @@
             try {
                 await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
+                await loadDevices(); await loadWarehouses(); await loadTagStats();
+            } catch (e) { alert('删除失败: ' + e.message); }
+        }
+
+        // 从设备列表直接删除
+        async function deleteDeviceFromList(id, name) {
+            if (!confirm(`确定要删除设备"${name}"吗？`)) return;
+            try {
+                await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
                 await loadDevices(); await loadWarehouses(); await loadTagStats();
             } catch (e) { alert('删除失败: ' + e.message); }
         }
