@@ -432,11 +432,29 @@
             transition: all 0.15s;
             border: 1px solid var(--border-color);
             border-left: 3px solid var(--success-border);
+            overflow: hidden;
         }
 
         .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
         .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
         .device-item strong { color: var(--text-primary); font-weight: 600; }
+
+        /* 设备项内容布局 */
+        .device-item .d-flex.justify-content-between {
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .device-item .flex-grow-1 {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .device-item .d-flex.gap-2 {
+            flex-shrink: 0;
+            gap: 6px !important;
+        }
 
         /* 设备详情表格样式 */
         .device-details {
@@ -446,6 +464,7 @@
             font-size: 12px;
             margin-top: 6px;
             overflow: hidden;
+            min-width: 0;
         }
         .device-details .detail-item {
             display: flex;
@@ -454,13 +473,15 @@
             padding-right: 10px;
             margin-right: 10px;
             border-right: 1px solid #eee;
+            min-width: 0;
         }
         .device-details .detail-item:last-child {
             border-right: none;
             margin-right: 0;
             padding-right: 0;
             flex: 1;
-            min-width: 200px;
+            min-width: 120px;
+            overflow: hidden;
         }
         .device-details .detail-label {
             color: var(--text-muted);
@@ -473,6 +494,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            min-width: 0;
         }
         .device-details .detail-item:hover .detail-value {
             white-space: normal;
@@ -481,20 +503,24 @@
         /* 数量列 */
         .device-details .detail-item.quantity {
             width: 60px;
+            flex-shrink: 0;
         }
         /* 位置列 */
         .device-details .detail-item.position {
             width: 120px;
+            flex-shrink: 0;
         }
         /* 入库时间列 */
         .device-details .detail-item.checkin {
             width: 130px;
+            flex-shrink: 0;
         }
         /* 备注列 */
         .device-details .detail-item.remark {
             flex: 1;
-            min-width: 250px;
-            width: 400px;
+            min-width: 150px;
+            max-width: 300px;
+            overflow: hidden;
         }
 
         /* 状态徽章 - Win11风格 */
@@ -504,11 +530,31 @@
         .status-maintenance { background: #fff3cd; color: #856404; }
 
         /* 操作按钮 */
-        .checkout-btn, .checkin-btn { padding: 5px 12px; font-size: 12px; border-radius: 4px; font-weight: 500; }
+        .checkout-btn, .checkin-btn { padding: 5px 10px; font-size: 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
         .checkout-btn { color: #8b6914; border-color: #eaa300; background: #fff8e6; }
         .checkout-btn:hover { background: #eaa300; color: white; border-color: #eaa300; }
         .checkin-btn { color: #0d5d0d; border-color: #107c10; background: #e6f5e6; }
         .checkin-btn:hover { background: #107c10; color: white; border-color: #107c10; }
+
+        /* 设备项按钮组 */
+        .device-item .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: auto;
+            flex-shrink: 0;
+        }
+
+        .device-item .btn-outline-primary {
+            padding: 4px 8px;
+        }
+
+        /* 设备操作按钮区域 */
+        .device-item .device-actions {
+            flex-shrink: 0;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
 
         /* 去向标签 */
         .destination-tag {
@@ -628,9 +674,10 @@
         }
         .sidebar-overlay.show { display: block; opacity: 1; }
 
+        /* ========== 移动端优化 (≤768px) ========== */
         @media (max-width: 768px) {
-            body { 
-                padding: 0 !important; 
+            body {
+                padding: 0 !important;
                 margin: 0 !important;
                 overflow-x: hidden;
             }
@@ -674,8 +721,8 @@
 
             .sidebar-header { position: relative; padding-right: 48px; }
 
-            .main-content { 
-                padding: 12px; 
+            .main-content {
+                padding: 12px;
                 width: 100% !important;
                 margin: 0 !important;
                 min-height: 100vh;
@@ -711,11 +758,223 @@
             .page-header { display: none; }
 
             .device-section { margin-bottom: 12px; }
-            .device-item { padding: 10px 12px; margin: 6px; }
+            .device-item {
+                padding: 10px 12px;
+                margin: 6px;
+            }
+
+            /* 移动端设备项布局优化 */
+            .device-item .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .device-item .d-flex.gap-2 {
+                width: 100%;
+                justify-content: flex-end;
+                margin-top: 4px;
+            }
+
+            .device-item .btn-sm {
+                flex: 1;
+                min-width: 80px;
+            }
+
+            /* 移动端设备详情横向紧凑布局 */
+            .device-item .device-details {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 12px;
+                margin-top: 6px;
+            }
+
+            .device-item .detail-item {
+                display: inline-flex;
+                align-items: center;
+                font-size: 11px;
+                margin: 0;
+                padding: 2px 6px;
+                background: #f5f5f5;
+                border-radius: 3px;
+            }
+
+            .device-item .detail-label {
+                color: var(--text-muted);
+                margin-right: 4px;
+                font-size: 10px;
+            }
+
+            .device-item .detail-value {
+                color: var(--text-primary);
+                font-weight: 500;
+                max-width: 80px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .device-item .detail-item.remark {
+                width: 100%;
+                background: transparent;
+                padding: 2px 0;
+            }
+
+            .device-item .detail-item.remark .detail-value {
+                max-width: 100%;
+            }
+
+            .device-item .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 移动端按钮文字简化 */
+            .checkout-btn::after { content: " 出库"; }
+            .checkin-btn::after { content: " 入库"; }
+        }
+
+        /* ========== 平板端优化 (769px - 1024px) ========== */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .main-content {
+                padding: 16px;
+            }
+
+            .device-item {
+                padding: 10px 14px;
+                margin: 6px 8px;
+            }
+
+            /* 平板端详情列宽度调整 */
+            .device-details .detail-item.quantity {
+                width: 50px;
+            }
+
+            .device-details .detail-item.position {
+                width: 100px;
+            }
+
+            .device-details .detail-item.checkin {
+                width: 110px;
+            }
+
+            .device-details .detail-item.remark {
+                min-width: 120px;
+                max-width: 200px;
+            }
+
+            .device-details .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 平板端按钮优化 */
+            .device-item .btn-sm {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+
+            .checkout-btn, .checkin-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+
+            /* 平板端统计卡片 */
+            .stat-card {
+                padding: 12px 16px;
+            }
+
+            .stat-card h3 {
+                font-size: 22px;
+            }
+        }
+
+        /* ========== 桌面端优化 (≥1025px) ========== */
+        @media (min-width: 1025px) {
+            .device-item {
+                padding: 12px 16px;
+                margin: 8px;
+            }
+
+            /* 桌面端详情列完整显示 */
+            .device-details .detail-item.quantity {
+                width: 60px;
+            }
+
+            .device-details .detail-item.position {
+                width: 120px;
+            }
+
+            .device-details .detail-item.checkin {
+                width: 130px;
+            }
+
+            .device-details .detail-item.remark {
+                min-width: 200px;
+                max-width: 400px;
+            }
+
+            .device-details .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 桌面端按钮完整显示 */
+            .device-item .btn-sm {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .checkout-btn, .checkin-btn {
+                padding: 5px 12px;
+                font-size: 12px;
+            }
         }
 
         @media (min-width: 769px) {
             .mobile-header { display: none; }
+        }
+
+        /* ========== 小屏手机优化 (≤480px) ========== */
+        @media (max-width: 480px) {
+            .device-item {
+                padding: 8px 10px;
+                margin: 4px;
+            }
+
+            .device-item strong {
+                font-size: 13px;
+            }
+
+            .device-details {
+                font-size: 11px;
+            }
+
+            .device-item .btn-sm {
+                font-size: 11px;
+                padding: 3px 6px;
+                min-width: 70px;
+            }
+
+            .checkout-btn::after { content: ""; }
+            .checkin-btn::after { content: ""; }
+
+            .checkout-btn::before { content: "出库"; }
+            .checkin-btn::before { content: "入库"; }
+
+            /* 小屏手机详情更紧凑 */
+            .device-item .device-details {
+                gap: 6px 8px;
+            }
+
+            .device-item .detail-item {
+                padding: 2px 4px;
+                font-size: 10px;
+            }
+
+            .device-item .detail-value {
+                max-width: 60px;
+            }
+
+            .device-item .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
         }
     </style>
 </head>
@@ -837,66 +1096,68 @@
 
     <!-- 设备Modal -->
     <div class="modal fade" id="deviceModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deviceModalTitle">添加设备</h5>
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 550px;">
+            <div class="modal-content" style="border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" id="deviceModalTitle" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
+                        <i class="bi bi-gear me-2" style="color: #495057;"></i>添加设备
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="padding: 20px; max-height: 60vh; overflow-y: auto;">
                     <input type="hidden" id="deviceId">
                     <div class="mb-3">
-                        <label class="form-label">所属仓库 *</label>
-                        <select class="form-select" id="deviceWarehouse"></select>
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库 *</label>
+                        <select class="form-select" id="deviceWarehouse" style="font-size: 14px;"></select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">设备名称 *</label>
-                        <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备名称 *</label>
+                        <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">标签名</label>
-                        <input type="text" class="form-control" id="deviceTagName" placeholder="例如：电脑、显示器">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">标签名</label>
+                        <input type="text" class="form-control" id="deviceTagName" placeholder="例如：电脑、显示器" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">数量 *</label>
-                        <input type="number" class="form-control" id="deviceQuantity" value="1" min="1">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">数量 *</label>
+                        <input type="number" class="form-control" id="deviceQuantity" value="1" min="1" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">存放位置</label>
-                        <input type="text" class="form-control" id="deviceStorageLocation" placeholder="例如：A区货架2层">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">存放位置</label>
+                        <input type="text" class="form-control" id="deviceStorageLocation" placeholder="例如：A区货架2层" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">入库时间</label>
-                        <input type="date" class="form-control" id="deviceCheckinTime">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">入库时间</label>
+                        <input type="date" class="form-control" id="deviceCheckinTime" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">在库状态</label>
-                        <select class="form-select" id="deviceLocationStatus">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">在库状态</label>
+                        <select class="form-select" id="deviceLocationStatus" style="font-size: 14px;">
                             <option value="in_stock">在库</option>
                             <option value="checked_out">已出库</option>
                         </select>
                     </div>
                     <div class="mb-3" id="destinationField" style="display:none;">
-                        <label class="form-label">去向</label>
-                        <input type="text" class="form-control" id="deviceDestination" placeholder="例如：同事张三借用">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">去向</label>
+                        <input type="text" class="form-control" id="deviceDestination" placeholder="例如：同事张三借用" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">状态</label>
-                        <select class="form-select" id="deviceStatus">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">状态</label>
+                        <select class="form-select" id="deviceStatus" style="font-size: 14px;">
                             <option value="正常">正常</option>
                             <option value="异常">异常</option>
                             <option value="维修中">维修中</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">备注</label>
-                        <textarea class="form-control" id="deviceRemark" rows="2" placeholder="其他说明（可选）"></textarea>
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
+                        <textarea class="form-control" id="deviceRemark" rows="3" placeholder="其他说明（可选）" style="font-size: 14px; resize: vertical;"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none;" onclick="deleteDevice()">删除</button>
-                    <button type="button" class="btn btn-primary" onclick="saveDevice()">保存</button>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 20px; font-size: 14px;">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none; padding: 6px 20px; font-size: 14px;" onclick="deleteDevice()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveDevice()" style="padding: 6px 20px; font-size: 14px;">保存</button>
                 </div>
             </div>
         </div>
@@ -945,6 +1206,33 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <button type="button" class="btn btn-success" onclick="confirmCheckin()">确认入库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 备注预览Modal -->
+    <div class="modal fade" id="remarkPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+            <div class="modal-content" style="border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
+                        <i class="bi bi-file-text me-2" style="color: #495057;"></i>备注详情
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 24px 20px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; color: #6c757d; margin-bottom: 6px;">设备名称</label>
+                        <div id="remarkDeviceName" style="font-size: 15px; font-weight: 500; color: #212529; padding: 8px 12px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 3px;"></div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: 500; color: #6c757d; margin-bottom: 6px;">备注内容</label>
+                        <div id="remarkContent" style="min-height: 120px; max-height: 300px; overflow-y: auto; padding: 12px; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 3px; font-size: 14px; line-height: 1.6; color: #495057; white-space: pre-wrap; word-break: break-word;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 24px; font-size: 14px;">关闭</button>
                 </div>
             </div>
         </div>
@@ -1002,6 +1290,14 @@
         function formatDateTime(date) {
             const d = new Date(date);
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+        }
+
+        // 显示备注预览
+        function showRemarkPreview(deviceName, remark) {
+            if (!remark) return;
+            document.getElementById('remarkDeviceName').textContent = deviceName;
+            document.getElementById('remarkContent').textContent = remark;
+            new bootstrap.Modal(document.getElementById('remarkPreviewModal')).show();
         }
 
         // 排序设备
@@ -1155,8 +1451,8 @@
             const renderDeviceItem = (device, isOut) => {
                 const tagHtml = device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '';
                 const actionBtn = isOut
-                    ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i> 入库</button>`
-                    : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i> 出库</button>`;
+                    ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
+                    : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
                 const destinationTag = isOut && device.destination ? `<span class="destination-tag ms-2"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
                 const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
 
@@ -1172,12 +1468,12 @@
                                     <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
                                     <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
                                     <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
-                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value" title="${device.remark || ''}">${device.remark || ''}</span></span>
+                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}')" title="${device.remark || ''}">${device.remark || ''}</span></span>
                                 </div>
                             </div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 device-actions">
                                 ${actionBtn}
-                                <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
                             </div>
                         </div>
                     </div>
