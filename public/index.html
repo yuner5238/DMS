@@ -523,6 +523,18 @@
             overflow: hidden;
         }
 
+        /* 备注值支持多行显示和换行 */
+        .device-details .detail-item.remark .detail-value {
+            white-space: normal !important;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         /* 状态徽章 - Win11风格 */
         .status-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
         .status-normal { background: #d4edda; color: #155724; }
@@ -731,7 +743,7 @@
             .mobile-header {
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 8px;
                 margin-bottom: 12px;
                 padding-bottom: 12px;
                 border-bottom: 1px solid var(--border-color);
@@ -739,9 +751,40 @@
             .mobile-header .page-title {
                 flex: 1;
                 font-weight: 600;
-                font-size: 15px;
+                font-size: 14px;
                 color: var(--text-primary);
                 margin: 0;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .mobile-tools {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .mobile-sort-select {
+                width: 70px;
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+            .mobile-search-btn,
+            .mobile-add-btn {
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            .mobile-search-container {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding: 8px;
+                background: var(--bg-light);
+                border-radius: 6px;
+            }
+            .mobile-search-input {
+                flex: 1;
+                font-size: 14px;
             }
 
             /* 统计卡片横向紧凑排列 */
@@ -972,9 +1015,17 @@
                 max-width: 60px;
             }
 
+
             .device-item .detail-item.remark .detail-value.remark-clickable {
                 cursor: pointer;
             }
+        }
+
+        /* 富文本编辑器占位符样式 */
+        [contenteditable][data-placeholder]:empty:before {
+            content: attr(data-placeholder);
+            color: #6c757d;
+            display: block;
         }
     </style>
 </head>
@@ -1021,6 +1072,28 @@
                             <i class="bi bi-list"></i>
                         </button>
                         <h5 class="page-title" id="mobileWarehouseTitle">请选择仓库</h5>
+                        <div class="mobile-tools">
+                            <select class="form-select form-select-sm mobile-sort-select" id="mobileSortSelect" onchange="sortDevices()">
+                                <option value="name">排序</option>
+                                <option value="name">名称</option>
+                                <option value="checkin">入库</option>
+                                <option value="checkout">出库</option>
+                            </select>
+                            <button class="btn btn-light btn-sm mobile-search-btn" onclick="toggleMobileSearch()" title="搜索">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm mobile-add-btn" onclick="showDeviceModal()" title="添加设备">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 移动端搜索框（默认隐藏） -->
+                    <div class="mobile-search-container" id="mobileSearchContainer" style="display: none;">
+                        <input type="text" class="form-control mobile-search-input" id="mobileSearchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                        <button class="btn btn-light btn-sm" onclick="toggleMobileSearch()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
                     </div>
 
                     <!-- PC端收起后的展开按钮 -->
@@ -1150,8 +1223,24 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
-                        <textarea class="form-control" id="deviceRemark" rows="3" placeholder="其他说明（可选）" style="font-size: 14px; resize: vertical;"></textarea>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label mb-0" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="insertImageToRemark()" style="font-size: 12px; padding: 4px 12px;">
+                                    <i class="bi bi-image me-1"></i>插入图片
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="openRichTextEditor()" style="font-size: 12px; padding: 4px 12px;">
+                                    <i class="bi bi-pencil-square me-1"></i>富文本模式
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="remarkImageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+                        <!-- 使用隐藏的textarea存储原始数据 -->
+                        <textarea id="deviceRemark" style="display: none;"></textarea>
+                        <!-- 富文本编辑器 -->
+                        <div id="deviceRemarkEditor" contenteditable="true"
+                             data-placeholder="其他说明（可选）"
+                             style="min-height: 80px; max-height: 200px; overflow-y: auto; padding: 8px 12px; font-size: 14px; line-height: 1.6; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; outline: none;"></div>
                     </div>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
@@ -1211,6 +1300,84 @@
         </div>
     </div>
 
+    <!-- 富文本编辑器Modal -->
+    <div class="modal fade" id="richTextEditorModal" tabindex="-1" aria-labelledby="richTextEditorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" style="max-width: 900px;">
+            <div class="modal-content" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
+                        <i class="bi bi-pencil-square me-2" style="color: #495057;"></i>富文本编辑器
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+                    <!-- 工具栏 -->
+                    <div style="padding: 10px 20px; background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('bold')" title="加粗">
+                            <i class="bi bi-type-bold"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('italic')" title="斜体">
+                            <i class="bi bi-type-italic"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('underline')" title="下划线">
+                            <i class="bi bi-type-underline"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('strikeThrough')" title="删除线">
+                            <i class="bi bi-type-strikethrough"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('insertUnorderedList')" title="无序列表">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('insertOrderedList')" title="有序列表">
+                            <i class="bi bi-list-ol"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('justifyLeft')" title="左对齐">
+                            <i class="bi bi-text-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('justifyCenter')" title="居中">
+                            <i class="bi bi-text-center"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('justifyRight')" title="右对齐">
+                            <i class="bi bi-text-right"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <div class="d-flex align-items-center gap-2" style="flex-wrap: wrap;">
+                            <select class="form-select form-select-sm" style="width: 90px; display: inline-block;" onchange="execCmd('fontSize', this.value)">
+                                <option value="1">小</option>
+                                <option value="3" selected>中</option>
+                                <option value="5">大</option>
+                                <option value="7">特大</option>
+                            </select>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <select class="form-select form-select-sm" style="width: 85px; display: inline-block;" onchange="execCmd('foreColor', this.value)">
+                                    <option value="#000000">黑色</option>
+                                    <option value="#dc3545">红色</option>
+                                    <option value="#198754">绿色</option>
+                                    <option value="#0d6efd">蓝色</option>
+                                    <option value="#ffc107">黄色</option>
+                                    <option value="#6c757d">灰色</option>
+                                </select>
+                                <span style="font-size: 12px; color: #6c757d;">颜色</span>
+                            </div>
+                        </div>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('removeFormat')" title="清除格式">
+                            <i class="bi bi-eraser"></i>
+                        </button>
+                    </div>
+                    <!-- 编辑区域 -->
+                    <div id="richTextEditor" contenteditable="true" style="min-height: 300px; max-height: 500px; overflow-y: auto; padding: 20px; font-size: 14px; line-height: 1.6; outline: none;"></div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 20px; font-size: 14px;">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveRichTextContent()" style="padding: 6px 20px; font-size: 14px;">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 备注预览Modal -->
     <div class="modal fade" id="remarkPreviewModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
@@ -1228,7 +1395,7 @@
                     </div>
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: 500; color: #6c757d; margin-bottom: 6px;">备注内容</label>
-                        <div id="remarkContent" style="min-height: 120px; max-height: 300px; overflow-y: auto; padding: 12px; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 3px; font-size: 14px; line-height: 1.6; color: #495057; white-space: pre-wrap; word-break: break-word;"></div>
+                        <div id="remarkContent" style="min-height: 120px; max-height: 300px; overflow-y: auto; padding: 12px; background-color: #ffffff; border: 1px solid #ced4da; border-radius: 3px; font-size: 14px; line-height: 1.6; color: #495057; word-wrap: break-word; overflow-wrap: break-word;"></div>
                     </div>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
@@ -1296,7 +1463,7 @@
         function showRemarkPreview(deviceName, remark) {
             if (!remark) return;
             document.getElementById('remarkDeviceName').textContent = deviceName;
-            document.getElementById('remarkContent').textContent = remark;
+            document.getElementById('remarkContent').innerHTML = decodeRichText(remark);
             new bootstrap.Modal(document.getElementById('remarkPreviewModal')).show();
         }
 
@@ -1468,7 +1635,7 @@
                                     <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
                                     <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
                                     <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
-                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}')" title="${device.remark || ''}">${device.remark || ''}</span></span>
+                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichText(device.remark || '')}</span></span>
                                 </div>
                             </div>
                             <div class="d-flex gap-2 device-actions">
@@ -1511,10 +1678,20 @@
 
         // 搜索过滤
         function filterDevices() {
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allDevices.filter(d => 
-                d.name.toLowerCase().includes(keyword) || 
-                (d.tag_name && d.tag_name.toLowerCase().includes(keyword)) || 
+            const pcSearch = document.getElementById('searchInput');
+            const mobileSearch = document.getElementById('mobileSearchInput');
+            let keyword = '';
+            
+            // 获取搜索关键词（优先使用当前可见的输入框）
+            if (pcSearch && pcSearch.offsetParent !== null) {
+                keyword = pcSearch.value.toLowerCase();
+            } else if (mobileSearch) {
+                keyword = mobileSearch.value.toLowerCase();
+            }
+            
+            const filtered = allDevices.filter(d =>
+                d.name.toLowerCase().includes(keyword) ||
+                (d.tag_name && d.tag_name.toLowerCase().includes(keyword)) ||
                 (d.destination && d.destination.toLowerCase().includes(keyword))
             );
             renderDevices(filtered);
@@ -1674,6 +1851,7 @@
                 document.getElementById('deviceDestination').value = d.destination || '';
                 document.getElementById('deviceStatus').value = d.status;
                 document.getElementById('deviceRemark').value = d.remark || '';
+                document.getElementById('deviceRemarkEditor').innerHTML = decodeRichText(d.remark || '');
                 document.getElementById('deleteDeviceBtn').style.display = 'block';
                 document.getElementById('destinationField').style.display = (d.location_status === 'checked_out') ? 'block' : 'none';
             } else {
@@ -1688,11 +1866,70 @@
                 document.getElementById('deviceDestination').value = '';
                 document.getElementById('deviceStatus').value = '正常';
                 document.getElementById('deviceRemark').value = '';
+                document.getElementById('deviceRemarkEditor').innerHTML = '';
                 document.getElementById('deleteDeviceBtn').style.display = 'none';
                 document.getElementById('destinationField').style.display = 'none';
                 if (currentWarehouseName) document.getElementById('deviceWarehouse').value = currentWarehouseName;
             }
             modal.show();
+            
+            // 添加键盘事件监听
+            setupDeviceModalKeyboardEvents();
+
+            // 添加富文本编辑器的按键事件监听，确保换行正确
+            const remarkEditor = document.getElementById('deviceRemarkEditor');
+            if (remarkEditor) {
+                remarkEditor.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        // 确保插入 <br> 而不是 <div> 或 <p>
+                        e.preventDefault();
+                        const selection = window.getSelection();
+                        const range = selection.getRangeAt(0);
+                        const br = document.createElement('br');
+                        range.deleteContents();
+                        range.insertNode(br);
+                        range.setStartAfter(br);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                });
+            }
+        }
+
+        // 设置设备模态框的键盘事件
+        function setupDeviceModalKeyboardEvents() {
+            const modalElement = document.getElementById('deviceModal');
+            
+            // 移除之前的事件监听器（避免重复绑定）
+            modalElement.removeEventListener('keydown', handleDeviceModalKeydown);
+            
+            // 添加新的事件监听器
+            modalElement.addEventListener('keydown', handleDeviceModalKeydown);
+        }
+
+        // 处理设备模态框的键盘事件
+        function handleDeviceModalKeydown(event) {
+            // 如果焦点在备注编辑器中
+            if (event.target.id === 'deviceRemarkEditor') {
+                // 处理占位符
+                if (event.target.textContent.trim() === '') {
+                    event.target.innerHTML = '';
+                }
+                // Ctrl+Enter 保存
+                if (event.ctrlKey && event.key === 'Enter') {
+                    event.preventDefault();
+                    saveDevice();
+                }
+                // 普通回车键允许换行（不阻止默认行为）
+                return;
+            }
+
+            // 在其他输入框中，回车键保存
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveDevice();
+            }
         }
 
         function editDevice(id) { showDeviceModal(id); }
@@ -1702,6 +1939,7 @@
             const location_status = document.getElementById('deviceLocationStatus').value;
             const destination = location_status === 'checked_out' ? document.getElementById('deviceDestination').value : '';
             const checkinTimeInput = document.getElementById('deviceCheckinTime').value;
+            const remarkEditor = document.getElementById('deviceRemarkEditor');
 
             const data = {
                 warehouseName: document.getElementById('deviceWarehouse').value,
@@ -1712,7 +1950,7 @@
                 location_status: location_status,
                 destination: destination,
                 status: document.getElementById('deviceStatus').value,
-                remark: document.getElementById('deviceRemark').value,
+                remark: encodeRichText(remarkEditor ? remarkEditor.innerHTML : ''),
                 checkin_time: checkinTimeInput ? checkinTimeInput + ' ' + new Date().toTimeString().slice(0,8) : null
             };
 
@@ -1734,6 +1972,208 @@
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
                 await loadDevices(); await loadWarehouses(); await loadTagStats();
             } catch (e) { alert('删除失败: ' + e.message); }
+        }
+
+        // ============ 备注图片功能 ============
+        function insertImageToRemark() {
+            document.getElementById('remarkImageInput').click();
+        }
+
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // 检查文件大小（限制为2MB）
+            if (file.size > 2 * 1024 * 1024) {
+                alert('图片大小不能超过2MB');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64 = e.target.result;
+                const remarkEditor = document.getElementById('deviceRemarkEditor');
+                const imgTag = `<img src="${base64}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" />`;
+                remarkEditor.innerHTML += imgTag;
+                event.target.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function formatRemarkWithImages(remark) {
+            if (!remark) return '';
+            // 将 [图片:base64] 替换为 img 标签
+            return remark.replace(/\[图片:([^\]]+)\]/g, function(match, base64) {
+                return `<img src="${base64}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" />`;
+            });
+        }
+
+        // ============ 富文本编辑功能 ============
+        function openRichTextEditor() {
+            const remarkEditor = document.getElementById('deviceRemarkEditor');
+            const richTextEditor = document.getElementById('richTextEditor');
+
+            if (!remarkEditor || !richTextEditor) {
+                alert('无法打开编辑器：找不到相关元素');
+                return;
+            }
+
+            // 直接从主富文本编辑器加载内容
+            richTextEditor.innerHTML = remarkEditor.innerHTML;
+
+            new bootstrap.Modal(document.getElementById('richTextEditorModal')).show();
+        }
+
+        // 将富文本HTML转换为可存储的文本格式
+        function encodeRichText(html) {
+            if (!html) return '';
+
+            // 创建临时元素来处理 HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            // 递归处理节点，将格式转换为 BBCode 标记
+            function processNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const tagName = node.tagName.toLowerCase();
+                    let content = '';
+
+                    // 递归处理子节点
+                    for (let child of node.childNodes) {
+                        content += processNode(child);
+                    }
+
+                    // 根据标签类型添加格式标记
+                    switch (tagName) {
+                        case 'b':
+                        case 'strong':
+                            return `[B]${content}[/B]`;
+                        case 'i':
+                        case 'em':
+                            return `[I]${content}[/I]`;
+                        case 'u':
+                            return `[U]${content}[/U]`;
+                        case 's':
+                        case 'strike':
+                        case 'del':
+                            return `[S]${content}[/S]`;
+                        case 'font':
+                            let color = node.getAttribute('color');
+                            let size = node.getAttribute('size');
+                            if (color) {
+                                return `[COLOR=${color}]${content}[/COLOR]`;
+                            } else if (size) {
+                                return `[SIZE=${size}]${content}[/SIZE]`;
+                            }
+                            return content;
+                        case 'br':
+                            return '\n';
+                        case 'div':
+                        case 'p':
+                            return content + '\n';
+                        case 'img':
+                            // 保留图片标签
+                            return node.outerHTML;
+                        default:
+                            return content;
+                    }
+                }
+                return '';
+            }
+
+            let text = '';
+            for (let child of tempDiv.childNodes) {
+                text += processNode(child);
+            }
+
+            // 处理 HTML 实体
+            text = text.replace(/&nbsp;/g, ' ');
+            text = text.replace(/&lt;/g, '<');
+            text = text.replace(/&gt;/g, '>');
+            text = text.replace(/&amp;/g, '&');
+
+            // 清理多余的空行
+            text = text.replace(/\n{3,}/g, '\n\n');
+
+            return text.trim();
+        }
+
+        // 将存储的富文本标记转换回 HTML
+        function decodeRichText(text) {
+            if (!text) return '';
+
+            // 先将换行转换为 <br>
+            let html = text.replace(/\n/g, '<br>');
+
+            // 解析富文本标记
+            html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
+            html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
+            html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
+            html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
+            html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+            html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
+
+            // 确保连续的换行被正确处理
+            html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+            return html;
+        }
+
+        // 执行富文本命令
+        function execCmd(command, value = null) {
+            document.execCommand(command, false, value);
+        }
+
+        // 保存富文本内容
+        function saveRichTextContent() {
+            const richTextEditor = document.getElementById('richTextEditor');
+            const remarkEditor = document.getElementById('deviceRemarkEditor');
+            const textarea = document.getElementById('deviceRemark');
+
+            if (!richTextEditor || !remarkEditor) {
+                alert('保存失败：找不到编辑器');
+                return;
+            }
+
+            // 直接将富文本编辑器的内容复制到主富文本编辑器
+            remarkEditor.innerHTML = richTextEditor.innerHTML;
+
+            // 同步更新隐藏的 textarea（用于保存到数据库）
+            if (textarea) {
+                textarea.value = encodeRichText(richTextEditor.innerHTML);
+            }
+
+            // 关闭模态框 - 使用多种方法确保关闭
+            try {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('richTextEditorModal'));
+                if (modal) {
+                    modal.hide();
+                } else {
+                    // 如果无法获取实例，尝试直接关闭
+                    const modalEl = document.getElementById('richTextEditorModal');
+                    if (modalEl) {
+                        modalEl.classList.remove('show');
+                        modalEl.style.display = 'none';
+                        // 移除 backdrop
+                        const backdrop = document.querySelector('.modal-backdrop');
+                        if (backdrop) backdrop.remove();
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    }
+                }
+            } catch (e) {
+                console.error('关闭模态框失败:', e);
+                // 备用方法：直接关闭
+                const modalEl = document.getElementById('richTextEditorModal');
+                if (modalEl) {
+                    modalEl.classList.remove('show');
+                    modalEl.style.display = 'none';
+                }
+            }
         }
 
         // ============ 标签操作 ============
@@ -1787,6 +2227,20 @@
             const overlay = document.querySelector('.sidebar-overlay');
             sidebar.classList.toggle('show');
             overlay.classList.toggle('show');
+        }
+
+        // 移动端搜索框显示/隐藏
+        function toggleMobileSearch() {
+            const searchContainer = document.getElementById('mobileSearchContainer');
+            const searchInput = document.getElementById('mobileSearchInput');
+            if (searchContainer.style.display === 'none') {
+                searchContainer.style.display = 'flex';
+                searchInput.focus();
+            } else {
+                searchContainer.style.display = 'none';
+                searchInput.value = '';
+                filterDevices();
+            }
         }
 
         // 侧边栏收纳/展开控制（PC端）

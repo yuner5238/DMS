@@ -307,6 +307,6 @@ app.get('/api/tag-stats', async (req, res) => {
 });
 
 // 启动服务
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 设备管理系统已启动: http://localhost:${PORT}`);
 });
