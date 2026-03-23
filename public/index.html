@@ -2607,6 +2607,30 @@
         }
 
         // 页面初始化
+        // 回车快捷保存（支持Shift/Alt+Enter换行）
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            // Shift+Enter 或 Alt+Enter 允许换行，不触发保存
+            if (e.shiftKey || e.altKey) return;
+            // 在textarea中普通Enter允许换行
+            if (e.target.tagName === 'TEXTAREA') return;
+
+            const checkoutModal = document.getElementById('checkoutModal');
+            const checkinModal = document.getElementById('checkinModal');
+            const deviceModal = document.getElementById('deviceModal');
+
+            if (checkoutModal && checkoutModal.classList.contains('show')) {
+                e.preventDefault();
+                confirmCheckout();
+            } else if (checkinModal && checkinModal.classList.contains('show')) {
+                e.preventDefault();
+                confirmCheckin();
+            } else if (deviceModal && deviceModal.classList.contains('show')) {
+                e.preventDefault();
+                saveDevice();
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', async () => {
             initSidebarResize();
             await loadWarehouses();
