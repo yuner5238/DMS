@@ -58,12 +58,12 @@ app.get('/api/warehouses', async (req, res) => {
 // 添加仓库
 app.post('/api/warehouses', async (req, res) => {
     try {
-        const { name, type, description } = req.body;
+        const { name, description } = req.body;
         const result = await query(
-            'INSERT INTO warehouses (name, type, description) VALUES (?, ?, ?)',
-            [name, type || 'other', description || '']
+            'INSERT INTO warehouses (name, description) VALUES (?, ?)',
+            [name, description || '']
         );
-        res.json({ id: result.insertId, name, type, description });
+        res.json({ id: result.insertId, name, description });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -72,12 +72,12 @@ app.post('/api/warehouses', async (req, res) => {
 // 更新仓库
 app.put('/api/warehouses/:id', async (req, res) => {
     try {
-        const { name, type, description } = req.body;
+        const { name, description } = req.body;
         await query(
-            'UPDATE warehouses SET name=?, type=?, description=? WHERE id=?',
-            [name, type, description, req.params.id]
+            'UPDATE warehouses SET name=?, description=? WHERE id=?',
+            [name, description, req.params.id]
         );
-        res.json({ id: req.params.id, name, type, description });
+        res.json({ id: req.params.id, name, description });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

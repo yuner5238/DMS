@@ -175,9 +175,7 @@
 
         .warehouse-card:hover { background: #f5f5f5; }
         .warehouse-card.active { background: #e5f1fb; }
-        .warehouse-card.work { border-left-color: #107c10; }
-        .warehouse-card.home { border-left-color: #eaa300; }
-        .warehouse-card.other { border-left-color: #0078d4; }
+
         .warehouse-card.all { border-left-color: #6c757d; background: #f8f9fa; font-weight: 600; }
         .warehouse-card.all.active { background: #e5f1fb; border-left-color: #0067c0; }
 
@@ -1380,14 +1378,6 @@
                         <input type="text" class="form-control" id="warehouseName" placeholder="例如：工作仓库">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">仓库类型</label>
-                        <select class="form-select" id="warehouseType">
-                            <option value="work">工作</option>
-                            <option value="home">家居</option>
-                            <option value="other">其他</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">描述</label>
                         <textarea class="form-control" id="warehouseDesc" rows="2" placeholder="仓库描述（可选）"></textarea>
                     </div>
@@ -1779,15 +1769,12 @@
         async function loadWarehouses() {
             try {
                 const res = await fetch(`${API_BASE}/warehouses`);
-                warehouses = await res.json();
+                const data = await res.json();
+                warehouses = Array.isArray(data) ? data : [];
                 // 在顶部添加"总仓库"选项
-                warehouses.unshift({ id: 0, name: '总仓库', type: 'all' });
+                warehouses.unshift({ id: 0, name: '总仓库' });
                 renderWarehouseList();
                 updateWarehouseSelect();
-                await updateStats();
-                if (warehouses.length > 0 && !currentWarehouseId) {
-                    selectWarehouse(0, '总仓库');
-                }
             } catch (e) { console.error('加载仓库失败:', e); }
         }
 
@@ -1820,7 +1807,7 @@
                 const inStock = w.inStockCount || 0;
                 const checkedOut = w.checkedOutCount || 0;
                 const isAll = w.id === 0;
-                const icon = isAll ? 'bi-grid' : (w.type === 'work' ? 'bi-briefcase' : w.type === 'home' ? 'bi-house' : 'bi-box');
+                const icon = isAll ? 'bi-grid' : 'bi-box';
                 const actionsHtml = isAll ? '' : `
                     <div class="warehouse-actions" onclick="event.stopPropagation()">
                         <button class="btn btn-sm btn-outline-light" onclick="editWarehouse(${w.id})" title="编辑"><i class="bi bi-pencil"></i></button>
@@ -1828,7 +1815,7 @@
                     </div>
                 `;
                 return `
-                    <div class="nav-link warehouse-card ${w.type}${isAll ? ' all' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
+                    <div class="nav-link warehouse-card${isAll ? ' all' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
                         ${actionsHtml}
                         <div class="warehouse-name">
                             <i class="bi ${icon}"></i> ${w.name}
@@ -2101,12 +2088,10 @@
                 const w = warehouses.find(wh => wh.id === id);
                 document.getElementById('warehouseId').value = w.id;
                 document.getElementById('warehouseName').value = w.name;
-                document.getElementById('warehouseType').value = w.type;
                 document.getElementById('warehouseDesc').value = w.description || '';
             } else {
                 document.getElementById('warehouseId').value = '';
                 document.getElementById('warehouseName').value = '';
-                document.getElementById('warehouseType').value = 'work';
                 document.getElementById('warehouseDesc').value = '';
             }
             modal.show();
@@ -2122,7 +2107,7 @@
 
         async function saveWarehouse() {
             const id = document.getElementById('warehouseId').value;
-            const data = { name: document.getElementById('warehouseName').value, type: document.getElementById('warehouseType').value, description: document.getElementById('warehouseDesc').value };
+            const data = { name: document.getElementById('warehouseName').value, description: document.getElementById('warehouseDesc').value };
             if (!data.name) { alert('请输入仓库名称'); return; }
             try {
                 if (id) await fetch(`${API_BASE}/warehouses/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -2625,14 +2610,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             initSidebarResize();
             await loadWarehouses();
+            if (warehouses.length > 0) {
+                await selectWarehouse(warehouses[0].id, warehouses[0].name);
+            }
             await loadTagStats();
-            if (warehouses.length > 0) selectWarehouse(warehouses[0].id, warehouses[0].name);
+            await updateStats();
 
             // 检查URL参数，如果有edit参数，自动打开编辑模态框
             const urlParams = new URLSearchParams(window.location.search);
             const editDeviceId = urlParams.get('edit');
             if (editDeviceId) {
-                // 等待设备数据加载完成后再打开编辑模态框
                 setTimeout(() => {
                     editDevice(parseInt(editDeviceId));
                 }, 500);

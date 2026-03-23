@@ -54,7 +54,7 @@
 
         .header {
             background: white;
-            box-shadow: var(--shadow-sm);
+            box-shadow: none;
             padding: 16px 24px;
             border-bottom: 1px solid var(--border-color);
             position: sticky;
@@ -85,33 +85,29 @@
 
         .detail-header {
             padding: 36px 40px;
-            background: linear-gradient(135deg, #0067c0 0%, #0086d4 50%, #0067c0 100%);
-            color: white;
+            background: #ffffff;
+            color: var(--text-primary);
             position: relative;
-            overflow: hidden;
+            border-bottom: 2px solid var(--border-color);
         }
 
         .detail-header::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-            animation: shimmer 8s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { transform: translateX(-100%) translateY(-100%); }
-            50% { transform: translateX(100%) translateY(100%); }
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 0 4px 4px 0;
         }
 
         .detail-header h4 {
             margin: 0;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 600;
             letter-spacing: -0.3px;
+            color: var(--text-primary);
             position: relative;
             z-index: 1;
         }
@@ -121,42 +117,71 @@
             top: 50%;
             right: 40px;
             transform: translateY(-50%);
-            font-size: 64px;
-            opacity: 0.15;
-            color: white;
+            font-size: 56px;
+            opacity: 0.06;
+            color: var(--text-primary);
         }
 
         .detail-header .status-badge {
-            display: inline-block;
-            padding: 8px 20px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 6px;
             font-size: 13px;
             font-weight: 500;
             margin-top: 16px;
-            background: rgba(255, 255, 255, 0.25);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             position: relative;
             z-index: 1;
         }
 
         .status-normal {
-            background: rgba(15, 123, 15, 0.95);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.4);
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid var(--success-border);
+        }
+
+        .status-normal::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success-border);
+            animation: pulse-dot 2s ease-in-out infinite;
         }
 
         .status-abnormal {
-            background: rgba(196, 43, 28, 0.95);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.4);
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid #e88a8a;
+        }
+
+        .status-abnormal::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--danger);
         }
 
         .status-maintenance {
-            background: rgba(157, 91, 0, 0.95);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.4);
+            background: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid #f5c563;
+        }
+
+        .status-maintenance::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--warning-border);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
 
         .detail-body {
@@ -169,14 +194,6 @@
             padding: 20px 0;
             border-bottom: 1px solid #f0f0f0;
             align-items: start;
-            transition: background-color 0.2s ease;
-        }
-
-        .detail-row:hover {
-            background-color: #fafafa;
-            border-radius: 8px;
-            padding-left: 12px;
-            padding-right: 12px;
         }
 
         .detail-row:last-child {
@@ -187,20 +204,6 @@
             color: var(--text-muted);
             font-weight: 500;
             font-size: 14px;
-            position: relative;
-            padding-left: 12px;
-        }
-
-        .detail-label::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 4px;
-            background: var(--primary);
-            border-radius: 50%;
         }
 
         .detail-value {
@@ -428,18 +431,7 @@
                 padding: 16px 0;
             }
 
-            .detail-row:hover {
-                padding-left: 0;
-                padding-right: 0;
-                background-color: transparent;
-            }
-
-            .detail-label::before {
-                display: none;
-            }
-
             .detail-label {
-                padding-left: 0;
                 font-size: 13px;
             }
 
@@ -563,20 +555,11 @@
                     <div class="detail-header">
                         <h4>${device.name || '未命名设备'}</h4>
                         ${statusBadge}
-                        <i class="bi bi-cpu device-icon"></i>
                     </div>
                     <div class="detail-body">
                         <div class="detail-row">
-                            <div class="detail-label">设备名称</div>
-                            <div class="detail-value">${device.name || '-'}</div>
-                        </div>
-                        <div class="detail-row">
                             <div class="detail-label">所属仓库</div>
                             <div class="detail-value">${device.warehouse_name || '-'}</div>
-                        </div>
-                        <div class="detail-row">
-                            <div class="detail-label">设备状态</div>
-                            <div class="detail-value">${statusBadge}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">设备标签</div>
