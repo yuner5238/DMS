@@ -5,15 +5,18 @@ const mysql = require('mysql');
 const path = require('path');
 
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
-// MySQL 连接配置
+// MySQL 连接配置（TiDB Cloud）
 const pool = mysql.createPool({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: 'root',
-    database: 'device_manager',
+    host: 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+    port: 4000,
+    user: 'WYqCciHtZyezMP6.root',
+    password: 'i6sVtriNBwHr4ZCj',
+    database: 'DMS',
+    ssl: {
+        rejectUnauthorized: false
+    },
     connectionLimit: 10
 });
 
@@ -29,12 +32,6 @@ pool.getConnection((err, connection) => {
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../public')));
-
-// 根路径返回 index.html
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-});
 
 // 封装查询函数
 const query = (sql, values = []) => {
@@ -194,6 +191,26 @@ app.get('/api/devices', async (req, res) => {
     }
 });
 
+// 获取单个设备详情
+app.get('/api/devices/:id', async (req, res) => {
+    try {
+        const device = await query(`
+            SELECT d.*, w.name as warehouse_name
+            FROM devices d
+            LEFT JOIN warehouses w ON d.warehouse_name = w.name
+            WHERE d.id=?
+        `, [req.params.id]);
+        
+        if (device.length === 0) {
+            return res.status(404).json({ error: '设备不存在' });
+        }
+        
+        res.json(device[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
@@ -304,6 +321,14 @@ app.get('/api/tag-stats', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// 静态文件服务（放在最后以避免与API路由冲突）
+app.use(express.static(path.join(__dirname, '../public')));
+
+// 根路径返回 index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // 启动服务

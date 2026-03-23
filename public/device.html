@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备详情 - DMS设备管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Windows 11 风格配色 */
+        :root {
+            --primary: #0067c0;
+            --primary-hover: #005a9e;
+            --primary-light: #60cdff;
+            --secondary: #5c5c5c;
+            --success: #0f7b0f;
+            --success-bg: #dff6dd;
+            --success-border: #4caf50;
+            --warning: #9d5b00;
+            --warning-bg: #fff4ce;
+            --warning-border: #ffb900;
+            --danger: #c42b1c;
+            --danger-bg: #fde7e9;
+            --info: #0078d4;
+            --info-bg: #e5f1fb;
+            --bg-main: #f3f3f3;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #424242;
+            --text-muted: #757575;
+            --border-color: #e5e5e5;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-main);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: white;
+            box-shadow: var(--shadow-sm);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h5 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .detail-container {
+            max-width: 900px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .detail-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .detail-header {
+            padding: 36px 40px;
+            background: linear-gradient(135deg, #0067c0 0%, #0086d4 50%, #0067c0 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .detail-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: shimmer 8s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%) translateY(-100%); }
+            50% { transform: translateX(100%) translateY(100%); }
+        }
+
+        .detail-header h4 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .detail-header .device-icon {
+            position: absolute;
+            top: 50%;
+            right: 40px;
+            transform: translateY(-50%);
+            font-size: 64px;
+            opacity: 0.15;
+            color: white;
+        }
+
+        .detail-header .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 1;
+        }
+
+        .status-normal {
+            background: rgba(15, 123, 15, 0.95);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .status-abnormal {
+            background: rgba(196, 43, 28, 0.95);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .status-maintenance {
+            background: rgba(157, 91, 0, 0.95);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .detail-body {
+            padding: 40px;
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            padding: 20px 0;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: start;
+            transition: background-color 0.2s ease;
+        }
+
+        .detail-row:hover {
+            background-color: #fafafa;
+            border-radius: 8px;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 14px;
+            position: relative;
+            padding-left: 12px;
+        }
+
+        .detail-label::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* 富文本内容样式 */
+        .rich-text-content {
+            line-height: 1.8;
+        }
+
+        .rich-text-content p {
+            margin-bottom: 12px;
+        }
+
+        .rich-text-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .rich-text-content ul,
+        .rich-text-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .rich-text-content li {
+            margin-bottom: 6px;
+        }
+
+        .rich-text-content strong,
+        .rich-text-content b {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .rich-text-content em,
+        .rich-text-content i {
+            font-style: italic;
+        }
+
+        .rich-text-content u {
+            text-decoration: underline;
+        }
+
+        .rich-text-content s {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .rich-text-content a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .rich-text-content a:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .rich-text-content br {
+            display: block;
+            margin: 4px 0;
+        }
+
+        .detail-actions {
+            padding: 28px 40px;
+            background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
+        }
+
+        .detail-actions .btn {
+            padding: 12px 28px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .detail-actions .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .detail-actions .btn:active {
+            transform: translateY(0);
+        }
+
+        .detail-actions .btn-primary {
+            background: linear-gradient(135deg, #0067c0 0%, #0086d4 100%);
+            border-color: #0067c0;
+        }
+
+        .detail-actions .btn-primary:hover {
+            background: linear-gradient(135deg, #005a9e 0%, #0070b8 100%);
+        }
+
+        .detail-actions .btn-outline-danger {
+            background-color: var(--danger-bg);
+            border-color: #f5c6cb;
+            color: var(--danger);
+        }
+
+        .detail-actions .btn-outline-danger:hover {
+            background-color: var(--danger);
+            border-color: var(--danger);
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px 20px;
+            color: var(--text-muted);
+        }
+
+        .loading i {
+            font-size: 56px;
+            color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading p {
+            font-size: 16px;
+            margin-top: 20px;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            text-align: center;
+            padding: 100px 20px;
+            color: var(--danger);
+        }
+
+        .error i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .error p {
+            font-size: 16px;
+            margin-top: 16px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+        }
+
+        .back-btn:hover {
+            color: var(--text-primary);
+            background: rgba(0, 103, 192, 0.08);
+        }
+
+        .back-btn i {
+            font-size: 18px;
+        }
+
+        /* 标签样式 */
+        .tag-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+            color: var(--text-primary);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 2px;
+            font-weight: 500;
+            border: 1px solid #d0d0d0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .detail-container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .detail-card {
+                border-radius: 8px;
+            }
+
+            .detail-header {
+                padding: 24px 20px;
+            }
+
+            .detail-header h4 {
+                font-size: 22px;
+            }
+
+            .detail-header .device-icon {
+                font-size: 48px;
+                right: 20px;
+            }
+
+            .detail-body {
+                padding: 24px 20px;
+            }
+
+            .detail-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                padding: 16px 0;
+            }
+
+            .detail-row:hover {
+                padding-left: 0;
+                padding-right: 0;
+                background-color: transparent;
+            }
+
+            .detail-label::before {
+                display: none;
+            }
+
+            .detail-label {
+                padding-left: 0;
+                font-size: 13px;
+            }
+
+            .detail-actions {
+                padding: 20px 20px;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .detail-actions .btn {
+                flex: 1;
+                min-width: 120px;
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="index.html" class="back-btn">
+                <i class="bi bi-arrow-left"></i>
+                返回设备列表
+            </a>
+            <h5>设备详情</h5>
+            <div></div>
+        </div>
+    </div>
+
+    <div class="detail-container" id="detailContainer">
+        <div class="loading">
+            <i class="bi bi-hourglass-split"></i>
+            <p class="mt-3">加载中...</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+
+        // 从URL获取设备ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('id');
+
+        // 格式化日期
+        function formatDate(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        // 格式化时间
+        function formatDateTime(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        // 解码富文本
+        function decodeRichText(text) {
+            if (!text) return '';
+
+            // 先将换行转换为 <br>
+            let html = text.replace(/\n/g, '<br>');
+
+            // 解析富文本标记
+            html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
+            html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
+            html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
+            html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
+            html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+            html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
+
+            // 确保连续的换行被正确处理
+            html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+            return html;
+        }
+
+        // 状态类映射
+        const statusClass = { '正常': 'status-normal', '异常': 'status-abnormal', '维修中': 'status-maintenance' };
+
+        // 加载设备详情
+        async function loadDeviceDetail() {
+            if (!deviceId) {
+                showError('设备ID无效');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/devices/${deviceId}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                const device = await res.json();
+
+                if (device.error) {
+                    throw new Error(device.error);
+                }
+
+                renderDeviceDetail(device);
+            } catch (e) {
+                console.error('加载设备详情失败:', e);
+                showError('加载设备详情失败: ' + e.message);
+            }
+        }
+
+        // 渲染设备详情
+        function renderDeviceDetail(device) {
+            const container = document.getElementById('detailContainer');
+
+            let locationText = device.storage_location || '在库';
+            if (device.location_status === 'checked_out') {
+                locationText = device.destination || '已出库';
+            }
+
+            const statusBadge = `<span class="status-badge ${statusClass[device.status] || 'status-normal'}">${device.status || '未知'}</span>`;
+
+            const html = `
+                <div class="detail-card">
+                    <div class="detail-header">
+                        <h4>${device.name || '未命名设备'}</h4>
+                        ${statusBadge}
+                        <i class="bi bi-cpu device-icon"></i>
+                    </div>
+                    <div class="detail-body">
+                        <div class="detail-row">
+                            <div class="detail-label">设备名称</div>
+                            <div class="detail-value">${device.name || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">所属仓库</div>
+                            <div class="detail-value">${device.warehouse_name || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">设备状态</div>
+                            <div class="detail-value">${statusBadge}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">设备标签</div>
+                            <div class="detail-value">${device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">设备数量</div>
+                            <div class="detail-value">${device.quantity || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">存放位置</div>
+                            <div class="detail-value">${locationText}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">入库时间</div>
+                            <div class="detail-value">${device.checkin_time ? formatDateTime(device.checkin_time) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">创建时间</div>
+                            <div class="detail-value">${device.created_at ? formatDateTime(device.created_at) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">更新时间</div>
+                            <div class="detail-value">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">备注</div>
+                            <div class="detail-value">${device.remark ? `<div class="rich-text-content">${decodeRichText(device.remark)}</div>` : '-'}</div>
+                        </div>
+                    </div>
+                    <div class="detail-actions">
+                        <button class="btn btn-primary" onclick="editDevice(${device.id})">
+                            <i class="bi bi-pencil"></i> 编辑设备
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${device.name}')">
+                            <i class="bi bi-trash"></i> 删除设备
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 显示错误
+        function showError(message) {
+            const container = document.getElementById('detailContainer');
+            container.innerHTML = `
+                <div class="error">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <p class="mt-3">${message}</p>
+                    <a href="index.html" class="btn btn-outline-primary mt-3">
+                        <i class="bi bi-arrow-left"></i> 返回设备列表
+                    </a>
+                </div>
+            `;
+        }
+
+        // 编辑设备（跳转回首页并打开编辑模态框）
+        function editDevice(id) {
+            window.location.href = `index.html?edit=${id}`;
+        }
+
+        // 删除设备
+        async function deleteDevice(id, name) {
+            if (!confirm(`确定要删除设备"${name}"吗？`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    throw new Error('删除失败');
+                }
+                alert('删除成功');
+                window.location.href = 'index.html';
+            } catch (e) {
+                console.error('删除失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 页面加载时获取设备详情
+        document.addEventListener('DOMContentLoaded', loadDeviceDetail);
+    </script>
+</body>
+</html>

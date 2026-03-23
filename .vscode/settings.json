@@ -1,3 +1,20 @@
 {
-    "svn.ignoreMissingSvnWarning": true
+    "svn.ignoreMissingSvnWarning": true,
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "gateway01.ap-northeast-1.prod.aws.tidbcloud.com",
+            "port": 4000,
+            "driver": "MySQL",
+            "username": "WYqCciHtZyezMP6.root",
+            "database": "dms",
+            "name": "TiDB-DMS",
+            "askForPassword": true
+        }
+    ]
 }

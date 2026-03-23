@@ -433,6 +433,22 @@
             border: 1px solid var(--border-color);
             border-left: 3px solid var(--success-border);
             overflow: hidden;
+            cursor: pointer;
+        }
+
+        .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
+        .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
+
+        .device-item {
+            background: var(--bg-card);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 8px;
+            transition: all 0.15s;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--success-border);
+            overflow: hidden;
+            cursor: pointer;
         }
 
         .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
@@ -502,7 +518,7 @@
         }
         /* 数量列 */
         .device-details .detail-item.quantity {
-            width: 60px;
+            width: 75px;
             flex-shrink: 0;
         }
         /* 位置列 */
@@ -588,6 +604,51 @@
         .modal-content { border-radius: 8px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); }
         .modal-footer { border-top: 1px solid var(--border-color); background: var(--bg-card); border-radius: 0 0 8px 8px; padding: 12px 20px; }
         .modal-body { padding: 20px; }
+
+        /* 设备详情样式 */
+        .device-detail-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .detail-row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 12px 20px;
+            padding: 12px;
+            background: var(--bg-light);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            align-items: start;
+        }
+        .detail-row.full-width {
+            grid-template-columns: 1fr;
+        }
+        .detail-row.full-width .detail-label {
+            grid-column: 1;
+            margin-bottom: 4px;
+        }
+        .detail-row.full-width .detail-value {
+            grid-column: 1;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 14px;
+            word-break: break-word;
+        }
+        .detail-remark {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            min-height: 60px;
+            white-space: pre-wrap;
+        }
 
         /* 表单样式 - Win11风格 */
         .form-control, .form-select { border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-size: 13px; }
@@ -827,7 +888,7 @@
             .device-item .device-details {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 8px 12px;
+                gap: 6px 10px;
                 margin-top: 6px;
             }
 
@@ -856,6 +917,24 @@
                 white-space: nowrap;
             }
 
+            /* 移动端入库时间显示优化 */
+            .device-item .detail-item.checkin {
+                min-width: 95px;
+            }
+
+            .device-item .detail-item.checkin .detail-value {
+                max-width: 95px;
+            }
+
+            /* 移动端数量显示优化 */
+            .device-item .detail-item.quantity {
+                min-width: 55px;
+            }
+
+            .device-item .detail-item.quantity .detail-value {
+                max-width: 55px;
+            }
+
             .device-item .detail-item.remark {
                 width: 100%;
                 background: transparent;
@@ -882,26 +961,141 @@
             }
 
             .device-item {
-                padding: 10px 14px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 8px;
+            transition: all 0.15s;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--success-border);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+            .device-item {
+                padding: 12px 14px;
                 margin: 6px 8px;
             }
 
+            .device-item .d-flex.justify-content-between {
+                gap: 10px;
+            }
+
+            .device-item .flex-grow-1 {
+                min-width: 0;
+            }
+
+            /* 平板端设备列表左右布局 */
+            .device-header-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .device-name-section {
+                flex: 0 0 auto;
+                min-width: 0;
+                max-width: 35%;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .device-name-section .name-tags-row {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 4px;
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
+            }
+
+            .device-name-section .name-tags-row strong {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+
+            .device-name-section .status-tags-row {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .device-name-section .status-badge,
+            .device-name-section .tag-badge,
+            .device-name-section .destination-tag {
+                display: inline-block;
+                font-size: 12px;
+            }
+
             /* 平板端详情列宽度调整 */
+            .device-details {
+                flex-wrap: wrap;
+                gap: 6px 10px;
+                flex: 1;
+                min-width: 0;
+                align-items: flex-start;
+                overflow: hidden;
+            }
+
+            .device-details .detail-item {
+                flex: 0 0 auto;
+                min-width: 0;
+                white-space: nowrap;
+            }
+
             .device-details .detail-item.quantity {
-                width: 50px;
+                min-width: 80px;
+                width: auto;
             }
 
             .device-details .detail-item.position {
-                width: 100px;
+                min-width: 90px;
+                width: auto;
             }
 
             .device-details .detail-item.checkin {
-                width: 110px;
+                min-width: 110px;
+                width: auto;
             }
 
             .device-details .detail-item.remark {
-                min-width: 120px;
-                max-width: 200px;
+                min-width: 100px;
+                max-width: 100%;
+                flex: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .device-details .detail-item .detail-label {
+                display: inline-block;
+                font-size: 10px;
+                color: var(--text-secondary);
+                margin-right: 4px;
+            }
+
+            .device-details .detail-item .detail-value {
+                display: inline-block;
+                font-size: 11px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: calc(100% - 30px);
+                vertical-align: middle;
+            }
+
+            .device-details .detail-item.remark .detail-value {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .device-details .detail-item.remark .detail-value.remark-clickable {
@@ -909,14 +1103,34 @@
             }
 
             /* 平板端按钮优化 */
+            .device-item .device-actions {
+                gap: 4px;
+            }
+
             .device-item .btn-sm {
-                padding: 4px 8px;
+                padding: 4px 6px;
                 font-size: 11px;
+                min-width: auto;
             }
 
             .checkout-btn, .checkin-btn {
-                padding: 4px 8px;
+                padding: 4px 6px;
                 font-size: 11px;
+            }
+
+            .device-item strong {
+                font-size: 14px;
+            }
+
+            /* 平板端标签和状态徽章 */
+            .tag-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
+            .status-badge {
+                font-size: 10px;
+                padding: 2px 6px;
             }
 
             /* 平板端统计卡片 */
@@ -938,7 +1152,7 @@
 
             /* 桌面端详情列完整显示 */
             .device-details .detail-item.quantity {
-                width: 60px;
+                width: 70px;
             }
 
             .device-details .detail-item.position {
@@ -946,7 +1160,7 @@
             }
 
             .device-details .detail-item.checkin {
-                width: 130px;
+                width: 150px;
             }
 
             .device-details .detail-item.remark {
@@ -976,6 +1190,18 @@
 
         /* ========== 小屏手机优化 (≤480px) ========== */
         @media (max-width: 480px) {
+            .device-item {
+            background: var(--bg-card);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 8px;
+            transition: all 0.15s;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--success-border);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
             .device-item {
                 padding: 8px 10px;
                 margin: 4px;
@@ -1260,6 +1486,68 @@
         </div>
     </div>
 
+    <!-- 设备详情Modal -->
+    <div class="modal fade" id="deviceDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceDetailTitle">
+                        <i class="bi bi-info-circle me-2"></i>设备详情
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="device-detail-container">
+                        <div class="detail-row">
+                            <span class="detail-label">设备名称</span>
+                            <span class="detail-value" id="detailName"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">所属仓库</span>
+                            <span class="detail-value" id="detailWarehouse"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">标签</span>
+                            <span class="detail-value" id="detailTag"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">数量</span>
+                            <span class="detail-value" id="detailQuantity"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">状态</span>
+                            <span class="detail-value" id="detailStatus"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">位置</span>
+                            <span class="detail-value" id="detailLocation"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">入库时间</span>
+                            <span class="detail-value" id="detailCheckinTime"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">创建时间</span>
+                            <span class="detail-value" id="detailCreatedAt"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">更新时间</span>
+                            <span class="detail-value" id="detailUpdatedAt"></span>
+                        </div>
+                        <div class="detail-row full-width">
+                            <span class="detail-label">备注</span>
+                            <div class="detail-value detail-remark" id="detailRemark"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="detailEditBtn">编辑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 出库Modal -->
     <div class="modal fade" id="checkoutModal" tabindex="-1">
         <div class="modal-dialog">
@@ -1508,9 +1796,14 @@
             try {
                 const url = warehouseName ? `${API_BASE}/tag-stats?warehouseName=${encodeURIComponent(warehouseName)}` : `${API_BASE}/tag-stats`;
                 const res = await fetch(url);
-                tagStats = await res.json();
+                const data = await res.json();
+                tagStats = Array.isArray(data) ? data : [];
                 renderTagStats();
-            } catch (e) { console.error('加载标签统计失败:', e); }
+            } catch (e) {
+                console.error('加载标签统计失败:', e);
+                tagStats = [];
+                renderTagStats();
+            }
         }
 
         // 更新仓库下拉框
@@ -1598,17 +1891,22 @@
                     url += `?warehouseId=${currentWarehouseId}`;
                 }
                 const res = await fetch(url);
-                let devices = await res.json();
-                
+                const data = await res.json();
+                let devices = Array.isArray(data) ? data : [];
+
                 // 应用标签筛选
                 if (currentTagFilter) {
                     devices = devices.filter(d => d.tag_name === currentTagFilter);
                 }
-                
+
                 allDevices = devices;
                 renderDevices(devices);
                 await updateStats();
-            } catch (e) { console.error('加载设备失败:', e); }
+            } catch (e) {
+                console.error('加载设备失败:', e);
+                allDevices = [];
+                renderDevices([]);
+            }
         }
 
         // 渲染设备列表
@@ -1626,30 +1924,38 @@
             const renderDeviceItem = (device, isOut) => {
                 const tagHtml = device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '';
                 const actionBtn = isOut
-                    ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
-                    : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
-                const destinationTag = isOut && device.destination ? `<span class="destination-tag ms-2"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
+                    ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
+                    : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
+                const destinationTag = isOut && device.destination ? `<span class="destination-tag"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
                 const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
 
                 return `
-                    <div class="device-item ${isOut ? 'checked-out' : ''}">
+                    <div class="device-item ${isOut ? 'checked-out' : ''}" onclick="showDeviceDetail(${device.id})">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
-                                <strong>${device.name}</strong>
-                                <span class="status-badge ${statusClass[device.status]} ms-2">${device.status}</span>
-                                ${tagHtml}
-                                ${destinationTag}
-                                <div class="device-details">
-                                    <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
-                                    <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
-                                    <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
-                                    <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichText(device.remark || '')}</span></span>
+                                <div class="device-header-row">
+                                    <div class="device-name-section">
+                                        <div class="name-tags-row">
+                                            <strong>${device.name}</strong>
+                                        </div>
+                                        <div class="status-tags-row">
+                                            <span class="status-badge ${statusClass[device.status]}">${device.status}</span>
+                                            ${tagHtml}
+                                            ${destinationTag}
+                                        </div>
+                                    </div>
+                                    <div class="device-details">
+                                        <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
+                                        <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
+                                        <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
+                                        <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichText(device.remark || '')}</span></span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="d-flex gap-2 device-actions">
                                 ${actionBtn}
-                                <button class="btn btn-sm btn-outline-primary" onclick="editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                     </div>
@@ -1710,7 +2016,8 @@
         async function updateStats() {
             try {
                 const res = await fetch(`${API_BASE}/devices`);
-                const allData = await res.json();
+                const data = await res.json();
+                const allData = Array.isArray(data) ? data : [];
                 warehouses = warehouses.map(w => {
                     if (w.id === 0) {
                         // 总仓库统计所有设备
@@ -1724,7 +2031,10 @@
                     return w;
                 });
                 renderWarehouseList();
-            } catch (e) { console.error('更新统计失败:', e); }
+            } catch (e) {
+                console.error('更新统计失败:', e);
+                renderWarehouseList();
+            }
         }
 
         // ============ 出库操作 ============
@@ -1939,6 +2249,16 @@
                 event.preventDefault();
                 saveDevice();
             }
+        }
+
+        // 显示设备详情
+        async function showDeviceDetail(id) {
+            if (!id) {
+                alert('设备ID无效');
+                return;
+            }
+            // 跳转到设备详情页面，地址栏末尾包含设备ID
+            window.location.href = `/device.html?id=${id}`;
         }
 
         function editDevice(id) { showDeviceModal(id); }
@@ -2307,6 +2627,16 @@
             await loadWarehouses();
             await loadTagStats();
             if (warehouses.length > 0) selectWarehouse(warehouses[0].id, warehouses[0].name);
+
+            // 检查URL参数，如果有edit参数，自动打开编辑模态框
+            const urlParams = new URLSearchParams(window.location.search);
+            const editDeviceId = urlParams.get('edit');
+            if (editDeviceId) {
+                // 等待设备数据加载完成后再打开编辑模态框
+                setTimeout(() => {
+                    editDevice(parseInt(editDeviceId));
+                }, 500);
+            }
         });
     </script>
 </body>
