@@ -3,29 +3,23 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const mysql = require('mysql');
 const path = require('path');
+const { active, dbConfig } = require('./db.config');
 
 const app = express();
 const PORT = 3000;
 
-// MySQL 连接配置（TiDB Cloud）
+// MySQL 连接配置
 const pool = mysql.createPool({
-    host: 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
-    port: 4000,
-    user: 'WYqCciHtZyezMP6.root',
-    password: 'i6sVtriNBwHr4ZCj',
-    database: 'DMS',
-    ssl: {
-        rejectUnauthorized: false
-    },
+    ...dbConfig[active],
     connectionLimit: 10
 });
 
 // 测试连接
 pool.getConnection((err, connection) => {
     if (err) {
-        console.error('MySQL 连接失败:', err.message);
+        console.error(`MySQL [${active}] 连接失败:`, err.message);
     } else {
-        console.log('✅ MySQL 连接成功');
+        console.log(`✅ MySQL [${active}] 连接成功`);
         connection.release();
     }
 });
