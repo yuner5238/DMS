@@ -1,0 +1,11 @@
+name = "dms-worker"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# TiDB 连接信息
+[vars]
+TIDB_HOST = "gateway01.ap-northeast-1.prod.aws.tidbcloud.com"
+TIDB_PORT = "4000"
+TIDB_DATABASE = "DMS"
+TIDB_USERNAME = "WYqCciHtZyezMP6.root"
+# 密码用 wrangler secret put TIDB_PASSWORD 设置
