@@ -1,31 +1,5 @@
 // Cloudflare Workers 后端 - DMS 仓库资产管理系统
-// 连接 TiDB Serverless (MySQL)
-
-// ============ 数据库连接 ============
-async function query(env, sql, params = []) {
-    const url = `https://${env.TIDB_HOST}/v1beta/sql`;
-    
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${btoa(`${env.TIDB_USERNAME}:${env.TIDB_PASSWORD}`)}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            database: env.TIDB_DATABASE,
-            sql: sql,
-            params: params
-        })
-    });
-    
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Database error: ${error}`);
-    }
-    
-    const result = await response.json();
-    return result.data || [];
-}
+// 使用 Cloudflare D1 数据库
 
 // ============ 路由处理 ============
 export default {
@@ -108,41 +82,40 @@ export default {
 // ============ 仓库操作 ============
 
 async function getWarehouses(env) {
-    const rows = await query(env, 'SELECT * FROM warehouses ORDER BY id');
-    return jsonResponse(rows);
+    const result = await env.DB.prepare('SELECT * FROM warehouses ORDER BY id').all();
+    return jsonResponse(result.results);
 }
 
 async function createWarehouse(request, env) {
     const { name, description } = await request.json();
     if (!name) return jsonResponse({ error: '仓库名称不能为空' }, 400);
 
-    const result = await query(env, 
-        'INSERT INTO warehouses (name, description) VALUES (?, ?)',
-        [name, description || '']
-    );
+    const result = await env.DB.prepare(
+        'INSERT INTO warehouses (name, description) VALUES (?, ?)'
+    ).bind(name, description || '').run();
 
-    return jsonResponse({ id: result.insertId || result.last_insert_id, name, description });
+    return jsonResponse({ id: result.meta.last_row_id, name, description });
 }
 
 async function updateWarehouse(request, env, id) {
     const { name, description } = await request.json();
-    await query(env,
-        'UPDATE warehouses SET name=?, description=?, updated_at=CURRENT_TIMESTAMP WHERE id=?',
-        [name, description || '', id]
-    );
+    await env.DB.prepare(
+        'UPDATE warehouses SET name=?, description=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
+    ).bind(name, description || '', id).run();
 
     return jsonResponse({ id, name, description });
 }
 
 async function deleteWarehouse(env, id) {
-    const warehouses = await query(env, 'SELECT name FROM warehouses WHERE id=?', [id]);
+    const warehouse = await env.DB.prepare(
+        'SELECT name FROM warehouses WHERE id=?'
+    ).bind(id).first();
 
-    if (warehouses.length > 0) {
-        const warehouseName = warehouses[0].name;
-        await query(env, 'DELETE FROM devices WHERE warehouse_name=?', [warehouseName]);
+    if (warehouse) {
+        await env.DB.prepare('DELETE FROM devices WHERE warehouse_name=?').bind(warehouse.name).run();
     }
 
-    await query(env, 'DELETE FROM warehouses WHERE id=?', [id]);
+    await env.DB.prepare('DELETE FROM warehouses WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
 }
 
@@ -157,10 +130,10 @@ async function getDevices(request, env) {
     let params = [];
 
     if (warehouseId) {
-        const wh = await query(env, 'SELECT name FROM warehouses WHERE id=?', [warehouseId]);
-        if (wh.length > 0) {
+        const wh = await env.DB.prepare('SELECT name FROM warehouses WHERE id=?').bind(warehouseId).first();
+        if (wh) {
             sql += ' WHERE warehouse_name=?';
-            params = [wh[0].name];
+            params = [wh.name];
         }
     } else if (warehouseName) {
         sql += ' WHERE warehouse_name=?';
@@ -169,25 +142,22 @@ async function getDevices(request, env) {
 
     sql += ' ORDER BY id';
 
-    const rows = await query(env, sql, params);
-    return jsonResponse(rows);
+    const result = params.length > 0
+        ? await env.DB.prepare(sql).bind(...params).all()
+        : await env.DB.prepare(sql).all();
+
+    return jsonResponse(result.results);
 }
 
 async function getDevice(env, id) {
-    const rows = await query(env, 'SELECT * FROM devices WHERE id=?', [id]);
-
-    if (rows.length === 0) {
-        return jsonResponse({ error: '设备不存在' }, 404);
-    }
-    return jsonResponse(rows[0]);
+    const device = await env.DB.prepare('SELECT * FROM devices WHERE id=?').bind(id).first();
+    if (!device) return jsonResponse({ error: '设备不存在' }, 404);
+    return jsonResponse(device);
 }
 
 async function createDevice(request, env) {
     const body = await request.json();
-    const {
-        warehouseName, name, tag_name, status, quantity,
-        storage_location, remark, location_status, destination, checkin_time
-    } = body;
+    const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
     if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
@@ -195,55 +165,37 @@ async function createDevice(request, env) {
     const locStatus = location_status || 'in_stock';
     const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
 
-    const result = await query(env,
-        `INSERT INTO devices
-            (warehouse_name, name, tag_name, status, quantity, storage_location,
-             location_status, destination, remark, checkin_time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-            warehouseName, name, tag_name || '', status || '正常',
-            quantity || 1, storage_location || '', locStatus,
-            destination || '', remark || '', checkinTime
-        ]
-    );
+    const result = await env.DB.prepare(
+        `INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        warehouseName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime
+    ).run();
 
-    return jsonResponse({ id: result.insertId || result.last_insert_id, warehouseName, name });
+    return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
 }
 
 async function updateDevice(request, env, id) {
     const body = await request.json();
-    const {
-        warehouseName, name, tag_name, status, quantity,
-        storage_location, remark, location_status, destination,
-        checkin_time, checkout_time
-    } = body;
+    const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = body;
 
-    await query(env,
-        `UPDATE devices SET
-            warehouse_name=?, name=?, tag_name=?, status=?, quantity=?,
-            storage_location=?, location_status=?, destination=?, remark=?,
-            checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP
-         WHERE id=?`,
-        [
-            warehouseName, name, tag_name || '', status, quantity || 1,
-            storage_location || '', location_status || 'in_stock',
-            destination || '', remark || '',
-            checkin_time || null, checkout_time || null, id
-        ]
-    );
+    await env.DB.prepare(
+        `UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+    ).bind(
+        warehouseName, name, tag_name || '', status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, id
+    ).run();
 
     return jsonResponse({ id, warehouseName, name });
 }
 
 async function deleteDevice(env, id) {
-    await query(env, 'DELETE FROM devices WHERE id=?', [id]);
+    await env.DB.prepare('DELETE FROM devices WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
 }
 
 // ============ 标签操作 ============
 
 async function getTags(env) {
-    const rows = await query(env, `
+    const result = await env.DB.prepare(`
         SELECT t.id, t.name,
                COUNT(DISTINCT dt.device_id) as device_count,
                COALESCE(SUM(d.quantity), 0) as total_quantity
@@ -252,28 +204,27 @@ async function getTags(env) {
         LEFT JOIN devices d ON dt.device_id = d.id
         GROUP BY t.id, t.name
         ORDER BY t.name
-    `);
-    return jsonResponse(rows);
+    `).all();
+    return jsonResponse(result.results);
 }
 
 async function createTag(request, env) {
     const { name } = await request.json();
     if (!name) return jsonResponse({ error: '标签名称不能为空' }, 400);
 
-    const result = await query(env, 'INSERT INTO tags (name) VALUES (?)', [name]);
-
-    return jsonResponse({ id: result.insertId || result.last_insert_id, name });
+    const result = await env.DB.prepare('INSERT INTO tags (name) VALUES (?)').bind(name).run();
+    return jsonResponse({ id: result.meta.last_row_id, name });
 }
 
 async function updateTag(request, env, id) {
     const { name } = await request.json();
-    await query(env, 'UPDATE tags SET name=? WHERE id=?', [name, id]);
+    await env.DB.prepare('UPDATE tags SET name=? WHERE id=?').bind(name, id).run();
     return jsonResponse({ id, name });
 }
 
 async function deleteTag(env, id) {
-    await query(env, 'DELETE FROM device_tags WHERE tag_id=?', [id]);
-    await query(env, 'DELETE FROM tags WHERE id=?', [id]);
+    await env.DB.prepare('DELETE FROM device_tags WHERE tag_id=?').bind(id).run();
+    await env.DB.prepare('DELETE FROM tags WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
 }
 
@@ -283,13 +234,7 @@ async function getTagStats(request, env) {
     const url = new URL(request.url);
     const warehouseName = url.searchParams.get('warehouseName');
 
-    let sql = `
-        SELECT tag_name as name,
-               COUNT(*) as device_count,
-               SUM(quantity) as total_count
-        FROM devices
-        WHERE tag_name IS NOT NULL AND tag_name != ''
-    `;
+    let sql = `SELECT tag_name as name, COUNT(*) as device_count, SUM(quantity) as total_count FROM devices WHERE tag_name IS NOT NULL AND tag_name != ''`;
     let params = [];
 
     if (warehouseName) {
@@ -299,8 +244,11 @@ async function getTagStats(request, env) {
 
     sql += ' GROUP BY tag_name ORDER BY total_count DESC';
 
-    const rows = await query(env, sql, params);
-    return jsonResponse(rows);
+    const result = params.length > 0
+        ? await env.DB.prepare(sql).bind(...params).all()
+        : await env.DB.prepare(sql).all();
+
+    return jsonResponse(result.results);
 }
 
 // ============ 工具函数 ============
