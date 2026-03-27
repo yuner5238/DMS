@@ -20,6 +20,12 @@ DMS/
 │   ├── wrangler.toml
 │   ├── schema.sql
 │   └── import.sql
+├── functions/           # ⚠️ 已废弃，不再使用（旧版 Pages Functions 后端代码）
+│   └── api/
+│       ├── warehouses/
+│       ├── devices/
+│       ├── tags/
+│       └── tag-stats/
 ├── wrangler.toml        # Pages 静态托管配置
 ├── package.json
 └── 启动服务器.bat
