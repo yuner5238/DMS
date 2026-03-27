@@ -49,9 +49,7 @@ DMS/
 ### 连接方式
 
 - 前端访问 `http://localhost:3000`，API 请求走 `/api` → Node.js 后端 → TiDB Cloud
-
 - 数据库连接配置在 `.env` 文件中：
-  
   ```
   DB_CLOUD_HOST=gateway01.ap-northeast-1.prod.aws.tidbcloud.com
   DB_CLOUD_PORT=4000
@@ -80,6 +78,14 @@ node server/index.js
 # 3. 访问 http://localhost:3000
 ```
 
+### 更新方式
+
+| 组件 | 更新方式 |
+|------|---------|
+| 前端 | 修改 `public/` 下的文件，刷新页面即可生效，无需重启 |
+| 后端 | 修改 `server/index.js` 后，需 Ctrl+C 停止后重新运行 `node server/index.js` |
+| 数据库 | 使用 TiDB Cloud Console 或 Navicat 直接在云端修改 |
+
 ---
 
 ## 云端部署（Workers + D1）
@@ -99,15 +105,43 @@ node server/index.js
 
 ### 部署
 
-```bash
-# 1. 部署 Worker 后端（在 DMS/worker/ 目录下执行）
-cd C:\Users\yuner\Documents\My_Workspace\code\DMS\worker
-npx wrangler deploy
+**前端部署**
 
-# 2. 部署前端到 Pages（在 DMS/ 目录下执行）
+方式一：Git 自动部署（推荐）
+1. 在 Cloudflare Dashboard → **Workers & Pages → dms → Settings → Deployment → Git** 中关联 GitHub 仓库
+2. 选择 GitHub 仓库和分支（默认 `master`）
+3. 配置构建选项：
+   - **Framework preset**: `None`
+   - **Build command**: 留空
+   - **Build output directory**: `public`
+4. 保存后，每次 `git push` 到 GitHub，Cloudflare 自动构建并部署
+
+方式二：命令行部署
+```bash
+# 部署前端到 Pages（在 DMS/ 目录下执行）
 cd C:\Users\yuner\Documents\My_Workspace\code\DMS
 npx wrangler pages deploy public --project-name=dms --commit-dirty=true
 ```
+
+**后端部署**
+
+```bash
+# 部署 Worker 后端（在 DMS/worker/ 目录下执行）
+cd C:\Users\yuner\Documents\My_Workspace\code\DMS\worker
+npx wrangler deploy
+```
+
+**数据库部署**
+
+D1 数据库已自动绑定，无需额外部署步骤。如需初始化数据库，请参考下方"数据库操作"部分。
+
+### 更新方式
+
+| 组件 | 更新方式 |
+|------|---------|
+| 前端 | 修改 `public/` 后执行部署命令：`npx wrangler pages deploy public --project-name=dms --commit-dirty=true` |
+| 后端 | 修改 `worker/index.js` 后执行部署命令：`cd worker && npx wrangler deploy` |
+| 数据库 | 执行导入/导出命令（见下方）或在 Cloudflare Dashboard → D1 → dms-db → Console 中在线执行 SQL |
 
 ### D1 数据库导入导出
 
