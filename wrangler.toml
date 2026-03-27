@@ -1,11 +1,2 @@
 name = "dms"
-compatibility_date = "2024-01-01"
-
-# Pages 项目配置
 pages_build_output_dir = "public"
-
-# 绑定 D1 数据库
-[[d1_databases]]
-binding = "DB"
-database_name = "dms-db"
-database_id = "a57bd321-c1ab-427e-a06d-41073992ab06"
