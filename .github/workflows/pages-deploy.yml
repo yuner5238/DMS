@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'public/**'
+      - 'functions/**'
       - '.github/workflows/pages-deploy.yml'
     branches:
       - master

@@ -1,22 +1,25 @@
-// Cloudflare Pages Functions - API 代理
-// 将前端请求代理到后端 Worker
+// Cloudflare Pages Functions - 中间件
+// 拦截所有 /api/* 请求并代理到 Worker
 
 const WORKER_API_URL = 'https://dms-worker.171519019.workers.dev/api';
 
 export async function onRequest(context) {
-    const { request, env } = context;
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/^\/api/, '');
+    const url = new URL(context.request.url);
 
-    // 构造 Worker API URL
+    // 只处理 /api/* 路径的请求
+    if (!url.pathname.startsWith('/api')) {
+        return context.next();
+    }
+
+    const path = url.pathname.replace(/^\/api/, '');
     const workerUrl = `${WORKER_API_URL}${path}${url.search}`;
 
     try {
         // 代理请求到 Worker
         const response = await fetch(workerUrl, {
-            method: request.method,
-            headers: request.headers,
-            body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.blob()
+            method: context.request.method,
+            headers: context.request.headers,
+            body: ['GET', 'HEAD'].includes(context.request.method) ? undefined : await context.request.blob()
         });
 
         // 添加 CORS 头
@@ -27,19 +30,20 @@ export async function onRequest(context) {
         };
 
         // 处理 OPTIONS 预检请求
-        if (request.method === 'OPTIONS') {
+        if (context.request.method === 'OPTIONS') {
             return new Response(null, { headers: corsHeaders });
         }
 
         // 返回响应
-        const contentType = response.headers.get('content-type') || 'application/json';
-        return new Response(response.body, {
+        const newResponse = new Response(response.body, {
             status: response.status,
             headers: {
                 ...Object.fromEntries(response.headers.entries()),
                 ...corsHeaders
             }
         });
+
+        return newResponse;
     } catch (error) {
         console.error('API 代理错误:', error);
         return new Response(JSON.stringify({
