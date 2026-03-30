@@ -971,8 +971,8 @@
             }
 
             /* 移动端按钮文字简化 */
-            .checkout-btn::after { content: " 出库"; }
-            .checkin-btn::after { content: " 入库"; }
+            .checkout-btn::after { content: "  出库"; }
+            .checkin-btn::after { content: "  入库"; }
         }
 
         /* ========== 平板端优化 (769px - 1024px) ========== */
@@ -1242,11 +1242,8 @@
                 min-width: 70px;
             }
 
-            .checkout-btn::after { content: ""; }
-            .checkin-btn::after { content: ""; }
-
-            .checkout-btn::before { content: "出库"; }
-            .checkin-btn::before { content: "入库"; }
+            .checkout-btn::after { content: "  出库"; }
+            .checkin-btn::after { content: "  入库"; }
 
             /* 小屏上隐藏图标 */
 
@@ -2301,11 +2298,24 @@
             if (!data.name) { alert('请输入设备名称'); return; }
 
             try {
-                if (id) await fetch(`${API_BASE}/devices/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-                else await fetch(`${API_BASE}/devices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                let res;
+                if (id) {
+                    res = await fetch(`${API_BASE}/devices/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                } else {
+                    res = await fetch(`${API_BASE}/devices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                }
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errorText}`);
+                }
+
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
                 await loadDevices(); await loadWarehouses(); await loadTagStats();
-            } catch (e) { alert('保存失败: ' + e.message); }
+            } catch (e) {
+                console.error('保存失败:', e);
+                alert('保存失败: ' + e.message);
+            }
         }
 
         async function deleteDevice() {
