@@ -12,15 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          
+          node-version: '20'
+
       - name: Install Wrangler CLI
         run: npm install -g wrangler
-        
+
       - name: Deploy to Cloudflare Workers
         run: cd worker && wrangler deploy
         env:
