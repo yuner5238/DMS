@@ -2640,6 +2640,13 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             initSidebarResize();
+            // 移动端：确保侧边栏初始状态是关闭的
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.querySelector('.sidebar-overlay');
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
             await loadWarehouses();
             if (warehouses.length > 0) {
                 await selectWarehouse(warehouses[0].id, warehouses[0].name);
