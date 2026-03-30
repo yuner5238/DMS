@@ -268,6 +268,29 @@
         }
         .warehouse-actions .btn { padding: 2px 6px; font-size: 11px; }
 
+        /* 移动端仓库操作按钮常态显示 */
+        @media (max-width: 768px) {
+            .warehouse-actions {
+                opacity: 1 !important;
+                transition: none;
+                right: 2px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            .warehouse-card:hover .warehouse-actions {
+                opacity: 1 !important;
+            }
+            .warehouse-actions .btn-sm {
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+            }
+            .warehouse-actions .btn-sm i {
+                font-size: 11px;
+                line-height: 20px;
+            }
+        }
+
         /* 标签徽章 - Win11风格 */
         .tag-badge {
             display: inline-block;
@@ -1225,13 +1248,7 @@
             .checkout-btn::before { content: "出库"; }
             .checkin-btn::before { content: "入库"; }
 
-            /* 删除按钮和修改按钮显示文字 */
-            .btn-outline-danger::before { content: "删除"; }
-            .btn-outline-primary::before { content: "修改"; }
-
             /* 小屏上隐藏图标 */
-            .btn-outline-danger i,
-            .btn-outline-primary i { display: none; }
 
             /* 小屏手机详情更紧凑 */
             .device-item .device-details {
@@ -1275,7 +1292,7 @@
                         <i class="bi bi-x-lg"></i>
                     </button>
                     <div class="sidebar-header">
-                        <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统 <small style="font-size: 12px; color: var(--text-muted); font-weight: normal;">v2026.3.30.23.00</small></h5>
+                        <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统 <small style="font-size: 12px; color: var(--text-muted); font-weight: normal;">v2026.3.30.23.18</small></h5>
                         <button class="sidebar-toggle-pc" onclick="toggleSidebarPC()" title="收起侧边栏">
                             <i class="bi bi-chevron-left"></i>
                         </button>
