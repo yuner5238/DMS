@@ -289,6 +289,11 @@
                 font-size: 11px;
                 line-height: 20px;
             }
+
+            /* 移动端隐藏 PC 端的侧边栏收缩按钮 */
+            .sidebar-toggle-pc {
+                display: none !important;
+            }
         }
 
         /* 标签徽章 - Win11风格 */
@@ -1286,7 +1291,7 @@
                 <div class="col-md-3 sidebar" id="sidebar">
                     <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
                     <button class="sidebar-close-btn" onclick="toggleSidebar()" title="关闭">
-                        <i class="bi bi-x-lg"></i>
+                        <i class="bi bi-chevron-left"></i>
                     </button>
                     <div class="sidebar-header">
                         <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统 <small style="font-size: 12px; color: var(--text-muted); font-weight: normal;">v2026.3.30.23.18</small></h5>
@@ -1345,7 +1350,7 @@
                     <!-- PC端收起后的展开按钮 -->
                     <div class="d-none d-md-flex align-items-center mb-3" id="pcToolbar">
                         <button class="sidebar-expand-btn" onclick="toggleSidebarPC()" title="展开侧边栏">
-                            <i class="bi bi-list"></i>
+                            <i class="bi bi-chevron-right"></i>
                         </button>
                     </div>
 
@@ -2626,6 +2631,14 @@
 
         // 侧边栏收纳/展开控制（PC端）
         function toggleSidebarPC() {
+            // 检测是否为移动端
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                // 移动端调用 toggleSidebar
+                toggleSidebar();
+                return;
+            }
+
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
         }
