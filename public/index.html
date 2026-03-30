@@ -1733,10 +1733,11 @@
     <script>
         // ===== API 配置（自动切换）=====
         // 本地开发（Node.js + MySQL）：http://localhost:3000 → 走本地 /api
-        // 云端部署（Workers + D1）：https://xxx.pages.dev → 走 Worker API
+        // 云端部署（Pages Functions）：使用相对路径，直接调用 Pages Functions
+        // 备用方案：如果 Pages Functions 不可用，回退到 Worker
         const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
             ? '/api'
-            : 'https://dms-worker.171519019.workers.dev/api';
+            : '/api';  // 优先使用同域名的 Pages Functions
         // ===================
         
         let currentWarehouseId = null;
