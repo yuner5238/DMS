@@ -2312,6 +2312,12 @@
 
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
                 await loadDevices(); await loadWarehouses(); await loadTagStats();
+
+                // 清除URL中的edit参数，避免重新加载时自动打开编辑弹窗
+                if (window.location.search.includes('edit=')) {
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
             } catch (e) {
                 console.error('保存失败:', e);
                 alert('保存失败: ' + e.message);
@@ -2325,6 +2331,12 @@
                 await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
                 bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
                 await loadDevices(); await loadWarehouses(); await loadTagStats();
+
+                // 清除URL中的edit参数，避免重新加载时自动打开编辑弹窗
+                if (window.location.search.includes('edit=')) {
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
             } catch (e) { alert('删除失败: ' + e.message); }
         }
 
@@ -2509,7 +2521,7 @@
                 textarea.value = encodeRichText(richTextEditor.innerHTML);
             }
 
-            // 关闭模态框 - 使用多种方法确保关闭
+            // 关闭富文本编辑器模态框 - 使用多种方法确保关闭
             try {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('richTextEditorModal'));
                 if (modal) {
@@ -2537,6 +2549,11 @@
                     modalEl.style.display = 'none';
                 }
             }
+
+            // 自动保存设备信息
+            setTimeout(() => {
+                saveDevice();
+            }, 300);
         }
 
         // ============ 标签操作 ============
@@ -2687,12 +2704,33 @@
             await loadTagStats();
             await updateStats();
 
+            // 监听设备编辑弹窗关闭事件，清除URL参数
+            const deviceModal = document.getElementById('deviceModal');
+            if (deviceModal) {
+                deviceModal.addEventListener('hidden.bs.modal', () => {
+                    if (window.location.search.includes('edit=')) {
+                        const newUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                    }
+                });
+            }
+
             // 检查URL参数，如果有edit参数，自动打开编辑模态框
             const urlParams = new URLSearchParams(window.location.search);
             const editDeviceId = urlParams.get('edit');
+            console.log('URL参数检查:', { editDeviceId, currentUrl: window.location.href });
             if (editDeviceId) {
+                console.log('准备打开编辑弹窗，设备ID:', editDeviceId);
                 setTimeout(() => {
-                    editDevice(parseInt(editDeviceId));
+                    // 确保设备数据已加载
+                    if (allDevices && allDevices.find(d => d.id === parseInt(editDeviceId))) {
+                        editDevice(parseInt(editDeviceId));
+                    } else {
+                        console.warn('设备未找到，延迟重试');
+                        setTimeout(() => {
+                            editDevice(parseInt(editDeviceId));
+                        }, 500);
+                    }
                 }, 500);
             }
         });
