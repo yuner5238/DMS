@@ -1871,8 +1871,14 @@
             await loadDevices();
             // 加载标签统计（总仓库时传 null，其他传仓库名）
             await loadTagStats(currentWarehouseName);
-            // 移动端选择仓库后自动收起侧边栏
-            if (window.innerWidth <= 768) toggleSidebar();
+            // 移动端选择仓库后自动收起侧边栏（仅当侧边栏当前是打开状态时）
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.querySelector('.sidebar-overlay');
+                if (sidebar.classList.contains('show')) {
+                    toggleSidebar();
+                }
+            }
         }
 
         // 加载设备
