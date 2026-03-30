@@ -6,6 +6,15 @@
 
 ---
 
+## 常用网址
+
+| 平台 | 网址 | 说明 |
+| --- | --- | --- |
+| Cloudflare Dashboard | [https://dash.cloudflare.com/](https://dash.cloudflare.com/) | Cloudflare 控制台，用于管理 Workers（后端）、Pages（前端）、D1（数据库）等服务 |
+| TiDB Cloud | [https://tidbcloud.com/](https://tidbcloud.com/) | TiDB 云数据库控制台，用于管理本地开发环境的数据库 |
+
+---
+
 ## 项目结构
 
 ```
@@ -20,7 +29,7 @@ DMS/
 │   ├── wrangler.toml
 │   ├── schema.sql
 │   └── import.sql
-├── functions/           # ⚠️ 已废弃，不再使用（旧版 Pages Functions 后端代码）
+├── functions_deprecated_not_used/  # ⚠️ 已废弃，不再使用（旧版 Pages Functions 后端代码）
 │   └── api/
 │       ├── warehouses/
 │       ├── devices/
@@ -50,18 +59,17 @@ DMS/
 | --- | ------------------------- | -------------------------------------------------------------------------- |
 | 前端  | `public/`（本地项目目录）         | HTML + Bootstrap 静态页面，由 Node.js 托管                                         |
 | 后端  | `server/index.js`（本地项目目录） | Express 服务，监听 3000 端口                                                      |
-| 数据库 | TiDB Cloud（云端）            | `gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000`，数据库名 `DMS`，MySQL 协议 |
+| 数据库 | TiDB Cloud（云端）            | 连接信息配置在 `.env` 文件中（参考 `.env.example`）                              |
 
 ### 连接方式
 
 - 前端访问 `http://localhost:3000`，API 请求走 `/api` → Node.js 后端 → TiDB Cloud
-- 数据库连接配置在 `.env` 文件中：
-  ```
-  DB_CLOUD_HOST=gateway01.ap-northeast-1.prod.aws.tidbcloud.com
-  DB_CLOUD_PORT=4000
-  DB_CLOUD_USER=WYqCciHtZyezMP6.root
-  DB_CLOUD_PASSWORD=******
-  DB_CLOUD_DATABASE=DMS
+- 数据库连接配置在 `.env` 文件中，参考 `.env.example` 文件进行配置：
+  ```bash
+  # 复制示例文件
+  cp .env.example .env
+
+  # 编辑 .env 文件，填写实际的数据库连接信息
   ```
 
 ### 启动方式
