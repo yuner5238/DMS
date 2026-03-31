@@ -72,6 +72,18 @@ export default {
                 return await getTagStats(request, env);
             }
 
+            // ===== 公告 API =====
+            if (path === '/api/announcements' && method === 'GET') {
+                return await getAnnouncements(env);
+            }
+            if (path === '/api/announcements' && method === 'POST') {
+                return await createAnnouncement(request, env);
+            }
+            if (path.match(/^\/api\/announcements\/\d+$/) && method === 'DELETE') {
+                const id = path.split('/').pop();
+                return await deleteAnnouncement(env, id);
+            }
+
             return jsonResponse({ error: 'Not Found' }, 404);
         } catch (err) {
             console.error(err);
@@ -250,6 +262,35 @@ async function getTagStats(request, env) {
         : await env.DB.prepare(sql).all();
 
     return jsonResponse(result.results);
+}
+
+// ============ 公告操作 ============
+
+async function getAnnouncements(env) {
+    const result = await env.DB.prepare('SELECT * FROM announcements ORDER BY created_at DESC').all();
+    return jsonResponse({ success: true, data: result.results });
+}
+
+async function createAnnouncement(request, env) {
+    const { content } = await request.json();
+    if (!content) return jsonResponse({ success: false, error: '公告内容不能为空' }, 400);
+
+    // 获取北京时间（UTC+8）
+    const now = new Date();
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const beijingTimeStr = beijingTime.toISOString().slice(0, 19).replace('T', ' ');
+
+    const result = await env.DB.prepare(
+        'INSERT INTO announcements (content, created_at) VALUES (?, ?)'
+    ).bind(content, beijingTimeStr).run();
+
+    const announcement = await env.DB.prepare('SELECT * FROM announcements WHERE id=?').bind(result.meta.last_row_id).first();
+    return jsonResponse({ success: true, data: announcement });
+}
+
+async function deleteAnnouncement(env, id) {
+    await env.DB.prepare('DELETE FROM announcements WHERE id=?').bind(id).run();
+    return jsonResponse({ success: true });
 }
 
 // ============ 工具函数 ============

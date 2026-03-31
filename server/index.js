@@ -317,6 +317,54 @@ app.get('/api/tag-stats', async (req, res) => {
     }
 });
 
+// ============ 公告 API ============
+
+// 获取所有公告
+app.get('/api/announcements', async (req, res) => {
+    try {
+        const announcements = await query('SELECT * FROM announcements ORDER BY created_at DESC');
+        res.json({ success: true, data: announcements });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 添加公告
+app.post('/api/announcements', async (req, res) => {
+    try {
+        const { content } = req.body;
+        if (!content) {
+            return res.status(400).json({ success: false, error: '公告内容不能为空' });
+        }
+
+        // 获取北京时间（UTC+8）
+        const now = new Date();
+        const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+        const beijingTimeStr = beijingTime.toISOString().slice(0, 19).replace('T', ' ');
+
+        const result = await query(
+            'INSERT INTO announcements (content, created_at) VALUES (?, ?)',
+            [content, beijingTimeStr]
+        );
+
+        const announcements = await query('SELECT * FROM announcements WHERE id=?', [result.insertId]);
+        res.json({ success: true, data: announcements[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+// 删除公告
+app.delete('/api/announcements/:id', async (req, res) => {
+    try {
+        await query('DELETE FROM announcements WHERE id=?', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // 静态文件服务（放在最后以避免与API路由冲突）
 app.use(express.static(path.join(__dirname, '../public')));
 

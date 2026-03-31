@@ -41,3 +41,10 @@ CREATE TABLE IF NOT EXISTS device_tags (
     tag_id INTEGER NOT NULL,
     PRIMARY KEY (device_id, tag_id)
 );
+
+-- 公告表
+CREATE TABLE IF NOT EXISTS announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

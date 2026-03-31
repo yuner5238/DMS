@@ -34,6 +34,9 @@
             --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
             --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --announcement-bg: #fff3cd;
+            --announcement-border: #ffc107;
+            --announcement-text: #856404;
         }
 
         *, *::before, *::after { box-sizing: border-box; font-family: 'Segoe UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -1278,10 +1281,231 @@
             color: #6c757d;
             display: block;
         }
+
+        /* ========== 公告栏样式 ========== */
+        .announcement-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .announcement-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 20px;
+            background: #fafafa;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .announcement-header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .announcement-header-title i {
+            color: var(--info);
+        }
+
+        .add-announcement-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .add-announcement-btn:hover {
+            background: var(--info);
+            border-color: var(--info);
+            color: white;
+        }
+
+        .announcement-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-card);
+        }
+
+        .announcement-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+
+        .announcement-item:hover {
+            background: #f5f5f5;
+        }
+
+        .announcement-item:last-child {
+            border-bottom: none;
+        }
+
+        .announcement-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 18px;
+            line-height: 1;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            opacity: 0.6;
+        }
+
+        .announcement-close:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--danger);
+            opacity: 1;
+        }
+
+        .announcement-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .announcement-time {
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            white-space: nowrap;
+            font-weight: 400;
+        }
+
+        .announcement-text {
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 400;
+        }
+
+        /* 移动端公告栏 */
+        @media (max-width: 768px) {
+            .announcement-header {
+                padding: 8px 16px;
+            }
+
+            .announcement-header-title {
+                display: none;
+            }
+
+            .announcement-list {
+                display: none;
+            }
+
+            .announcement-bar.collapsed .announcement-list {
+                display: block;
+            }
+
+            .announcement-badge {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                background: var(--info);
+                color: white;
+                border-radius: 50%;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .announcement-badge:hover {
+                background: var(--primary-hover);
+            }
+
+            .announcement-badge.hidden {
+                display: none;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .announcement-badge {
+                display: none;
+            }
+        }
+
+        /* 移动端公告列表展开时的样式 */
+        @media (max-width: 768px) {
+            .announcement-bar.collapsed {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 2000;
+                max-height: 50vh;
+                overflow-y: auto;
+                box-shadow: var(--shadow-lg);
+            }
+
+            .announcement-bar.collapsed .announcement-header {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                background: #fafafa;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .announcement-item {
+                padding: 12px 16px;
+            }
+
+            .announcement-text {
+                font-size: 13px;
+            }
+
+            .announcement-time {
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid">
+        <!-- 公告栏 -->
+        <div class="announcement-bar" id="announcementBar">
+            <div class="announcement-header">
+                <div class="announcement-header-title">
+                    <i class="bi bi-megaphone"></i>
+                    <span>公告栏</span>
+                </div>
+                <button class="add-announcement-btn" onclick="showAnnouncementModal()">
+                    <i class="bi bi-plus"></i> 新增公告
+                </button>
+                <div class="announcement-badge" id="announcementBadge" onclick="toggleAnnouncementMobile()"></div>
+            </div>
+            <div class="announcement-list" id="announcementList">
+                <div class="text-center py-3 text-muted" style="font-size: 13px;">
+                    暂无公告
+                </div>
+            </div>
+        </div>
+
         <div class="main-card">
             <div class="row g-0">
                 <!-- 遮罩层 -->
@@ -1381,6 +1605,30 @@
             </div>
         </div>
     </div>
+
+    <!-- 公告Modal -->
+    <div class="modal fade" id="announcementModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-megaphone"></i> 新增公告</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">公告内容 *</label>
+                        <textarea class="form-control" id="announcementContent" rows="4" placeholder="请输入公告内容..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAnnouncement()">发布</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 
     <!-- 仓库Modal -->
     <div class="modal fade" id="warehouseModal" tabindex="-1">
@@ -1744,33 +1992,52 @@
             ? '/api'
             : '/api';  // 优先使用同域名的 Pages Functions
         // ===================
-        
+
         let currentWarehouseId = null;
         let currentWarehouseName = null;
         let allDevices = [];
         let warehouses = [];
         let tagStats = [];
         let currentTagFilter = null;
+        let announcements = [];
+        let dismissedAnnouncements = new Set();
 
-        // 格式化时间
+        // 格式化时间（北京时间）
         function formatTime(timeStr) {
             if (!timeStr) return '';
             const date = new Date(timeStr);
-            return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            // 转换为北京时间（UTC+8）
+            const beijingDate = new Date(date.getTime() + (8 * 60 * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
+            const month = String(beijingDate.getMonth() + 1).padStart(2, '0');
+            const day = String(beijingDate.getDate()).padStart(2, '0');
+            const hour = String(beijingDate.getHours()).padStart(2, '0');
+            const minute = String(beijingDate.getMinutes()).padStart(2, '0');
+            return `${month}/${day} ${hour}:${minute}`;
         }
 
-        // 格式化日期（设备列表用）
+        // 格式化日期（设备列表用，北京时间）
         function formatDate(timeStr) {
             if (!timeStr) return '';
             const date = new Date(timeStr);
-            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+            // 转换为北京时间（UTC+8）
+            const beijingDate = new Date(date.getTime() + (8 * 60 * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
+            return `${beijingDate.getFullYear()}.${String(beijingDate.getMonth() + 1).padStart(2, '0')}.${String(beijingDate.getDate()).padStart(2, '0')}`;
         }
 
-        // 格式化日期为 MySQL datetime 格式
+        // 格式化日期为 MySQL datetime 格式（北京时间）
         function formatDateTime(date) {
             const d = new Date(date);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+            // 转换为北京时间（UTC+8）
+            const beijingDate = new Date(d.getTime() + (8 * 60 * 60 * 1000) + (d.getTimezoneOffset() * 60 * 1000));
+            const year = beijingDate.getFullYear();
+            const month = String(beijingDate.getMonth() + 1).padStart(2, '0');
+            const day = String(beijingDate.getDate()).padStart(2, '0');
+            const hour = String(beijingDate.getHours()).padStart(2, '0');
+            const minute = String(beijingDate.getMinutes()).padStart(2, '0');
+            const second = String(beijingDate.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
         }
+
 
         // 显示备注预览
         function showRemarkPreview(deviceName, remark) {
@@ -2482,6 +2749,120 @@
             return text.trim();
         }
 
+        // ========== 公告相关功能 ==========
+
+        // 加载公告列表
+        async function loadAnnouncements() {
+            try {
+                const response = await fetch('/api/announcements');
+                const data = await response.json();
+                if (data.success) {
+                    announcements = data.data || [];
+                    renderAnnouncements();
+                }
+            } catch (error) {
+                console.error('加载公告失败:', error);
+            }
+        }
+
+        // 渲染公告列表
+        function renderAnnouncements() {
+            const announcementList = document.getElementById('announcementList');
+            const announcementBadge = document.getElementById('announcementBadge');
+            const announcementBar = document.getElementById('announcementBar');
+
+            // 过滤未被关闭的公告
+            const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.has(a.id));
+
+            // 移动端：更新公告徽章
+            if (window.innerWidth <= 768) {
+                if (visibleAnnouncements.length > 0) {
+                    announcementBadge.textContent = visibleAnnouncements.length;
+                    announcementBadge.classList.remove('hidden');
+                } else {
+                    announcementBadge.classList.add('hidden');
+                }
+            }
+
+            // 没有公告
+            if (visibleAnnouncements.length === 0) {
+                announcementList.innerHTML = '<div class="text-center py-3 text-muted" style="font-size: 13px;">暂无公告</div>';
+                if (window.innerWidth <= 768) {
+                    announcementBar.classList.remove('collapsed');
+                }
+                return;
+            }
+
+            // 按时间排序，最新的在前面
+            visibleAnnouncements.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            // 渲染公告列表
+            announcementList.innerHTML = visibleAnnouncements.map(announcement => `
+                <div class="announcement-item" data-id="${announcement.id}">
+                    <div class="announcement-content">
+                        <span class="announcement-time">${formatTime(announcement.created_at)}</span>
+                        <span class="announcement-text">${escapeHtml(announcement.content)}</span>
+                    </div>
+                    <button class="announcement-close" onclick="dismissAnnouncement(${announcement.id})">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // 关闭公告
+        function dismissAnnouncement(announcementId) {
+            dismissedAnnouncements.add(announcementId);
+            localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedAnnouncements]));
+            renderAnnouncements();
+        }
+
+        // 显示新增公告模态框
+        function showAnnouncementModal() {
+            document.getElementById('announcementContent').value = '';
+            new bootstrap.Modal(document.getElementById('announcementModal')).show();
+        }
+
+        // 保存公告
+        async function saveAnnouncement() {
+            const content = document.getElementById('announcementContent').value.trim();
+            if (!content) {
+                alert('请输入公告内容');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/announcements', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    await loadAnnouncements();
+                    bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
+                    alert('公告发布成功！');
+                } else {
+                    alert('发布失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('发布失败：' + error.message);
+            }
+        }
+
+        // 移动端：切换公告列表显示
+        function toggleAnnouncementMobile() {
+            const announcementBar = document.getElementById('announcementBar');
+            announcementBar.classList.toggle('collapsed');
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // 将存储的富文本标记转换回 HTML
         function decodeRichText(text) {
             if (!text) return '';
@@ -2704,6 +3085,16 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             initSidebarResize();
+
+            // 恢复已关闭的公告状态
+            const dismissed = localStorage.getItem('dismissedAnnouncements');
+            if (dismissed) {
+                dismissedAnnouncements = new Set(JSON.parse(dismissed));
+            }
+
+            // 加载公告
+            await loadAnnouncements();
+
             // 移动端：确保侧边栏初始状态是关闭的
             if (window.innerWidth <= 768) {
                 const sidebar = document.querySelector('.sidebar');
