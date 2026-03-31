@@ -684,6 +684,12 @@
         .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
         .form-label { font-weight: 500; color: var(--text-secondary); font-size: 12px; margin-bottom: 4px; }
 
+        /* 公告内容输入框 */
+        #announcementContent {
+            white-space: pre;
+            overflow-x: auto;
+        }
+
         /* 折叠箭头 */
         .chevron-icon { transition: transform 0.2s; }
         .chevron-icon.collapsed { transform: rotate(-90deg); }
@@ -863,6 +869,26 @@
             .mobile-add-btn {
                 padding: 6px 10px;
                 font-size: 14px;
+            }
+            #mobileAnnouncementBtn {
+                position: relative;
+            }
+            #mobileAnnouncementBtn .mobile-announcement-badge {
+                position: absolute;
+                top: -4px;
+                right: -4px;
+                background: var(--danger);
+                color: white;
+                border-radius: 10px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: bold;
+                min-width: 16px;
+                height: 16px;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                line-height: 1;
             }
             .mobile-search-container {
                 display: flex;
@@ -1286,9 +1312,24 @@
         .announcement-bar {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border-color);
-            position: relative;
-            z-index: 100;
-            box-shadow: var(--shadow-sm);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .announcement-bar:not(.hidden) {
+            transform: translateY(0);
+        }
+
+        .announcement-bar.hidden {
+            transform: translateY(-100%);
         }
 
         .announcement-header {
@@ -1313,10 +1354,17 @@
             color: var(--info);
         }
 
+        .announcement-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
         .add-announcement-btn {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
+            background: var(--primary);
+            border: 1px solid var(--primary);
+            color: white;
             padding: 5px 12px;
             border-radius: 4px;
             font-size: 13px;
@@ -1325,12 +1373,36 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            box-shadow: none !important;
         }
 
         .add-announcement-btn:hover {
-            background: var(--info);
-            border-color: var(--info);
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
             color: white;
+            box-shadow: none !important;
+        }
+
+        .announcement-close-btn {
+            background: #e9ecef;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none !important;
+        }
+
+        .announcement-close-btn:hover {
+            background: #dee2e6;
+            border-color: #ced4da;
+            color: #343a40;
+            box-shadow: none !important;
         }
 
         .announcement-list {
@@ -1396,56 +1468,55 @@
             font-size: 14px;
             line-height: 1.5;
             margin: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
             font-weight: 400;
+            cursor: pointer;
+            user-select: none;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .announcement-text.expanded {
+            display: block;
+            -webkit-line-clamp: unset;
+            line-clamp: unset;
         }
 
         /* 移动端公告栏 */
         @media (max-width: 768px) {
             .announcement-header {
-                padding: 8px 16px;
+                padding: 12px 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             }
 
             .announcement-header-title {
-                display: none;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-weight: 600;
+                font-size: 16px;
+                color: var(--text-color);
+            }
+
+            .announcement-header-actions {
+                display: flex;
+                gap: 8px;
             }
 
             .announcement-list {
-                display: none;
-            }
-
-            .announcement-bar.collapsed .announcement-list {
                 display: block;
-            }
-
-            .announcement-badge {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                background: var(--info);
-                color: white;
-                border-radius: 50%;
-                font-size: 12px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-
-            .announcement-badge:hover {
-                background: var(--primary-hover);
-            }
-
-            .announcement-badge.hidden {
-                display: none;
             }
         }
 
         @media (min-width: 769px) {
-            .announcement-badge {
+            .announcement-badge,
+            .mobile-announcement-footer {
                 display: none;
             }
         }
@@ -1471,6 +1542,10 @@
                 border-bottom: 1px solid var(--border-color);
             }
 
+            .announcement-close-btn {
+                display: none;
+            }
+
             .announcement-item {
                 padding: 12px 16px;
             }
@@ -1482,27 +1557,73 @@
             .announcement-time {
                 font-size: 11px;
             }
+
+            .announcement-badge {
+                display: none;
+            }
+
+            .announcement-list {
+                display: block;
+            }
+
+            .mobile-announcement-footer {
+                display: flex;
+                justify-content: center;
+                padding: 8px;
+                border-top: 1px solid var(--border-color);
+                background: #fafafa;
+                position: sticky;
+                bottom: 0;
+            }
+
+            .mobile-announcement-footer .btn {
+                width: 36px;
+                height: 36px;
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: var(--bg-sidebar);
+                border: none;
+                color: var(--text-secondary);
+                font-size: 18px;
+            }
+
+            .mobile-announcement-footer .btn:hover {
+                background: var(--border-color);
+                color: var(--text-primary);
+            }
         }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <!-- 公告栏 -->
-        <div class="announcement-bar" id="announcementBar">
+        <div class="announcement-bar hidden" id="announcementBar">
             <div class="announcement-header">
                 <div class="announcement-header-title">
                     <i class="bi bi-megaphone"></i>
                     <span>公告栏</span>
                 </div>
-                <button class="add-announcement-btn" onclick="showAnnouncementModal()">
-                    <i class="bi bi-plus"></i> 新增公告
-                </button>
-                <div class="announcement-badge" id="announcementBadge" onclick="toggleAnnouncementMobile()"></div>
+                <div class="announcement-header-actions">
+                    <button class="add-announcement-btn" onclick="showAnnouncementModal()">
+                        <i class="bi bi-plus"></i> 新增公告
+                    </button>
+                    <button class="announcement-close-btn" onclick="toggleAnnouncementBar()" title="关闭">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
             </div>
             <div class="announcement-list" id="announcementList">
                 <div class="text-center py-3 text-muted" style="font-size: 13px;">
                     暂无公告
                 </div>
+            </div>
+            <div class="mobile-announcement-footer" id="mobileAnnouncementFooter">
+                <button class="btn" onclick="toggleAnnouncementBar()" title="收起">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
             </div>
         </div>
 
@@ -1557,6 +1678,10 @@
                             <button class="btn btn-light btn-sm mobile-search-btn" onclick="toggleMobileSearch()" title="搜索">
                                 <i class="bi bi-search"></i>
                             </button>
+                            <button class="btn btn-light btn-sm" onclick="toggleAnnouncementBar()" title="公告栏" id="mobileAnnouncementBtn">
+                                <i class="bi bi-megaphone"></i>
+                                <span class="mobile-announcement-badge" id="mobileAnnouncementBadge"></span>
+                            </button>
                             <button class="btn btn-primary btn-sm mobile-add-btn" onclick="showDeviceModal()" title="添加设备">
                                 <i class="bi bi-plus-lg"></i>
                             </button>
@@ -1590,6 +1715,10 @@
                             <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
                             <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
                                 <i class="bi bi-plus-lg"></i> 添加设备
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm position-relative" onclick="toggleAnnouncementBar()" title="公告栏" id="announcementToggleBtn">
+                                <i class="bi bi-megaphone"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="announcementBtnBadge" style="display: none;">0</span>
                             </button>
                         </div>
                     </div>
@@ -2759,6 +2888,7 @@
                 if (data.success) {
                     announcements = data.data || [];
                     renderAnnouncements();
+                    updateAnnouncementBadge();
                 }
             } catch (error) {
                 console.error('加载公告失败:', error);
@@ -2768,21 +2898,10 @@
         // 渲染公告列表
         function renderAnnouncements() {
             const announcementList = document.getElementById('announcementList');
-            const announcementBadge = document.getElementById('announcementBadge');
             const announcementBar = document.getElementById('announcementBar');
 
             // 过滤未被关闭的公告
             const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.has(a.id));
-
-            // 移动端：更新公告徽章
-            if (window.innerWidth <= 768) {
-                if (visibleAnnouncements.length > 0) {
-                    announcementBadge.textContent = visibleAnnouncements.length;
-                    announcementBadge.classList.remove('hidden');
-                } else {
-                    announcementBadge.classList.add('hidden');
-                }
-            }
 
             // 没有公告
             if (visibleAnnouncements.length === 0) {
@@ -2801,7 +2920,7 @@
                 <div class="announcement-item" data-id="${announcement.id}">
                     <div class="announcement-content">
                         <span class="announcement-time">${formatTime(announcement.created_at)}</span>
-                        <span class="announcement-text">${escapeHtml(announcement.content)}</span>
+                        <span class="announcement-text" onclick="toggleAnnouncementText(this)" title="点击展开/收起">${escapeHtml(announcement.content)}</span>
                     </div>
                     <button class="announcement-close" onclick="dismissAnnouncement(${announcement.id})">
                         <i class="bi bi-x"></i>
@@ -2815,6 +2934,24 @@
             dismissedAnnouncements.add(announcementId);
             localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedAnnouncements]));
             renderAnnouncements();
+            updateAnnouncementBadge();
+        }
+
+        // 更新公告按钮角标
+        function updateAnnouncementBadge() {
+            const badge = document.getElementById('announcementBtnBadge');
+            const mobileBadge = document.getElementById('mobileAnnouncementBadge');
+            const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.has(a.id));
+
+            if (visibleAnnouncements.length > 0) {
+                badge.textContent = visibleAnnouncements.length;
+                badge.style.display = 'inline-flex';
+                mobileBadge.textContent = visibleAnnouncements.length;
+                mobileBadge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+                mobileBadge.style.display = 'none';
+            }
         }
 
         // 显示新增公告模态框
@@ -2850,10 +2987,21 @@
             }
         }
 
+        // 切换公告文本展开/收起
+        function toggleAnnouncementText(element) {
+            element.classList.toggle('expanded');
+        }
+
         // 移动端：切换公告列表显示
-        function toggleAnnouncementMobile() {
+        function toggleAnnouncementBar() {
             const announcementBar = document.getElementById('announcementBar');
             announcementBar.classList.toggle('collapsed');
+        }
+
+        // 切换公告栏显示/隐藏
+        function toggleAnnouncementBar() {
+            const announcementBar = document.getElementById('announcementBar');
+            announcementBar.classList.toggle('hidden');
         }
 
         // HTML转义
