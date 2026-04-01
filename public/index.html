@@ -504,7 +504,7 @@
         /* 设备详情表格样式 */
         .device-details {
             display: flex;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             gap: 0;
             font-size: 12px;
             margin-top: 6px;
@@ -520,13 +520,21 @@
             border-right: 1px solid #eee;
             min-width: 0;
         }
+        .device-details .detail-item.remark {
+            flex: 1;
+            min-width: 120px;
+            overflow: hidden;
+        }
+        .device-details .detail-item.checkin {
+            width: 100%;
+            border-right: none;
+            margin-right: 0;
+            padding-right: 0;
+        }
         .device-details .detail-item:last-child {
             border-right: none;
             margin-right: 0;
             padding-right: 0;
-            flex: 1;
-            min-width: 120px;
-            overflow: hidden;
         }
         .device-details .detail-label {
             color: var(--text-muted);
@@ -541,14 +549,12 @@
             white-space: nowrap;
             min-width: 0;
         }
+        .device-details .detail-value.checkin-time {
+            color: var(--text-muted);
+        }
         .device-details .detail-item:hover .detail-value {
             white-space: normal;
             word-break: break-all;
-        }
-        /* 数量列 */
-        .device-details .detail-item.quantity {
-            width: 75px;
-            flex-shrink: 0;
         }
         /* 位置列 */
         .device-details .detail-item.position {
@@ -570,14 +576,29 @@
 
         /* 备注值支持多行显示和换行 */
         .device-details .detail-item.remark .detail-value {
-            white-space: normal !important;
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
             word-wrap: break-word;
             overflow-wrap: break-word;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        }
+
+        /* 数量角标 */
+        .quantity-badge {
+            background: #e3f2fd;
+            color: #1565c0;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 7px;
+            border-radius: 50%;
+            min-width: 22px;
+            height: 22px;
+            text-align: center;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
 
         /* 状态徽章 - Win11风格 */
@@ -981,15 +1002,6 @@
                 max-width: 95px;
             }
 
-            /* 移动端数量显示优化 */
-            .device-item .detail-item.quantity {
-                min-width: 55px;
-            }
-
-            .device-item .detail-item.quantity .detail-value {
-                max-width: 55px;
-            }
-
             .device-item .detail-item.remark {
                 width: 100%;
                 background: transparent;
@@ -1106,11 +1118,6 @@
                 white-space: nowrap;
             }
 
-            .device-details .detail-item.quantity {
-                min-width: 80px;
-                width: auto;
-            }
-
             .device-details .detail-item.position {
                 min-width: 90px;
                 width: auto;
@@ -1205,14 +1212,10 @@
                 margin: 8px;
             }
 
-            /* 桌面端详情列完整显示 */
-            .device-details .detail-item.quantity {
-                width: 70px;
-            }
-
-            .device-details .detail-item.position {
-                width: 120px;
-            }
+        /* 桌面端详情列完整显示 */
+        .device-details .detail-item.position {
+            width: 120px;
+        }
 
             .device-details .detail-item.checkin {
                 width: 150px;
@@ -1250,6 +1253,19 @@
             border-radius: 6px;
             padding: 12px 16px;
             margin: 8px;
+
+            .device-details .detail-item.remark .detail-value {
+                white-space: nowrap !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .device-details .detail-item.checkin {
+                width: 100%;
+                border-right: none;
+                margin-right: 0;
+                padding-right: 0;
+            }
             transition: all 0.15s;
             border: 1px solid var(--border-color);
             border-left: 3px solid var(--success-border);
@@ -2353,18 +2369,18 @@
                                     <div class="device-name-section">
                                         <div class="name-tags-row">
                                             <strong>${device.name}</strong>
+                                            ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
                                         </div>
                                         <div class="status-tags-row">
                                             <span class="status-badge ${statusClass[device.status]}">${device.status}</span>
                                             ${tagHtml}
                                             ${destinationTag}
+                                            ${device.storage_location ? `<span class="location-tag">— ${device.storage_location}</span>` : ''}
                                         </div>
                                     </div>
                                     <div class="device-details">
-                                        <span class="detail-item quantity"><span class="detail-label">数量:</span><span class="detail-value" title="${device.quantity || ''}">${device.quantity || ''}</span></span>
-                                        <span class="detail-item position"><span class="detail-label">位置:</span><span class="detail-value" title="${device.storage_location || ''}">${device.storage_location || ''}</span></span>
-                                        <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
-                                        <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichText(device.remark || '')}</span></span>
+                                        <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                        <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
                                     </div>
                                 </div>
                             </div>
@@ -3028,6 +3044,27 @@
 
             // 确保连续的换行被正确处理
             html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+            return html;
+        }
+
+        // 将富文本转换为单行预览（用于列表显示，移除换行）
+        function decodeRichTextToSingleLine(text) {
+            if (!text) return '';
+
+            // 将换行符替换为空格
+            let html = text.replace(/\n/g, ' ');
+
+            // 解析富文本标记
+            html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
+            html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
+            html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
+            html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
+            html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+            html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
+
+            // 移除多余的空格
+            html = html.replace(/\s+/g, ' ').trim();
 
             return html;
         }
