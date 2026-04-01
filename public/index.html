@@ -530,6 +530,35 @@
             border-right: none;
             margin-right: 0;
             padding-right: 0;
+            margin-top: 0;
+            padding-left: 0;
+        }
+        /* 桌面端入库时间显示在右侧 */
+        .desktop-info-row {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            margin-right: 15px;
+        }
+        .desktop-location-info,
+        .desktop-checkin-time {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            min-width: 120px;
+            text-align: left;
+        }
+        .desktop-location-info .location-label,
+        .desktop-checkin-time .checkin-label {
+            margin-right: 4px;
+        }
+        .desktop-location-info .location-value,
+        .desktop-checkin-time .checkin-value {
+            color: var(--text-muted);
+        }
+        /* 设备操作容器 */
+        .device-actions-wrapper {
+            margin-left: auto;
         }
         .device-details .detail-item:last-child {
             border-right: none;
@@ -561,10 +590,50 @@
             width: 120px;
             flex-shrink: 0;
         }
+        .device-details .detail-item.position .detail-value {
+            color: var(--text-muted);
+        }
+        /* 位置和入库时间同行显示 */
+        .device-details .detail-item.location-checkin-row {
+            display: flex;
+            width: 100%;
+            gap: 10px;
+            align-items: center;
+        }
+        .device-details .detail-half {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            height: 100%;
+            text-align: left;
+            justify-content: flex-start;
+        }
+        .device-details .detail-half.location-half {
+            flex: 0 0 200px;
+            width: 200px;
+        }
+        .device-details .detail-half .detail-label {
+            flex-shrink: 0;
+            margin-right: 4px;
+            line-height: 1.4;
+        }
+        .device-details .detail-half .detail-value {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .device-details .detail-half .detail-value.location-value,
+        .device-details .detail-half .detail-value.checkin-time {
+            color: var(--text-muted);
+        }
         /* 入库时间列 */
         .device-details .detail-item.checkin {
             width: 130px;
             flex-shrink: 0;
+            display: none;
         }
         /* 备注列 */
         .device-details .detail-item.remark {
@@ -572,6 +641,8 @@
             min-width: 150px;
             max-width: 300px;
             overflow: hidden;
+            display: flex;
+            align-items: center;
         }
 
         /* 备注值支持多行显示和换行 */
@@ -581,6 +652,48 @@
             text-overflow: ellipsis;
             word-wrap: break-word;
             overflow-wrap: break-word;
+        }
+
+        /* 设备名称标签行布局 - 全局样式 */
+        .device-name-section .name-tags-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .device-name-section .name-quantity-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 200px;
+            min-width: 0;
+            text-align: left;
+            justify-content: flex-start;
+            width: 200px;
+        }
+
+        .device-name-section .name-quantity-wrapper strong {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .device-name-section .status-tags-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            flex: 1 1 auto;
+            min-width: 0;
+            text-align: left;
+            justify-content: flex-start;
         }
 
         /* 数量角标 */
@@ -645,6 +758,14 @@
             align-items: center;
             gap: 4px;
             border: 1px solid #ffc107;
+        }
+        .location-tag {
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
         }
 
         /* Modal 样式 - Win11风格 */
@@ -1071,37 +1192,6 @@
                 gap: 4px;
             }
 
-            .device-name-section .name-tags-row {
-                display: flex;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 4px;
-                min-width: 0;
-                max-width: 100%;
-                overflow: hidden;
-            }
-
-            .device-name-section .name-tags-row strong {
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-width: 100%;
-            }
-
-            .device-name-section .status-tags-row {
-                display: flex;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 4px;
-            }
-
-            .device-name-section .status-badge,
-            .device-name-section .tag-badge,
-            .device-name-section .destination-tag {
-                display: inline-block;
-                font-size: 12px;
-            }
-
             /* 平板端详情列宽度调整 */
             .device-details {
                 flex-wrap: wrap;
@@ -1218,12 +1308,16 @@
         }
 
             .device-details .detail-item.checkin {
-                width: 150px;
+                display: none;
+            }
+
+            .device-actions-wrapper {
+                display: none;
             }
 
             .device-details .detail-item.remark {
                 min-width: 200px;
-                max-width: 400px;
+                max-width: 600px;
             }
 
             .device-details .detail-item.remark .detail-value.remark-clickable {
@@ -1258,6 +1352,19 @@
                 white-space: nowrap !important;
                 overflow: hidden;
                 text-overflow: ellipsis;
+            }
+
+            /* 位置和入库时间字体大小与备注一致 */
+            .device-details .detail-half {
+                font-size: 12px;
+            }
+            .device-details .detail-half .detail-label {
+                font-size: 12px;
+                color: var(--text-muted);
+            }
+            .device-details .detail-half .detail-value {
+                font-size: 12px;
+                color: var(--text-muted);
             }
 
             .device-details .detail-item.checkin {
@@ -2360,6 +2467,7 @@
                     : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
                 const destinationTag = isOut && device.destination ? `<span class="destination-tag"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
                 const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
+                const storageLocationValue = device.storage_location ? device.storage_location : '';
 
                 return `
                     <div class="device-item ${isOut ? 'checked-out' : ''}" onclick="showDeviceDetail(${device.id})">
@@ -2368,26 +2476,32 @@
                                 <div class="device-header-row">
                                     <div class="device-name-section">
                                         <div class="name-tags-row">
-                                            <strong>${device.name}</strong>
-                                            ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
-                                        </div>
-                                        <div class="status-tags-row">
-                                            <span class="status-badge ${statusClass[device.status]}">${device.status}</span>
-                                            ${tagHtml}
-                                            ${destinationTag}
-                                            ${device.storage_location ? `<span class="location-tag">— ${device.storage_location}</span>` : ''}
+                                            <div class="name-quantity-wrapper">
+                                                <strong>${device.name}</strong>
+                                                ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
+                                            </div>
+                                            <div class="status-tags-row">
+                                                <span class="status-badge ${statusClass[device.status]}">${device.status}</span>
+                                                ${tagHtml}
+                                                ${destinationTag}
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="device-details">
                                         <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
-                                        <span class="detail-item checkin"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></span>
+                                        <div class="detail-item location-checkin-row">
+                                            <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
+                                            <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="d-flex gap-2 device-actions">
-                                ${actionBtn}
-                                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                            <div class="d-flex gap-2 align-items-center device-actions-wrapper">
+                                <div class="d-flex gap-2 device-actions">
+                                    ${actionBtn}
+                                    <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
