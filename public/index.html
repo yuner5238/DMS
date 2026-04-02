@@ -436,8 +436,15 @@
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 0 0 8px 8px;
-            max-height: none;
-            overflow-y: visible;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .device-section-body.expanded {
+            max-height: 5000px;
+            opacity: 1;
         }
 
         #deviceList {
@@ -868,7 +875,7 @@
         }
 
         /* 折叠箭头 */
-        .chevron-icon { transition: transform 0.2s; }
+        .chevron-icon { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .chevron-icon.collapsed { transform: rotate(-90deg); }
 
         /* 滚动条美化 - Win11风格 */
@@ -2598,14 +2605,14 @@
                         <h6><i class="bi bi-box-seam"></i> 在库设备 <span class="badge bg-success">${inStockDevices.length}</span></h6>
                         <i class="bi bi-chevron-down chevron-icon"></i>
                     </div>
-                    <div class="device-section-body" id="inStockBody">${inStockHtml}</div>
+                    <div class="device-section-body expanded" id="inStockBody">${inStockHtml}</div>
                 </div>
                 <div class="device-section checked-out-section">
                     <div class="device-section-header" onclick="toggleSection('checkedOutBody')">
                         <h6><i class="bi bi-box-arrow-right"></i> 已出库设备 <span class="badge bg-warning text-dark">${checkedOutDevices.length}</span></h6>
                         <i class="bi bi-chevron-down chevron-icon collapsed"></i>
                     </div>
-                    <div class="device-section-body" id="checkedOutBody" style="display: none;">${checkedOutHtml}</div>
+                    <div class="device-section-body" id="checkedOutBody">${checkedOutHtml}</div>
                 </div>
             `;
         }
@@ -2614,8 +2621,16 @@
         function toggleSection(bodyId) {
             const body = document.getElementById(bodyId);
             const icon = body.previousElementSibling.querySelector('.chevron-icon');
-            body.style.display = body.style.display === 'none' ? 'block' : 'none';
-            icon.classList.toggle('collapsed');
+
+            if (body.classList.contains('expanded')) {
+                // 折叠
+                body.classList.remove('expanded');
+                icon.classList.add('collapsed');
+            } else {
+                // 展开
+                body.classList.add('expanded');
+                icon.classList.remove('collapsed');
+            }
         }
 
         // 搜索过滤
