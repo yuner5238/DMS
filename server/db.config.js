@@ -1,7 +1,7 @@
 // 数据库配置文件
 // 修改 active 为 'local' 或 'cloud' 来切换数据库连接
 
-const active = 'cloud'; // 'local' 或 'cloud'
+const active = 'local'; // 'local' 或 'cloud'
 
 const dbConfig = {
     local: {

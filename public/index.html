@@ -494,6 +494,15 @@
             min-width: 0;
             flex: 1;
             overflow: hidden;
+            max-width: 100%;
+        }
+        .device-item .device-header-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .device-item .d-flex.gap-2 {
@@ -597,22 +606,38 @@
         .device-details .detail-item.location-checkin-row {
             display: flex;
             width: 100%;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
+            background: transparent;
+            padding-right: 0;
+            margin-right: 0;
+            border-right: none;
         }
         .device-details .detail-half {
-            flex: 1;
+            flex: 0 1 auto;
             min-width: 0;
             display: flex;
             align-items: center;
             overflow: hidden;
-            height: 100%;
             text-align: left;
             justify-content: flex-start;
         }
         .device-details .detail-half.location-half {
             flex: 0 0 200px;
             width: 200px;
+        }
+        .device-details .detail-half.checkin-half {
+            flex: 0 0 auto;
+            min-width: auto;
+            overflow: hidden;
+            white-space: nowrap;
+            text-align: right;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+        .device-details .detail-value.checkin-time {
+            display: inline-block;
+            white-space: nowrap;
         }
         .device-details .detail-half .detail-label {
             flex-shrink: 0;
@@ -643,6 +668,7 @@
             overflow: hidden;
             display: flex;
             align-items: center;
+            width: 100%;
         }
 
         /* 备注值支持多行显示和换行 */
@@ -671,18 +697,27 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            flex: 0 0 200px;
+            flex: 0 0 auto;
             min-width: 0;
             text-align: left;
             justify-content: flex-start;
-            width: 200px;
+            width: auto;
         }
 
         .device-name-section .name-quantity-wrapper strong {
+            display: inline-block;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 100%;
+            max-width: 100px;
+        }
+        /* 设备名称文本特定样式，优先级更高 */
+        .device-name-section .name-quantity-wrapper strong.device-name-text {
+            display: inline-block !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100px !important;
         }
 
         .device-name-section .status-tags-row {
@@ -692,8 +727,8 @@
             gap: 4px;
             flex: 1 1 auto;
             min-width: 0;
-            text-align: left;
-            justify-content: flex-start;
+            text-align: right;
+            justify-content: flex-end;
         }
 
         /* 数量角标 */
@@ -1184,7 +1219,7 @@
             .device-name-section {
                 flex: 0 0 auto;
                 min-width: 0;
-                max-width: 35%;
+                max-width: 50%;
                 flex-shrink: 0;
                 display: flex;
                 flex-direction: column;
@@ -1356,15 +1391,38 @@
 
             /* 位置和入库时间字体大小与备注一致 */
             .device-details .detail-half {
-                font-size: 12px;
+                font-size: 11px !important;
             }
             .device-details .detail-half .detail-label {
-                font-size: 12px;
+                font-size: 11px !important;
                 color: var(--text-muted);
             }
             .device-details .detail-half .detail-value {
-                font-size: 12px;
+                font-size: 11px !important;
                 color: var(--text-muted);
+            }
+            /* 移动端减少间距，考虑滚动条宽度 */
+            .device-details .detail-item.location-checkin-row {
+                gap: 4px !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            .device-details .detail-half.location-half {
+                flex: 0 0 140px !important;
+                width: 140px !important;
+            }
+            /* 移动端入库时间宽度调整 */
+            .device-details .detail-half.checkin-half {
+                flex: 0 0 auto;
+                text-align: right !important;
+                justify-content: flex-end !important;
+                margin-left: auto !important;
+            }
+            .device-details .detail-value.checkin-time {
+                display: inline-block;
+                min-width: 60px !important;
+                max-width: 60px !important;
+                width: 60px !important;
             }
 
             .device-details .detail-item.checkin {
@@ -1418,6 +1476,29 @@
                 max-width: 60px;
             }
 
+            /* 移动端减少名称行间距 */
+            .device-name-section .name-tags-row {
+                gap: 8px !important;
+            }
+
+            /* 移动端不设置固定宽度 */
+            .device-name-section .name-quantity-wrapper {
+                flex: 0 1 auto;
+                min-width: 0;
+                width: auto;
+            }
+            .device-name-section .name-quantity-wrapper strong.device-name-text {
+                max-width: 100px !important;
+                display: inline-block !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .device-name-section .location-half {
+                flex: 1;
+                width: auto;
+            }
 
             .device-item .detail-item.remark .detail-value.remark-clickable {
                 cursor: pointer;
@@ -2477,7 +2558,7 @@
                                     <div class="device-name-section">
                                         <div class="name-tags-row">
                                             <div class="name-quantity-wrapper">
-                                                <strong>${device.name}</strong>
+                                                <strong id="device-name-${device.id}" class="device-name-text">${device.name}</strong>
                                                 ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
                                             </div>
                                             <div class="status-tags-row">
