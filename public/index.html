@@ -1856,17 +1856,24 @@
                         </button>
                     </div>
                     <div class="sidebar-content">
-                        <div class="p-3">
-                            <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
-                                <i class="bi bi-plus-circle"></i> 新建仓库
-                            </button>
+                        <div class="warehouse-container">
+                            <div class="p-3">
+                                <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
+                                    <i class="bi bi-plus-circle"></i> 新建仓库
+                                </button>
+                            </div>
+                            <div class="nav flex-column" id="warehouseList"></div>
                         </div>
-                        <div class="nav flex-column" id="warehouseList"></div>
                         <div class="tag-section">
                             <div class="tag-section-header">
                                 <h6><i class="bi bi-tags"></i> 标签统计</h6>
+                                <button class="btn btn-sm btn-link text-muted p-0" onclick="toggleTagEditMode()" title="管理标签">
+                                    <i class="bi bi-gear"></i>
+                                </button>
                             </div>
-                            <div id="tagStatsList"></div>
+                            <div class="tag-container">
+                                <div id="tagStatsList"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2339,6 +2346,7 @@
         let warehouses = [];
         let tagStats = [];
         let currentTagFilter = null;
+        let tagEditMode = false;  // 标签管理模式
         let announcements = [];
         let dismissedAnnouncements = new Set();
 
@@ -2468,10 +2476,24 @@
             const list = document.getElementById('tagStatsList');
             if (tagStats.length === 0) { list.innerHTML = '<div class="text-muted small">暂无标签数据</div>'; return; }
             list.innerHTML = tagStats.map(tag => `
-                <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${tag.name}')" style="cursor:pointer;">
-                    <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
+                <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${tag.name}')" style="cursor:pointer; min-height: 36px;">
+                    <span class="tag-text"><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
+                    ${tagEditMode ? `<button class="btn btn-sm btn-link text-danger p-0 ms-2 delete-tag-btn" onclick="event.stopPropagation(); confirmDeleteTag(${tag.id}, '${tag.name}')" title="删除标签"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             `).join('');
+        }
+
+        // 切换标签管理模式
+        function toggleTagEditMode() {
+            tagEditMode = !tagEditMode;
+            renderTagStats();
+        }
+
+        // 确认删除标签
+        function confirmDeleteTag(id, name) {
+            if (!confirm(`确定要删除标签 "${name}" 吗？`)) return;
+            document.getElementById('tagId').value = id;
+            deleteTag();
         }
 
         // 按标签筛选
@@ -3479,6 +3501,7 @@
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
+            console.log('页面加载完成，开始初始化...');
             initSidebarResize();
 
             // 恢复已关闭的公告状态
@@ -3497,12 +3520,23 @@
                 sidebar.classList.remove('show');
                 overlay.classList.remove('show');
             }
+            
+            console.log('开始加载仓库列表...');
             await loadWarehouses();
+            console.log('仓库加载完成，数量:', warehouses.length);
+            
             if (warehouses.length > 0) {
+                console.log('选择第一个仓库:', warehouses[0].id, warehouses[0].name);
                 await selectWarehouse(warehouses[0].id, warehouses[0].name);
             }
+            
+            console.log('加载标签统计...');
             await loadTagStats();
+            
+            console.log('更新统计...');
             await updateStats();
+            
+            console.log('初始化完成');
 
             // 监听设备编辑弹窗关闭事件，清除URL参数
             const deviceModal = document.getElementById('deviceModal');

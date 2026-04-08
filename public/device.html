@@ -382,15 +382,15 @@
         /* 标签样式 */
         .tag-badge {
             display: inline-block;
-            background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+            background: #f0f0f0;
             color: var(--text-primary);
-            padding: 4px 12px;
-            border-radius: 12px;
+            padding: 3px 10px;
+            border-radius: 4px;
             font-size: 12px;
             margin: 2px;
             font-weight: 500;
-            border: 1px solid #d0d0d0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e0e0e0;
+            cursor: default;
         }
 
         /* 响应式设计 */
@@ -570,7 +570,20 @@
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">设备标签</div>
-                            <div class="detail-value">${device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '-'}</div>
+                            <div class="detail-value">
+                                ${(() => {
+                                    // 兼容处理：优先使用 tags 数组，如果不存在则使用 tag_name
+                                    let deviceTags = [];
+                                    if (device.tags && Array.isArray(device.tags)) {
+                                        deviceTags = device.tags;
+                                    } else if (device.tag_name) {
+                                        deviceTags = [device.tag_name];
+                                    }
+                                    return deviceTags.length > 0 
+                                        ? deviceTags.map(tag => `<span class="tag-badge">${tag}</span>`).join('')
+                                        : '-';
+                                })()}
+                            </div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">设备数量</div>

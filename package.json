@@ -1,6 +1,6 @@
 {
   "name": "device-manager",
-  "version": "1.0.0",
+  "version": "2026.3.30-23.18",
   "description": "多仓库资产管理系统",
   "main": "server/index.js",
   "scripts": {

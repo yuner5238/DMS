@@ -1,0 +1,574 @@
+/* Windows 11 风格配色 */
+:root {
+    --primary: #0067c0;
+    --primary-hover: #005a9e;
+    --primary-light: #60cdff;
+    --secondary: #5c5c5c;
+    --success: #0f7b0f;
+    --success-bg: #dff6dd;
+    --success-border: #4caf50;
+    --warning: #9d5b00;
+    --warning-bg: #fff4ce;
+    --warning-border: #ffb900;
+    --danger: #c42b1c;
+    --danger-bg: #fde7e9;
+    --info: #0078d4;
+    --info-bg: #e5f1fb;
+    --bg-main: #f3f3f3;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #424242;
+    --text-muted: #757575;
+    --border-color: #e5e5e5;
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --announcement-bg: #fff3cd;
+    --announcement-border: #ffc107;
+    --announcement-text: #856404;
+}
+
+*, *::before, *::after { box-sizing: border-box; font-family: 'Segoe UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; }
+html, body { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; }
+body { background: var(--bg-main); min-height: 100%; }
+.container-fluid { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; }
+
+/* 移动端 body 无 padding */
+@media (max-width: 768px) {
+    body { padding: 0 !important; margin: 0 !important; }
+}
+
+.main-card {
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    min-height: 100%;
+    height: 100%;
+}
+.main-card > .row { display: flex; flex-wrap: nowrap; min-height: 100%; }
+
+.main-content {
+    flex: 1; min-width: 0; min-height: 100%; height: 100%;
+    padding: 20px; background: var(--bg-main); display: flex; flex-direction: column;
+}
+
+/* 侧边栏 - Win11风格浅色 */
+.sidebar {
+    background: var(--bg-sidebar); color: var(--text-primary);
+    min-height: 100vh; height: 100vh; padding: 0;
+    border-right: 1px solid var(--border-color); position: relative;
+    min-width: 200px; max-width: 400px;
+    transition: width 0.2s ease, min-width 0.2s ease;
+    display: flex; flex-direction: column;
+}
+.sidebar.collapsed { width: 0 !important; min-width: 0; padding: 0; border-right: none; overflow: hidden; }
+.sidebar.collapsed .sidebar-header, .sidebar.collapsed .sidebar-content { visibility: hidden; opacity: 0; }
+
+/* 侧边栏内容区域 */
+.sidebar-content { 
+    display: flex; 
+    flex-direction: column; 
+    flex: 1; 
+    min-height: 0; 
+    overflow: hidden;
+}
+
+/* 仓库列表容器 */
+.warehouse-container { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 新建仓库按钮 */
+.warehouse-container > .p-3 { flex-shrink: 0; padding-bottom: 8px; }
+
+/* 仓库列表滚动区域 */
+#warehouseList { flex: 1; overflow-y: auto; min-height: 0; padding: 0; scrollbar-width: thin; scrollbar-color: #c1c1c1 #f5f5f5; }
+#warehouseList::-webkit-scrollbar { width: 6px; }
+#warehouseList::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 3px; }
+#warehouseList::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+#warehouseList::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* 标签统计容器 */
+.tag-container { flex: 1 1 50%; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border-color); }
+
+/* 标签列表滚动区域 */
+#tagStatsList { flex: 1; overflow-y: auto; min-height: 0; padding: 8px 0; scrollbar-width: thin; scrollbar-color: #c1c1c1 #f5f5f5; }
+#tagStatsList::-webkit-scrollbar { width: 6px; }
+#tagStatsList::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 3px; }
+#tagStatsList::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+#tagStatsList::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* 侧边栏拖拽调整宽度 */
+.sidebar-resize-handle { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; background: transparent; z-index: 10; }
+.sidebar-resize-handle:hover, .sidebar-resize-handle.dragging { background: var(--primary-light); }
+
+.sidebar-header { padding: 20px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
+.sidebar-header h5 { font-weight: 600; font-size: 16px; margin: 0; color: var(--text-primary); }
+
+.sidebar-toggle-pc { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.sidebar-toggle-pc:hover { background: #f0f0f0; }
+.sidebar-toggle-pc i { font-size: 14px; color: var(--text-secondary); }
+
+.sidebar .nav-link { color: var(--text-secondary); padding: 12px 16px; margin: 2px 8px; border-radius: 6px; transition: all 0.15s ease; font-weight: 400; }
+.sidebar .nav-link:hover { background: #f0f0f0; color: var(--text-primary); }
+.sidebar .nav-link.active { background: #e5f1fb; color: var(--primary); font-weight: 500; }
+.sidebar .nav-link i { margin-right: 10px; font-size: 16px; }
+
+/* 仓库卡片 */
+.warehouse-card { cursor: pointer; transition: all 0.15s ease; border-radius: 6px; position: relative; background: transparent; margin: 2px 6px; padding: 8px 10px 8px 13px; border-left: 3px solid transparent; }
+.warehouse-card:hover { background: #f5f5f5; }
+.warehouse-card.active { background: #e5f1fb; }
+.warehouse-card.all { border-left-color: #6c757d; background: #f8f9fa; font-weight: 600; }
+.warehouse-card.all.active { background: #e5f1fb; border-left-color: #0067c0; }
+
+.warehouse-card .warehouse-name { font-weight: 500; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.warehouse-card .warehouse-name i { font-size: 12px; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; background: #e5f1fb; color: #0067c0; }
+.warehouse-card.all .warehouse-name i { background: #e9ecef; color: #495057; }
+.warehouse-card .warehouse-stats { display: flex; gap: 8px; margin-top: 4px; }
+.warehouse-card .stat-item { font-size: 11px; color: var(--text-muted); }
+.warehouse-card .stat-item.in-stock { color: #107c10; }
+.warehouse-card .stat-item.checked-out { color: #b8860b; }
+
+.warehouse-actions { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.15s; display: flex; gap: 2px; }
+.warehouse-card:hover .warehouse-actions { opacity: 1; }
+.warehouse-actions .btn-sm { width: 22px; height: 22px; min-width: 22px; padding: 0 !important; margin: 0; line-height: 1 !important; border-radius: 4px; }
+.warehouse-actions .btn-sm i { display: inline-block; width: 100%; height: 100%; font-size: 12px; line-height: 22px; text-align: center; vertical-align: middle; }
+.warehouse-actions .btn-outline-light { background: #f0f0f0; border-color: #ccc; color: #555; }
+.warehouse-actions .btn-outline-light:hover { background: #e0e0e0; color: #333; }
+.warehouse-actions .btn-outline-danger { background: #ffeef0; border-color: #f5c6cb; color: #c82333; }
+.warehouse-actions .btn-outline-danger:hover { background: #dc3545; color: #fff; }
+.warehouse-actions .btn { padding: 2px 6px; font-size: 11px; }
+
+/* 移动端仓库操作按钮常态显示 */
+@media (max-width: 768px) {
+    .warehouse-actions { opacity: 1 !important; transition: none; right: 2px; top: 50%; transform: translateY(-50%); }
+    .warehouse-card:hover .warehouse-actions { opacity: 1 !important; }
+    .warehouse-actions .btn-sm { width: 20px; height: 20px; min-width: 20px; }
+    .warehouse-actions .btn-sm i { font-size: 11px; line-height: 20px; }
+    .sidebar-toggle-pc { display: none !important; }
+}
+
+/* 标签徽章 */
+.tag-badge { display: inline-block; background: #f0f0f0; color: var(--text-primary); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin: 2px; font-weight: 500; border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s ease; }
+.tag-badge.selected { background: #007bff; color: white; border-color: #0056b3; }
+.tag-badge.removable { background: #007bff; color: white; border-color: #0056b3; }
+.tag-badge.removable:hover { background: #0056b3; }
+.tag-count { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 4px; font-weight: 600; cursor: help; border: 1px solid rgba(0,0,0,0.1); }
+
+/* 标签区域 */
+.tag-section-header { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; margin-bottom: 12px; }
+.tag-section-header h6 { color: var(--text-secondary); margin: 0; font-weight: 600; font-size: 13px; }
+.tag-section-header button { font-size: 12px; padding: 2px 6px; }
+
+/* 标签区域容器 */
+.tag-section { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 标签下拉菜单样式 */
+#tagDropdownButton { background-color: white; border: 1px solid #dee2e6; color: #6c757d; transition: all 0.2s; }
+#tagDropdownButton:hover { background-color: #f8f9fa; border-color: #adb5bd; }
+#tagDropdownButton:focus { box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+#tagDropdownMenu .dropdown-item { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+#tagDropdownMenu .dropdown-item:hover { background-color: #f8f9fa; }
+#tagDropdownMenu .dropdown-item.active { background-color: #0d6efd; color: white; }
+#tagDropdownMenu #newTagInput { border: 1px solid #dee2e6; border-radius: 4px; padding: 6px 10px; font-size: 13px; }
+#tagDropdownMenu #newTagInput:focus { outline: none; border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+
+.tag-list-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: transparent; border-radius: 4px; margin: 2px 8px; color: var(--text-primary); font-size: 13px; position: relative; height: 36px; box-sizing: border-box; }
+.tag-list-item:hover { background: #f5f5f5; cursor: pointer; }
+.tag-list-item.active { background: #e5f1fb; color: var(--primary); }
+.tag-list-item.active .count { background: var(--primary); color: white; }
+.tag-list-item .count { background: #e5e5e5; color: var(--text-secondary); padding: 2px 8px; border-radius: 10px; font-size: 11px; flex-shrink: 0; }
+.tag-list-item .tag-actions { opacity: 0; transition: opacity 0.15s; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.tag-list-item:hover .tag-actions { opacity: 1; }
+.tag-list-item .tag-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+
+/* 标签管理模式样式 */
+.tag-list-item .tag-name { font-weight: 500; font-size: 13px; }
+.delete-tag-btn { opacity: 0.7; transition: opacity 0.2s; padding: 2px 6px !important; font-size: 11px !important; line-height: 1; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; }
+.delete-tag-btn:hover { opacity: 1; }
+.delete-tag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 主内容区 */
+.main-content { flex: 1; min-width: 0; min-height: 100vh; height: 100vh; padding: 20px; background: var(--bg-main); display: flex; flex-direction: column; overflow-y: auto; }
+
+/* 统计卡片 - Win11 Fluent风格 */
+.stat-card { background: var(--bg-card); border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); transition: all 0.15s; }
+.stat-card:hover { box-shadow: var(--shadow); }
+.stat-card h3 { font-size: 28px; font-weight: 600; margin: 0; color: var(--text-primary); }
+.stat-card p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
+.stat-card.success { border-left: 3px solid #107c10; background: linear-gradient(135deg, #f1faf1 0%, #ffffff 100%); }
+.stat-card.success h3 { color: #107c10; }
+.stat-card.warning { border-left: 3px solid #eaa300; background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%); }
+.stat-card.warning h3 { color: #b8860b; }
+.stat-card.info { border-left: 3px solid #0078d4; background: linear-gradient(135deg, #f0f7fd 0%, #ffffff 100%); }
+.stat-card.info h3 { color: #0078d4; }
+
+/* 标题栏 */
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+.page-header h5 { margin: 0; font-weight: 600; color: var(--text-primary); font-size: 16px; }
+
+/* 搜索框 - Win11风格 */
+.search-box { border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-size: 13px; transition: all 0.15s; background: var(--bg-card); }
+.search-box:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none; }
+
+/* 按钮样式 - Win11风格 */
+.btn-primary { background: var(--primary); border-color: var(--primary); font-weight: 500; border-radius: 4px; }
+.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-outline-primary { color: var(--primary); border-color: var(--primary); border-radius: 4px; }
+.btn-outline-primary:hover { background: var(--primary); border-color: var(--primary); }
+.btn-outline-secondary { border-radius: 4px; }
+.btn-light { background: #f5f5f5; border-color: var(--border-color); border-radius: 4px; }
+.btn-light:hover { background: #e5e5e5; }
+
+/* 设备分区 */
+.device-section { margin-bottom: 20px; }
+.device-section-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; transition: all 0.15s; }
+.device-section-header:hover { background: #fafafa; }
+.device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px; }
+.device-section-header .badge { font-size: 11px; padding: 4px 10px; font-weight: 500; border-radius: 4px; }
+.device-section-body { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0 0 8px 8px; max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; opacity: 0; }
+.device-section-body.expanded { max-height: 5000px; opacity: 1; }
+#deviceList { flex: 1; overflow-y: auto; padding-right: 4px; min-height: 0; }
+
+.in-stock-section .device-section-header { border-top: 3px solid #107c10; }
+.in-stock-section .device-section-header .badge { background: #107c10; color: #ffffff; }
+.checked-out-section .device-section-header { border-top: 3px solid #eaa300; }
+.checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
+
+/* 设备项 */
+.device-item { background: var(--bg-card); border-radius: 6px; padding: 12px 16px; margin: 8px; transition: all 0.15s; border: 1px solid var(--border-color); border-left: 3px solid var(--success-border); overflow: hidden; cursor: pointer; }
+.device-item:hover { background: #fafafa; border-color: #d0d0d0; }
+.device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
+.device-item strong { color: var(--text-primary); font-weight: 600; }
+
+/* 设备项内容布局 */
+.device-item .d-flex.justify-content-between { gap: 12px; min-width: 0; }
+.device-item .flex-grow-1 { min-width: 0; flex: 1; overflow: hidden; max-width: 100%; }
+.device-item .device-header-row { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; overflow: hidden; }
+.device-item .d-flex.gap-2 { flex-shrink: 0; gap: 6px !important; }
+
+/* 设备详情表格样式 */
+.device-details { display: flex; flex-wrap: wrap; gap: 0; font-size: 12px; margin-top: 6px; overflow: hidden; min-width: 0; }
+.device-details .detail-item { display: flex; align-items: center; flex-shrink: 0; padding-right: 10px; margin-right: 10px; border-right: 1px solid #eee; min-width: 0; }
+.device-details .detail-item.remark { flex: 1; min-width: 120px; overflow: hidden; }
+.device-details .detail-item.checkin { width: 100%; border-right: none; margin-right: 0; padding-right: 0; margin-top: 0; padding-left: 0; }
+
+/* 桌面端入库时间显示在右侧 */
+.desktop-info-row { display: none; flex-direction: column; gap: 4px; margin-right: 15px; }
+.desktop-location-info, .desktop-checkin-time { font-size: 12px; color: var(--text-muted); white-space: nowrap; min-width: 120px; text-align: left; }
+.desktop-location-info .location-label, .desktop-checkin-time .checkin-label { margin-right: 4px; }
+.desktop-location-info .location-value, .desktop-checkin-time .checkin-value { color: var(--text-muted); }
+
+/* 设备操作容器 */
+.device-actions-wrapper { margin-left: auto; }
+.device-details .detail-item:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+.device-details .detail-label { color: var(--text-muted); margin-right: 4px; white-space: nowrap; flex-shrink: 0; }
+.device-details .detail-value { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.device-details .detail-value.checkin-time { color: var(--text-muted); }
+.device-details .detail-item:hover .detail-value { white-space: normal; word-break: break-all; }
+
+/* 位置列 */
+.device-details .detail-item.position { width: 120px; flex-shrink: 0; }
+.device-details .detail-item.position .detail-value { color: var(--text-muted); }
+
+/* 位置和入库时间同行显示 */
+.device-details .detail-item.location-checkin-row { display: flex; width: 100%; gap: 8px; align-items: center; background: transparent; padding-right: 0; margin-right: 0; border-right: none; }
+.device-details .detail-half { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; overflow: hidden; text-align: left; justify-content: flex-start; }
+.device-details .detail-half.location-half { flex: 0 0 200px; width: 200px; }
+.device-details .detail-half.checkin-half { flex: 0 0 auto; min-width: auto; overflow: hidden; white-space: nowrap; text-align: right; justify-content: flex-end; margin-left: auto; }
+.device-details .detail-value.checkin-time { display: inline-block; white-space: nowrap; }
+.device-details .detail-half .detail-label { flex-shrink: 0; margin-right: 4px; line-height: 1.4; }
+.device-details .detail-half .detail-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.device-details .detail-half .detail-value.location-value, .device-details .detail-half .detail-value.checkin-time { color: var(--text-muted); }
+
+/* 入库时间列 */
+.device-details .detail-item.checkin { width: 130px; flex-shrink: 0; display: none; }
+
+/* 备注列 */
+.device-details .detail-item.remark { flex: 1; min-width: 150px; max-width: 300px; overflow: hidden; display: flex; align-items: center; width: 100%; }
+
+/* 备注值支持多行显示和换行 */
+.device-details .detail-item.remark .detail-value { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; overflow-wrap: break-word; }
+
+/* 设备名称标签行布局 */
+.device-name-section .name-tags-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 16px; min-width: 0; max-width: 100%; overflow: hidden; width: 100%; }
+.device-name-section .name-quantity-wrapper { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; min-width: 0; text-align: left; justify-content: flex-start; width: auto; }
+.device-name-section .name-quantity-wrapper strong { display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+.device-name-section .name-quantity-wrapper strong.device-name-text { display: inline-block !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 100px !important; }
+.device-name-section .status-tags-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; text-align: right; justify-content: flex-end; }
+
+/* 数量角标 */
+.quantity-badge { background: #e3f2fd; color: #1565c0; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 50%; min-width: 22px; height: 22px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+
+/* 状态徽章 - Win11风格 */
+.status-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.status-normal { background: #d4edda; color: #155724; }
+.status-abnormal { background: #f8d7da; color: #721c24; }
+.status-maintenance { background: #fff3cd; color: #856404; }
+
+/* 操作按钮 */
+.checkout-btn, .checkin-btn { padding: 5px 10px; font-size: 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+.checkout-btn { color: #8b6914; border-color: #eaa300; background: #fff8e6; }
+.checkout-btn:hover { background: #eaa300; color: white; border-color: #eaa300; }
+.checkin-btn { color: #0d5d0d; border-color: #107c10; background: #e6f5e6; }
+.checkin-btn:hover { background: #107c10; color: white; border-color: #107c10; }
+
+/* 设备项按钮组 */
+.device-item .btn-sm { padding: 4px 8px; font-size: 12px; min-width: auto; flex-shrink: 0; }
+.device-item .btn-outline-primary { padding: 4px 8px; }
+
+/* 设备操作按钮区域 */
+.device-item .device-actions { flex-shrink: 0; display: flex; gap: 6px; align-items: center; }
+
+/* 去向标签 */
+.destination-tag { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #ffc107; }
+.location-tag { color: var(--text-muted); padding: 2px 8px; border-radius: 4px; font-size: 11px; display: inline-flex; align-items: center; }
+
+/* Modal 样式 - Win11风格 */
+.modal-header { background: var(--bg-card); color: var(--text-primary); border-bottom: 1px solid var(--border-color); border-radius: 8px 8px 0 0; padding: 16px 20px; }
+.modal-header .btn-close { opacity: 0.5; }
+.modal-header .btn-close:hover { opacity: 1; }
+.modal-content { border-radius: 8px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); }
+.modal-footer { border-top: 1px solid var(--border-color); background: var(--bg-card); border-radius: 0 0 8px 8px; padding: 12px 20px; }
+.modal-body { padding: 20px; }
+
+/* 设备详情样式 */
+.device-detail-container { display: flex; flex-direction: column; gap: 16px; }
+.detail-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px 20px; padding: 12px; background: var(--bg-light); border-radius: 6px; border: 1px solid var(--border-color); align-items: start; }
+.detail-row.full-width { grid-template-columns: 1fr; }
+.detail-row.full-width .detail-label { grid-column: 1; margin-bottom: 4px; }
+.detail-row.full-width .detail-value { grid-column: 1; }
+.detail-label { font-weight: 600; color: var(--text-secondary); font-size: 14px; }
+.detail-value { color: var(--text-primary); font-size: 14px; word-break: break-word; }
+.detail-remark { background: white; padding: 12px; border-radius: 4px; border: 1px solid var(--border-color); min-height: 60px; white-space: pre-wrap; }
+
+/* 表单样式 - Win11风格 */
+.form-control, .form-select { border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-size: 13px; }
+.form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.form-label { font-weight: 500; color: var(--text-secondary); font-size: 12px; margin-bottom: 4px; }
+
+/* 公告内容输入框 */
+#announcementContent { white-space: pre; overflow-x: auto; }
+
+/* 折叠箭头 */
+.chevron-icon { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.chevron-icon.collapsed { transform: rotate(-90deg); }
+
+/* 滚动条美化 - Win11风格 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+
+/* 空状态 */
+.empty-state { text-align: center; padding: 40px 24px; color: var(--text-muted); }
+.empty-state i { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { margin: 0; font-size: 13px; }
+
+/* Alert样式 */
+.alert { border-radius: 4px; border: none; }
+.alert-warning { background: #fff3cd; color: #856404; }
+.alert-success { background: #d4edda; color: #155724; }
+
+/* 侧边栏收纳/展开控制 */
+.sidebar-toggle-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.sidebar-toggle-btn:hover { background: #f5f5f5; }
+.sidebar-toggle-btn i { font-size: 18px; color: var(--text-secondary); }
+
+/* PC端侧边栏收起后的展开按钮 */
+.sidebar-expand-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; margin-right: 12px; }
+.sidebar-expand-btn:hover { background: #f5f5f5; }
+.sidebar-expand-btn i { font-size: 18px; color: var(--text-secondary); }
+@media (min-width: 769px) { .sidebar.collapsed + .main-content .sidebar-expand-btn { display: flex; } }
+
+.sidebar-close-btn { display: none; position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; background: transparent; border: none; border-radius: 6px; cursor: pointer; font-size: 20px; color: var(--text-secondary); z-index: 10; }
+.sidebar-close-btn:hover { background: #f0f0f0; color: var(--text-primary); }
+
+.sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); z-index: 1040; display: none; opacity: 0; transition: opacity 0.3s ease; }
+.sidebar-overlay.show { display: block; opacity: 1; }
+
+/* ========== 移动端优化 (≤768px) ========== */
+@media (max-width: 768px) {
+    body { padding: 0 !important; margin: 0 !important; overflow-x: hidden; }
+    .container-fluid { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }
+    .main-card { min-height: 100vh; border-radius: 0 !important; border: none !important; margin: 0 !important; box-shadow: none !important; }
+    .main-card > .row { margin: 0 !important; }
+    .sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; z-index: 1050; transition: left 0.3s ease; min-height: auto; border-right: none; box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15); overflow-y: auto; }
+    .sidebar.show { left: 0; }
+    .sidebar-toggle-btn { display: flex; }
+    .sidebar-close-btn { display: flex; align-items: center; justify-content: center; }
+    .sidebar-header { position: relative; padding-right: 48px; }
+    .main-content { padding: 12px; width: 100% !important; margin: 0 !important; min-height: 100vh; }
+
+    .mobile-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+    .mobile-header .page-title { flex: 1; font-weight: 600; font-size: 14px; color: var(--text-primary); margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mobile-tools { display: flex; align-items: center; gap: 6px; }
+    .mobile-sort-select { width: 70px; font-size: 12px; padding: 4px 8px; }
+    .mobile-search-btn, .mobile-add-btn { padding: 6px 10px; font-size: 14px; }
+
+    #mobileAnnouncementBtn { position: relative; }
+    #mobileAnnouncementBtn .mobile-announcement-badge { position: absolute; top: -4px; right: -4px; background: var(--danger); color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; font-weight: bold; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; line-height: 1; }
+    .mobile-search-container { display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: var(--bg-light); border-radius: 6px; }
+    .mobile-search-input { flex: 1; font-size: 14px; }
+
+    .stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .stat-row .col-md-4 { flex: 1; padding: 0; }
+    .stat-card { padding: 10px 12px; margin-bottom: 0; text-align: center; }
+    .stat-card h3 { font-size: 18px; margin-bottom: 2px; }
+    .stat-card p { font-size: 10px; margin: 0; }
+    .page-header { display: none; }
+
+    .device-section { margin-bottom: 12px; }
+    .device-item { padding: 10px 12px; margin: 6px; }
+    .device-item .d-flex.justify-content-between { flex-direction: column; gap: 8px; }
+    .device-item .d-flex.gap-2 { width: 100%; justify-content: flex-end; margin-top: 4px; }
+    .device-item .btn-sm { flex: 1; min-width: 80px; }
+
+    .device-item .device-details { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 6px; }
+    .device-item .detail-item { display: inline-flex; align-items: center; font-size: 11px; margin: 0; padding: 2px 6px; background: #f5f5f5; border-radius: 3px; }
+    .device-item .detail-label { color: var(--text-muted); margin-right: 4px; font-size: 10px; }
+    .device-item .detail-value { color: var(--text-primary); font-weight: 500; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .device-item .detail-item.checkin { min-width: 95px; }
+    .device-item .detail-item.checkin .detail-value { max-width: 95px; }
+    .device-item .detail-item.remark { width: 100%; background: transparent; padding: 2px 0; }
+    .device-item .detail-item.remark .detail-value { max-width: 100%; }
+    .device-item .detail-item.remark .detail-value.remark-clickable { cursor: pointer; }
+
+    .checkout-btn::after { content: "  出库"; }
+    .checkin-btn::after { content: "  入库"; }
+}
+
+/* ========== 平板端优化 (769px - 1024px) ========== */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .main-content { padding: 16px; }
+    .device-item { padding: 12px 14px; margin: 6px 8px; }
+    .device-item .d-flex.justify-content-between { gap: 10px; }
+    .device-item .flex-grow-1 { min-width: 0; }
+
+    .device-header-row { display: flex; justify-content: flex-start; align-items: flex-start; gap: 16px; }
+    .device-name-section { flex: 0 0 auto; min-width: 0; max-width: 50%; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+
+    .device-details { flex-wrap: wrap; gap: 6px 10px; flex: 1; min-width: 0; align-items: flex-start; overflow: hidden; }
+    .device-details .detail-item { flex: 0 0 auto; min-width: 0; white-space: nowrap; }
+    .device-details .detail-item.position { min-width: 90px; width: auto; }
+    .device-details .detail-item.checkin { min-width: 110px; width: auto; }
+    .device-details .detail-item.remark { min-width: 100px; max-width: 100%; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .device-details .detail-item .detail-label { display: inline-block; font-size: 10px; color: var(--text-secondary); margin-right: 4px; }
+    .device-details .detail-item .detail-value { display: inline-block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 30px); vertical-align: middle; }
+    .device-details .detail-item.remark .detail-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .device-details .detail-item.remark .detail-value.remark-clickable { cursor: pointer; }
+
+    .device-item .device-actions { gap: 4px; }
+    .device-item .btn-sm { padding: 4px 6px; font-size: 11px; min-width: auto; }
+    .checkout-btn, .checkin-btn { padding: 4px 6px; font-size: 11px; }
+    .device-item strong { font-size: 14px; }
+
+    .tag-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+    .tag-count { font-size: 9px; padding: 1px 6px; border-radius: 8px; }
+    .status-badge { font-size: 10px; padding: 2px 6px; }
+
+    .stat-card { padding: 12px 16px; }
+    .stat-card h3 { font-size: 22px; }
+}
+
+@media (min-width: 769px) { .mobile-header { display: none; } }
+
+/* ========== 桌面端优化 (≥1025px) ========== */
+@media (min-width: 1025px) {
+    .device-item { padding: 12px 16px; margin: 8px; }
+    .device-details .detail-item.position { width: 120px; }
+    .device-details .detail-item.checkin { display: none; }
+    .device-actions-wrapper { display: none; }
+    .device-details .detail-item.remark { min-width: 200px; max-width: 600px; }
+    .device-details .detail-item.remark .detail-value.remark-clickable { cursor: pointer; }
+    .device-item .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .checkout-btn, .checkin-btn { padding: 5px 12px; font-size: 12px; }
+}
+
+/* ========== 小屏手机优化 (≤480px) ========== */
+@media (max-width: 480px) {
+    .device-item { padding: 8px 10px; margin: 4px; }
+    .device-item strong { font-size: 13px; }
+    .device-details { font-size: 11px; }
+    .device-item .btn-sm { font-size: 11px; padding: 3px 6px; min-width: 70px; }
+    .checkout-btn::after { content: "  出库"; }
+    .checkin-btn::after { content: "  入库"; }
+
+    .device-item .device-details { gap: 6px 8px; }
+    .device-item .detail-item { padding: 2px 4px; font-size: 10px; }
+    .device-item .detail-value { max-width: 60px; }
+
+    .device-name-section .name-tags-row { gap: 8px !important; }
+    .device-name-section .name-quantity-wrapper { flex: 0 1 auto; min-width: 0; width: auto; }
+    .device-name-section .name-quantity-wrapper strong.device-name-text { max-width: 100px !important; display: inline-block !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+    .device-name-section .location-half { flex: 1; width: auto; }
+    .device-item .detail-item.remark .detail-value.remark-clickable { cursor: pointer; }
+
+    .device-details .detail-half { font-size: 11px !important; }
+    .device-details .detail-half .detail-label { font-size: 11px !important; color: var(--text-muted); }
+    .device-details .detail-half .detail-value { font-size: 11px !important; color: var(--text-muted); }
+    .device-details .detail-item.location-checkin-row { gap: 4px !important; padding-left: 0 !important; padding-right: 0 !important; }
+    .device-details .detail-half.location-half { flex: 0 0 140px !important; width: 140px !important; }
+    .device-details .detail-half.checkin-half { flex: 0 0 auto; text-align: right !important; justify-content: flex-end !important; margin-left: auto !important; }
+    .device-details .detail-value.checkin-time { display: inline-block; min-width: 60px !important; max-width: 60px !important; width: 60px !important; }
+    .device-details .detail-item.checkin { width: 100%; border-right: none; margin-right: 0; padding-right: 0; }
+}
+
+/* 富文本编辑器占位符样式 */
+[contenteditable][data-placeholder]:empty:before { content: attr(data-placeholder); color: #6c757d; display: block; }
+
+/* ========== 公告栏样式 ========== */
+.announcement-bar { background: var(--bg-card); border-bottom: 1px solid var(--border-color); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; box-shadow: var(--shadow-lg); transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); max-height: 50vh; overflow-y: auto; }
+.announcement-bar:not(.hidden) { transform: translateY(0); }
+.announcement-bar.hidden { transform: translateY(-100%); }
+
+.announcement-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; background: #fafafa; border-bottom: 1px solid var(--border-color); }
+.announcement-header-title { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--text-primary); font-size: 14px; }
+.announcement-header-title i { color: var(--info); }
+.announcement-header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+.add-announcement-btn { background: var(--primary); border: 1px solid var(--primary); color: white; padding: 5px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 6px; box-shadow: none !important; }
+.add-announcement-btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: white; box-shadow: none !important; }
+
+.announcement-close-btn { background: #e9ecef; border: 1px solid #dee2e6; color: #495057; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: none !important; }
+.announcement-close-btn:hover { background: #dee2e6; border-color: #ced4da; color: #343a40; box-shadow: none !important; }
+
+.announcement-list { max-height: 200px; overflow-y: auto; background: var(--bg-card); }
+.announcement-item { display: flex; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
+.announcement-item:hover { background: #f5f5f5; }
+.announcement-item:last-child { border-bottom: none; }
+
+.announcement-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px 10px; border-radius: 4px; font-size: 18px; line-height: 1; transition: all 0.2s; flex-shrink: 0; opacity: 0.6; }
+.announcement-close:hover { background: rgba(0, 0, 0, 0.06); color: var(--danger); opacity: 1; }
+
+.announcement-content { flex: 1; min-width: 0; display: flex; align-items: center; gap: 16px; }
+.announcement-time { font-size: 12px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; font-weight: 400; }
+.announcement-text { color: var(--text-primary); font-size: 14px; line-height: 1.5; margin: 0; word-wrap: break-word; overflow-wrap: break-word; font-weight: 400; cursor: pointer; user-select: none; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.announcement-text.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+
+/* 移动端公告栏 */
+@media (max-width: 768px) {
+    .announcement-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .announcement-header-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 16px; color: var(--text-color); }
+    .announcement-header-actions { display: flex; gap: 8px; }
+    .announcement-list { display: block; }
+}
+
+@media (min-width: 769px) { .announcement-badge, .mobile-announcement-footer { display: none; } }
+
+/* 移动端公告列表展开时的样式 */
+@media (max-width: 768px) {
+    .announcement-bar.collapsed { position: fixed; top: 0; left: 0; right: 0; z-index: 2000; max-height: 50vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+    .announcement-bar.collapsed .announcement-header { position: sticky; top: 0; z-index: 10; background: #fafafa; border-bottom: 1px solid var(--border-color); }
+    .announcement-close-btn { display: none; }
+    .announcement-item { padding: 12px 16px; }
+    .announcement-text { font-size: 13px; }
+    .announcement-time { font-size: 11px; }
+    .announcement-badge { display: none; }
+    .announcement-list { display: block; }
+
+    .mobile-announcement-footer { display: flex; justify-content: center; padding: 8px; border-top: 1px solid var(--border-color); background: #fafafa; position: sticky; bottom: 0; }
+    .mobile-announcement-footer .btn { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-sidebar); border: none; color: var(--text-secondary); font-size: 18px; }
+    .mobile-announcement-footer .btn:hover { background: var(--border-color); color: var(--text-primary); }
+}
