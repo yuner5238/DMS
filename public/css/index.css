@@ -58,14 +58,22 @@ body { background: var(--bg-main); min-height: 100%; }
 /* 侧边栏 - Win11风格浅色 */
 .sidebar {
     background: var(--bg-sidebar); color: var(--text-primary);
-    min-height: 100vh; height: 100vh; padding: 0;
+    min-height: 100vh !important; height: 100vh !important; padding: 0;
     border-right: 1px solid var(--border-color); position: relative;
     min-width: 200px; max-width: 400px;
     transition: width 0.2s ease, min-width 0.2s ease;
-    display: flex; flex-direction: column;
+    display: flex !important; flex-direction: column;
 }
 .sidebar.collapsed { width: 0 !important; min-width: 0; padding: 0; border-right: none; overflow: hidden; }
 .sidebar.collapsed .sidebar-header, .sidebar.collapsed .sidebar-content { visibility: hidden; opacity: 0; }
+
+/* 侧边栏包装器 - 填充父元素高度 */
+.sidebar-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
 
 /* 侧边栏内容区域 */
 .sidebar-content { 
@@ -73,7 +81,7 @@ body { background: var(--bg-main); min-height: 100%; }
     flex-direction: column; 
     flex: 1; 
     min-height: 0; 
-    overflow: hidden;
+    overflow: auto;
 }
 
 /* 仓库列表容器 */
@@ -103,7 +111,7 @@ body { background: var(--bg-main); min-height: 100%; }
 .sidebar-resize-handle { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; background: transparent; z-index: 10; }
 .sidebar-resize-handle:hover, .sidebar-resize-handle.dragging { background: var(--primary-light); }
 
-.sidebar-header { padding: 20px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
+.sidebar-header { height: 80px; padding: 20px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 .sidebar-header h5 { font-weight: 600; font-size: 16px; margin: 0; color: var(--text-primary); }
 
 .sidebar-toggle-pc { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
