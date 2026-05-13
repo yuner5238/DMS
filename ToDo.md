@@ -1,2 +1,3 @@
-- 加密数据库连接方式
-- https://dashboard.render.com/web/new?onboarding=active，有了信用卡之后，继续这个网站申请
+- [ ] 加密数据库连接方式
+- [ ] <https://dashboard.render.com/web/new?onboarding=active，有了信用卡之后，继续这个网站申请>
+- [ ] 补全说明文档，切换数据库连接方式的说明。
