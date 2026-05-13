@@ -10,7 +10,7 @@ const PORT = 3000;
 
 // MySQL 连接配置
 const pool = mysql.createPool({
-    ...dbConfig[active],
+    ...dbConfig,
     connectionLimit: 10,
     connectTimeout: 10000, // 连接超时 10秒
     acquireTimeout: 10000 // 获取连接超时 10秒
@@ -20,8 +20,15 @@ const pool = mysql.createPool({
 pool.getConnection((err, connection) => {
     if (err) {
         console.error(`MySQL [${active}] 连接失败:`, err.message);
+        console.error('连接配置:', {
+            host: dbConfig.host,
+            port: dbConfig.port,
+            user: dbConfig.user,
+            database: dbConfig.database
+        });
     } else {
         console.log(`✅ MySQL [${active}] 连接成功`);
+        console.log(`   Host: ${dbConfig.host}:${dbConfig.port}`);
         connection.release();
     }
 });
@@ -334,10 +341,10 @@ app.get('/api/devices', async (req, res) => {
             }
         });
         
-        // 构建返回数据
+        // 构建返回数据（优先使用 devices.tag_name，否则使用关联表中的第一个标签）
         const result = Array.from(deviceMap.values()).map(device => ({
             ...device,
-            tag_name: device.tags[0] || null
+            tag_name: device.tag_name || device.tags[0] || null
         }));
         
         res.json(result);
@@ -397,7 +404,7 @@ app.get('/api/devices/:id', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { warehouseId, warehouseName, name, tagIds = [], status, quantity, storage_location, remark, location_status, destination } = req.body;
+        const { warehouseId, warehouseName, name, tag_name, tagIds = [], status, quantity, storage_location, remark, location_status, destination } = req.body;
         
         // 获取仓库名称
         let whName = warehouseName;
@@ -415,8 +422,8 @@ app.post('/api/devices', async (req, res) => {
         const checkinTime = locStatus === 'in_stock' ? new Date() : null;
         
         const result = await query(
-            'INSERT INTO devices (warehouse_name, name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [whName, name, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime]
+            'INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [whName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime]
         );
         
         const deviceId = result.insertId;
@@ -454,7 +461,7 @@ app.post('/api/devices', async (req, res) => {
 // 更新设备
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { warehouseName, name, tagIds = [], status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = req.body;
+        const { warehouseName, name, tag_name, tagIds = [], status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = req.body;
         
         // 将 ISO 格式时间转换为 MySQL datetime 格式
         function formatDateTimeForMySQL(dateStr) {
@@ -478,8 +485,8 @@ app.put('/api/devices/:id', async (req, res) => {
         
         // 更新设备基本信息
         await query(
-            'UPDATE devices SET warehouse_name=?, name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=? WHERE id=?',
-            [warehouseName, name, status, quantity, storage_location || '', location_status || 'in_stock', destination || '', remark, checkinTime, checkoutTime, req.params.id]
+            'UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=? WHERE id=?',
+            [warehouseName, name, tag_name || '', status, quantity, storage_location || '', location_status || 'in_stock', destination || '', remark, checkinTime, checkoutTime, req.params.id]
         );
         
         // 删除现有的设备标签关系

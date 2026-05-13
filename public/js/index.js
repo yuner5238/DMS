@@ -16,6 +16,7 @@ let currentTagFilter = null;
 let tagEditMode = false;  // 标签管理模式
 let announcements = [];
 let dismissedAnnouncements = new Set();
+let viewMode = 'list';  // 视图模式：'list' 列表模式 或 'table' 表格模式
 
 // 格式化时间（北京时间）
 function formatTime(timeStr) {
@@ -71,6 +72,114 @@ function sortDevices() {
         case 'checkout': sorted.sort((a, b) => !a.checkout_time ? 1 : !b.checkout_time ? -1 : new Date(b.checkout_time) - new Date(a.checkout_time)); break;
     }
     renderDevices(sorted);
+}
+
+// 切换视图模式
+function toggleViewMode() {
+    viewMode = viewMode === 'list' ? 'table' : 'list';
+    const btn = document.getElementById('viewToggleBtn');
+    const icon = btn.querySelector('i');
+    if (viewMode === 'table') {
+        icon.className = 'bi bi-grid-3x3-gap';
+        btn.classList.add('active');
+        btn.title = '切换到列表视图';
+    } else {
+        icon.className = 'bi bi-layout-text-sidebar';
+        btn.classList.remove('active');
+        btn.title = '切换到表格视图';
+    }
+    localStorage.setItem('viewMode', viewMode);
+    renderDevices(allDevices);
+}
+
+// 渲染表格视图
+function renderDevicesTableView(devices) {
+    const list = document.getElementById('deviceList');
+    if (devices.length === 0) {
+        list.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-inbox" style="font-size: 48px;"></i><p class="mt-2">该仓库暂无设备，点击上方"添加设备"按钮</p></div>`;
+        return;
+    }
+
+    const inStockDevices = devices.filter(d => d.location_status === 'in_stock' || !d.location_status);
+    const checkedOutDevices = devices.filter(d => d.location_status === 'checked_out');
+    const statusClass = { '正常': 'status-normal', '异常': 'status-abnormal', '维修中': 'status-maintenance' };
+
+    const renderTable = (deviceArr, isOut) => {
+        if (deviceArr.length === 0) {
+            return `<div class="text-center text-muted py-3">暂无${isOut ? '已出库' : '在库'}设备</div>`;
+        }
+        
+        const rows = deviceArr.map(device => {
+            const locationText = isOut ? (device.destination || '已出库') : (device.storage_location || '在库');
+            const timeText = device.checkin_time ? formatDate(device.checkin_time) : '-';
+            
+            return `
+                <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail(${device.id})" style="cursor: pointer;">
+                    <td class="device-name-cell"><strong>${device.name}</strong></td>
+                    <td>${device.quantity || 1}</td>
+                    <td><span class="status-badge ${statusClass[device.status]}">${device.status || '未知'}</span></td>
+                    <td>${device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '-'}</td>
+                    <td>${locationText}</td>
+                    <td>${timeText}</td>
+                    <td>${device.remark ? '<i class="bi bi-file-text text-muted"></i>' : '-'}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            ${isOut 
+                                ? `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
+                                : `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`
+                            }
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <table class="table table-hover table-sm device-table">
+                <thead>
+                    <tr>
+                        <th>设备名称</th>
+                        <th>数量</th>
+                        <th>状态</th>
+                        <th>标签</th>
+                        <th>位置/去向</th>
+                        <th>入库时间</th>
+                        <th>备注</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    };
+
+    const inStockHtml = `
+        <div class="device-section in-stock-section">
+            <div class="device-section-header" onclick="toggleSection('inStockBody')">
+                <h6><i class="bi bi-box-seam"></i> 在库设备 <span class="badge bg-success">${inStockDevices.length}</span></h6>
+                <i class="bi bi-chevron-down chevron-icon"></i>
+            </div>
+            <div class="device-section-body expanded p-0" id="inStockBody">
+                <div class="table-responsive">${renderTable(inStockDevices, false)}</div>
+            </div>
+        </div>
+    `;
+    
+    const checkedOutHtml = `
+        <div class="device-section checked-out-section">
+            <div class="device-section-header" onclick="toggleSection('checkedOutBody')">
+                <h6><i class="bi bi-box-arrow-right"></i> 已出库设备 <span class="badge bg-warning text-dark">${checkedOutDevices.length}</span></h6>
+                <i class="bi bi-chevron-down chevron-icon collapsed"></i>
+            </div>
+            <div class="device-section-body p-0" id="checkedOutBody">
+                <div class="table-responsive">${renderTable(checkedOutDevices, true)}</div>
+            </div>
+        </div>
+    `;
+
+    list.innerHTML = inStockHtml + checkedOutHtml;
 }
 
 // 加载仓库列表
@@ -229,6 +338,12 @@ function renderDevices(devices) {
     const list = document.getElementById('deviceList');
     if (devices.length === 0) {
         list.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-inbox" style="font-size: 48px;"></i><p class="mt-2">该仓库暂无设备，点击上方"添加设备"按钮</p></div>`;
+        return;
+    }
+    
+    // 根据视图模式渲染
+    if (viewMode === 'table') {
+        renderDevicesTableView(devices);
         return;
     }
 
@@ -1168,6 +1283,18 @@ document.addEventListener('keydown', function(e) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     initSidebarResize();
+
+    // 恢复视图模式
+    const savedViewMode = localStorage.getItem('viewMode');
+    if (savedViewMode) {
+        viewMode = savedViewMode;
+        const btn = document.getElementById('viewToggleBtn');
+        const icon = btn?.querySelector('i');
+        if (viewMode === 'table' && icon) {
+            icon.className = 'bi bi-grid-3x3-gap';
+            btn.classList.add('active');
+        }
+    }
 
     // 恢复已关闭的公告状态
     const dismissed = localStorage.getItem('dismissedAnnouncements');

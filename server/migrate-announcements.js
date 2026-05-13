@@ -2,7 +2,7 @@ const mysql = require('mysql');
 const { active, dbConfig } = require('./db.config');
 
 const pool = mysql.createPool({
-    ...dbConfig[active],
+    ...dbConfig,
     connectionLimit: 10
 });
 

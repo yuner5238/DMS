@@ -35,12 +35,26 @@ node server/index.js
 
 | 值 | 数据库 | 说明 |
 | --- | --- | --- |
-| `cloud` | TiDB Cloud | 云端数据库（默认） |
+| `TiDB` | TiDB Cloud | 云端数据库（默认） |
 | `local` | 本地 MySQL | 需要本地搭建 MySQL |
 
 ```
-DB_ACTIVE=cloud   # 切换为 TiDB Cloud
-DB_ACTIVE=local   # 切换为本地 MySQL
+DB_ACTIVE=TiDB   # 切换为 TiDB Cloud
+DB_ACTIVE=local  # 切换为本地 MySQL
+```
+
+本地 MySQL 首次使用需要创建数据库：
+
+```bash
+# 1. 在 MySQL 中执行
+mysql -u root -p < local_database.sql
+
+# 2. 修改 .env 中的本地数据库配置
+DB_LOCAL_HOST=127.0.0.1
+DB_LOCAL_PORT=3306
+DB_LOCAL_USER=root
+DB_LOCAL_PASSWORD=你的密码
+DB_LOCAL_DATABASE=DMS
 ```
 
 > 修改后需重启服务器生效。
@@ -110,6 +124,84 @@ DMS/
 | PUT | `/api/tags/:id` | 更新标签 |
 | DELETE | `/api/tags/:id` | 删除标签 |
 | GET | `/api/tag-stats` | 标签统计 |
+
+---
+
+## 数据库结构
+
+### 表清单
+
+| 表名 | 说明 |
+| --- | --- |
+| `warehouses` | 仓库表 |
+| `devices` | 设备表 |
+| `tags` | 标签表 |
+| `device_tags` | 设备-标签关联表 |
+| `announcements` | 公告表 |
+
+---
+
+### warehouses（仓库表）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键，自增 |
+| `name` | TEXT | 仓库名称（必填） |
+| `type` | TEXT | 仓库类型，默认 `other` |
+| `description` | TEXT | 描述 |
+| `created_at` | DATETIME | 创建时间 |
+| `updated_at` | DATETIME | 更新时间 |
+
+---
+
+### devices（设备表）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键，自增 |
+| `warehouse_name` | TEXT | 所属仓库名称 |
+| `name` | TEXT | 设备名称（必填） |
+| `tag_name` | TEXT | 标签名称 |
+| `status` | TEXT | 状态：`正常`、`维修中`、`已报废`，默认 `正常` |
+| `quantity` | INTEGER | 数量，默认 `1` |
+| `storage_location` | TEXT | 存放位置 |
+| `location_status` | TEXT | 位置状态：`in_stock`（在库）、`checked_out`（借出） |
+| `destination` | TEXT | 去向（借出时填写） |
+| `remark` | TEXT | 备注 |
+| `checkin_time` | DATETIME | 入库时间 |
+| `checkout_time` | DATETIME | 出库时间 |
+| `created_at` | DATETIME | 创建时间 |
+| `updated_at` | DATETIME | 更新时间 |
+
+---
+
+### tags（标签表）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键，自增 |
+| `name` | TEXT | 标签名称（必填，唯一） |
+| `created_at` | DATETIME | 创建时间 |
+
+---
+
+### device_tags（设备-标签关联表）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `device_id` | INTEGER | 设备ID（外键） |
+| `tag_id` | INTEGER | 标签ID（外键） |
+| PRIMARY KEY | | 联合主键 (`device_id`, `tag_id`) |
+
+---
+
+### announcements（公告表）
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | INTEGER | 主键，自增 |
+| `content` | TEXT | 公告内容（必填） |
+| `created_at` | DATETIME | 创建时间 |
 
 ---
 
