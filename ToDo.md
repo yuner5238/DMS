@@ -1,3 +1,8 @@
-- [ ] 加密数据库连接方式
-- [ ] <https://dashboard.render.com/web/new?onboarding=active，有了信用卡之后，继续这个网站申请>
-- [ ] 补全说明文档，切换数据库连接方式的说明。
+## 短期
+- [ ] 补全说明文档，完善切换数据库连接方式相关说明
+- [ ] 核对数据库表结构合理性
+- [ ] 实现本地开发与云部署环境均可灵活切换数据库
+
+## 长期
+- [ ] 实现数据库连接配置加密处理
+- [ ] 办理信用卡后，继续跟进站点申请：https://dashboard.render.com/web/new?onboarding=active
