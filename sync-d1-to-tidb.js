@@ -7,9 +7,15 @@ const mysql = require('mysql2/promise');
 const https = require('https');
 
 // ============ 配置 ============
-const CLOUDFLARE_EMAIL = '171519019@qq.com';  // 你的 Cloudflare 邮箱
-const CLOUDFLARE_API_KEY = 'cfk_NIJD65CqxZX4QLjYngVu0stkXOiS5SGdL2RMcgm106398dca';
+// 从环境变量读取敏感信息
+const CLOUDFLARE_EMAIL = process.env.CF_EMAIL;
+const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
+
+if (!CLOUDFLARE_EMAIL || !CLOUDFLARE_API_KEY) {
+    console.error('请设置环境变量 CF_EMAIL 和 CF_API_KEY');
+    process.exit(1);
+}
 
 const TIDB_CONFIG = {
     host: 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
