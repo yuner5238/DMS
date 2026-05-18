@@ -28,7 +28,7 @@ if (missingVars.length > 0) {
 }
 
 console.log('[DEBUG] 环境变量检查通过');
-console.log(`[DEBUG] CF_API_KEY: ${CF_API_KEY ? CF_API_KEY.substring(0, 10) + '...' : '未设置'}`);
+console.log(`[DEBUG] CF_API_KEY: ${process.env.CF_API_KEY ? process.env.CF_API_KEY.substring(0, 10) + '...' : '未设置'}`);
 console.log(`[DEBUG] DB_TIDB_HOST: ${process.env.DB_TIDB_HOST}`);
 console.log(`[DEBUG] DB_TIDB_USER: ${process.env.DB_TIDB_USER}`);
 console.log(`[DEBUG] DB_TIDB_DATABASE: ${process.env.DB_TIDB_DATABASE}`);
