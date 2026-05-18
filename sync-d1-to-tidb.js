@@ -7,7 +7,8 @@ const https = require('https');
 require('dotenv').config();
 
 // ============ 配置 ============
-const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
+const CF_EMAIL = (process.env.CF_EMAIL || '171519019@qq.com').trim();
+const CLOUDFLARE_API_KEY = (process.env.CF_API_KEY || '').trim();
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
 if (!CLOUDFLARE_API_KEY) {
@@ -40,7 +41,7 @@ function cfApi(endpoint, method = 'GET', body = null) {
             path: `/client/v4${endpoint}`,
             method: method,
             headers: {
-                'X-Auth-Email': '171519019@qq.com',
+                'X-Auth-Email': CF_EMAIL,
                 'X-Auth-Key': CLOUDFLARE_API_KEY,
                 'Content-Type': 'application/json'
             }
