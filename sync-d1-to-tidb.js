@@ -8,11 +8,13 @@ const https = require('https');
 require('dotenv').config();
 
 // ============ 配置 ============
-const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
+const CLOUDFLARE_API_KEY = process.env.CF_API_KEY?.trim();
+const CLOUDFLARE_EMAIL = process.env.CF_EMAIL?.trim();
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
 // 验证必需的环境变量
 const requiredEnvVars = [
+    'CF_EMAIL',
     'CF_API_KEY',
     'DB_TIDB_HOST',
     'DB_TIDB_USER',
@@ -28,7 +30,8 @@ if (missingVars.length > 0) {
 }
 
 console.log('[DEBUG] 环境变量检查通过');
-console.log(`[DEBUG] CF_API_KEY: ${process.env.CF_API_KEY ? process.env.CF_API_KEY.substring(0, 10) + '...' : '未设置'}`);
+console.log(`[DEBUG] CF_EMAIL: ${CLOUDFLARE_EMAIL}`);
+console.log(`[DEBUG] CF_API_KEY: ${CLOUDFLARE_API_KEY ? CLOUDFLARE_API_KEY.substring(0, 10) + '...' : '未设置'}`);
 console.log(`[DEBUG] DB_TIDB_HOST: ${process.env.DB_TIDB_HOST}`);
 console.log(`[DEBUG] DB_TIDB_USER: ${process.env.DB_TIDB_USER}`);
 console.log(`[DEBUG] DB_TIDB_DATABASE: ${process.env.DB_TIDB_DATABASE}`);
@@ -53,7 +56,7 @@ async function cfApi(endpoint, method = 'GET', body = null) {
             path: `/client/v4${endpoint}`,
             method: method,
             headers: {
-                'X-Auth-Email': '171519019@qq.com',
+                'X-Auth-Email': CLOUDFLARE_EMAIL,
                 'X-Auth-Key': CLOUDFLARE_API_KEY,
                 'Content-Type': 'application/json'
             }
