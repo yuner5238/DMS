@@ -7,19 +7,32 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      # 禁用 Node.js 24 强制升级，避免兼容性问题
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Verify dependencies
+        run: |
+          node -e "console.log('Node:', process.version)"
+          node -e "require('mysql2/promise'); console.log('mysql2: OK')"
+          node -e "require('dotenv').config(); console.log('dotenv: OK')"
 
       - name: Sync TiDB to D1
-        run: node sync-tidb-to-d1.js
+        run: |
+          set -e
+          node sync-tidb-to-d1.js 2>&1
         env:
           CF_EMAIL: ${{ secrets.CF_EMAIL }}
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
