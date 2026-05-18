@@ -66,10 +66,16 @@ async function cfApi(endpoint, method = 'GET', body = null) {
     });
 }
 
+let cachedAccountId = null;
+
 async function getAccountId() {
+    if (cachedAccountId) return cachedAccountId;
+    
     const res = await cfApi('/accounts');
     if (res.success && res.result.length > 0) {
-        return res.result[0].id;
+        cachedAccountId = res.result[0].id;
+        console.log(`[DEBUG] Cloudflare Account ID: ${cachedAccountId}`);
+        return cachedAccountId;
     }
     throw new Error('无法获取 Cloudflare Account ID: ' + JSON.stringify(res.errors));
 }
@@ -77,14 +83,20 @@ async function getAccountId() {
 // D1 查询
 async function d1Query(sql) {
     const accountId = await getAccountId();
+    console.log(`[DEBUG] D1 Query: ${sql.substring(0, 100)}...`);
+    
     const res = await cfApi(
         `/accounts/${accountId}/d1/database/${D1_DATABASE_ID}/query`,
         'POST',
         { sql }
     );
+    
     if (!res.success) {
-        throw new Error(res.errors?.[0]?.message || 'D1 查询失败');
+        console.error('[DEBUG] D1 API 错误:', JSON.stringify(res.errors));
+        throw new Error(res.errors?.[0]?.message || 'D1 查询失败: ' + JSON.stringify(res.errors));
     }
+    
+    console.log(`[DEBUG] D1 返回 ${res.result.length} 个结果`);
     return res.result;
 }
 
@@ -106,13 +118,21 @@ function queryPromise(connection, sql) {
 }
 
 async function exportFromTiDB(tableName) {
-    log(`从 TiDB 导出表: ${tableName}`);
+    log(`开始导出 TiDB 表: ${tableName}`);
     const connection = mysql.createConnection(TIDB_CONFIG);
     
     try {
         const rows = await queryPromise(connection, `SELECT * FROM ${tableName}`);
-        log(`从 TiDB 导出 ${rows.length} 条数据`);
+        log(`✅ TiDB 表 ${tableName} 导出成功，共 ${rows.length} 条数据`);
+        
+        if (rows.length > 0) {
+            console.log(`[DEBUG] 第一条数据:`, JSON.stringify(rows[0]));
+        }
+        
         return rows;
+    } catch (err) {
+        log(`❌ 导出 TiDB 表 ${tableName} 失败: ${err.message}`, 'error');
+        throw err;
     } finally {
         connection.end();
     }
@@ -127,14 +147,14 @@ function formatValue(v) {
 
 async function importToD1(tableName, rows) {
     if (rows.length === 0) {
-        log(`表 ${tableName} 无数据，跳过`);
+        log(`⚠️ 表 ${tableName} 无数据，跳过导入`);
         return;
     }
 
     try {
         // 清空 D1 表
         await d1Query(`DELETE FROM ${tableName}`);
-        log(`已清空 D1 表: ${tableName}`);
+        log(`🗑️ 已清空 D1 表: ${tableName}`);
         
         // 批量插入
         const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
@@ -143,9 +163,9 @@ async function importToD1(tableName, rows) {
         }).join(', ');
         
         await d1Query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
-        log(`已导入 ${rows.length} 条数据到 D1 表: ${tableName}`, 'success');
+        log(`✅ 已导入 ${rows.length} 条数据到 D1 表: ${tableName}`);
     } catch (err) {
-        log(`导入 ${tableName} 失败: ${err.message}`, 'error');
+        log(`❌ 导入数据到 D1 表 ${tableName} 失败: ${err.message}`, 'error');
         throw err;
     }
 }
@@ -153,32 +173,41 @@ async function importToD1(tableName, rows) {
 // ============ 主流程 ============
 
 async function main() {
-    log('开始从 TiDB 同步到 D1');
-    log(`TiDB 源: ${TIDB_CONFIG.host}:${TIDB_CONFIG.port}/${TIDB_CONFIG.database}`);
+    console.log('='.repeat(50));
+    log('🚀 开始从 TiDB 同步到 D1');
+    console.log(`📍 TiDB 源: ${TIDB_CONFIG.host}:${TIDB_CONFIG.port}/${TIDB_CONFIG.database}`);
+    console.log(`📍 D1 Database ID: ${D1_DATABASE_ID}`);
+    console.log('='.repeat(50));
     
     let successCount = 0;
     let failCount = 0;
     
     for (const table of TABLES) {
+        console.log('-'.repeat(30));
         try {
             const rows = await exportFromTiDB(table);
             if (rows.length > 0) {
                 await importToD1(table, rows);
                 successCount++;
             } else {
-                log(`表 ${table} 无数据，跳过`);
+                successCount++;
             }
         } catch (err) {
-            log(`同步表 ${table} 失败: ${err.message}`, 'error');
+            log(`❌ 同步表 ${table} 失败: ${err.message}`, 'error');
             failCount++;
         }
     }
     
-    log('='.repeat(50));
+    console.log('='.repeat(50));
     log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
+    
+    if (failCount > 0) {
+        process.exit(1);
+    }
 }
 
 main().catch(err => {
     log(`同步出错: ${err.message}`, 'error');
+    console.error('[DEBUG] 完整错误:', err);
     process.exit(1);
 });
