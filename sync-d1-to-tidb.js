@@ -11,24 +11,36 @@ require('dotenv').config();
 const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
-if (!CLOUDFLARE_API_KEY) {
-    console.error('请在 .env 中设置 CF_API_KEY');
+// 验证必需的环境变量
+const requiredEnvVars = [
+    'CF_API_KEY',
+    'DB_TIDB_HOST',
+    'DB_TIDB_USER',
+    'DB_TIDB_PASSWORD',
+    'DB_TIDB_DATABASE'
+];
+
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+    console.error('❌ 缺少必需的环境变量:', missingVars.join(', '));
+    console.log('[DEBUG] 当前环境变量:', Object.keys(process.env).filter(k => k.startsWith('DB_') || k.startsWith('CF_')));
     process.exit(1);
 }
 
+console.log('[DEBUG] 环境变量检查通过');
+console.log(`[DEBUG] CF_API_KEY: ${CF_API_KEY ? CF_API_KEY.substring(0, 10) + '...' : '未设置'}`);
+console.log(`[DEBUG] DB_TIDB_HOST: ${process.env.DB_TIDB_HOST}`);
+console.log(`[DEBUG] DB_TIDB_USER: ${process.env.DB_TIDB_USER}`);
+console.log(`[DEBUG] DB_TIDB_DATABASE: ${process.env.DB_TIDB_DATABASE}`);
+
 const TIDB_CONFIG = {
-    host: process.env.DB_TIDB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+    host: process.env.DB_TIDB_HOST,
     port: parseInt(process.env.DB_TIDB_PORT) || 4000,
     user: process.env.DB_TIDB_USER,
     password: process.env.DB_TIDB_PASSWORD,
     database: process.env.DB_TIDB_DATABASE || 'DMS',
     ssl: { rejectUnauthorized: false }
 };
-
-if (!TIDB_CONFIG.user || !TIDB_CONFIG.password) {
-    console.error('请在 .env 中设置 TiDB 配置 (DB_TIDB_USER, DB_TIDB_PASSWORD)');
-    process.exit(1);
-}
 
 const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
 
