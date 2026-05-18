@@ -3,7 +3,7 @@
  * 使用方法：node sync-d1-to-tidb.js
  */
 
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const https = require('https');
 require('dotenv').config();
 
@@ -148,26 +148,17 @@ function formatValue(v) {
     return v;
 }
 
-function queryPromise(connection, sql) {
-    return new Promise((resolve, reject) => {
-        connection.query(sql, (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
-        });
-    });
-}
-
 async function importToTiDB(pool, tableName, rows) {
     if (rows.length === 0) {
         log(`⚠️ 表 ${tableName} 无数据，跳过导入`);
         return;
     }
 
-    const connection = pool.getConnection();
+    const connection = await pool.getConnection();
     
     try {
         // 清空目标表
-        await queryPromise(connection, `DELETE FROM ${tableName}`);
+        await connection.execute(`DELETE FROM ${tableName}`);
         log(`🗑️ 已清空 TiDB 表: ${tableName}`);
         
         // 批量插入
@@ -176,7 +167,7 @@ async function importToTiDB(pool, tableName, rows) {
             return `(${Object.values(row).map(formatValue).join(', ')})`;
         }).join(', ');
         
-        await queryPromise(connection, `INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
+        await connection.execute(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
         log(`✅ 已导入 ${rows.length} 条数据到 TiDB 表: ${tableName}`);
     } catch (err) {
         log(`❌ 导入数据到 TiDB 表 ${tableName} 失败: ${err.message}`, 'error');
@@ -187,21 +178,6 @@ async function importToTiDB(pool, tableName, rows) {
 }
 
 // ============ 主流程 ============
-
-// 为 pool.end() 创建 Promise 包装器
-function closePool(pool) {
-    return new Promise((resolve, reject) => {
-        pool.end((err) => {
-            if (err) {
-                log(`关闭连接池出错: ${err.message}`, 'error');
-                reject(err);
-            } else {
-                log('✅ 连接池已关闭');
-                resolve();
-            }
-        });
-    });
-}
 
 async function main() {
     console.log('='.repeat(50));
@@ -236,8 +212,9 @@ async function main() {
         console.log('='.repeat(50));
         log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
         
-        // 关闭连接池并等待
-        await closePool(pool);
+        // 关闭连接池
+        await pool.end();
+        log('✅ 连接池已关闭');
         
         if (failCount > 0) {
             process.exit(1);
@@ -246,7 +223,7 @@ async function main() {
         log(`同步出错: ${err.message}`, 'error');
         console.error('[DEBUG] 完整错误:', err);
         try {
-            await closePool(pool);
+            await pool.end();
         } catch (closeErr) {
             console.error('[DEBUG] 关闭连接池时出错:', closeErr);
         }
