@@ -5,26 +5,30 @@
 
 const mysql = require('mysql2/promise');
 const https = require('https');
+require('dotenv').config();
 
 // ============ 配置 ============
-// 从环境变量读取敏感信息
-const CLOUDFLARE_EMAIL = process.env.CF_EMAIL;
 const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
-if (!CLOUDFLARE_EMAIL || !CLOUDFLARE_API_KEY) {
-    console.error('请设置环境变量 CF_EMAIL 和 CF_API_KEY');
+if (!CLOUDFLARE_API_KEY) {
+    console.error('请在 .env 中设置 CF_API_KEY');
     process.exit(1);
 }
 
 const TIDB_CONFIG = {
-    host: 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
-    port: 4000,
-    user: 'WYqCciHtZyezMP6.root',
-    password: 'i6sVtriNBwHr4ZCj',
-    database: 'DMS',
+    host: process.env.DB_TIDB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+    port: parseInt(process.env.DB_TIDB_PORT) || 4000,
+    user: process.env.DB_TIDB_USER,
+    password: process.env.DB_TIDB_PASSWORD,
+    database: process.env.DB_TIDB_DATABASE || 'DMS',
     ssl: { rejectUnauthorized: false }
 };
+
+if (!TIDB_CONFIG.user || !TIDB_CONFIG.password) {
+    console.error('请在 .env 中设置 TiDB 配置 (DB_TIDB_USER, DB_TIDB_PASSWORD)');
+    process.exit(1);
+}
 
 const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
 
@@ -37,7 +41,7 @@ async function cfApi(endpoint, method = 'GET', body = null) {
             path: `/client/v4${endpoint}`,
             method: method,
             headers: {
-                'X-Auth-Email': CLOUDFLARE_EMAIL,
+                'X-Auth-Email': '171519019@qq.com',
                 'X-Auth-Key': CLOUDFLARE_API_KEY,
                 'Content-Type': 'application/json'
             }

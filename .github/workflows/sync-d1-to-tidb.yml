@@ -1,0 +1,34 @@
+name: Sync D1 to TiDB
+
+on:
+  workflow_dispatch:
+    # 手动触发按钮 - D1 到 TiDB
+  schedule:
+    # 每天北京时间 18:00 自动执行
+    # UTC 10:00 = 北京时间 18:00
+    - cron: '0 10 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Sync D1 to TiDB
+        run: node sync-d1-to-tidb.js
+        env:
+          CF_EMAIL: ${{ secrets.CF_EMAIL }}
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          DB_TIDB_HOST: ${{ secrets.DB_TIDB_HOST }}
+          DB_TIDB_PORT: ${{ secrets.DB_TIDB_PORT }}
+          DB_TIDB_USER: ${{ secrets.DB_TIDB_USER }}
+          DB_TIDB_PASSWORD: ${{ secrets.DB_TIDB_PASSWORD }}
+          DB_TIDB_DATABASE: ${{ secrets.DB_TIDB_DATABASE }}
