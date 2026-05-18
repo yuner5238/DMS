@@ -1,40 +1,19 @@
 /**
  * 同步脚本：从 D1 导出数据到 TiDB
- * 使用方法：node sync-d1-to-tidb.js
  */
 
-const mysql = require('mysql2/promise');
+const mysql = require('mysql2');
 const https = require('https');
 require('dotenv').config();
 
 // ============ 配置 ============
-const CLOUDFLARE_API_KEY = process.env.CF_API_KEY?.trim();
-const CLOUDFLARE_EMAIL = process.env.CF_EMAIL?.trim();
+const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
-// 验证必需的环境变量
-const requiredEnvVars = [
-    'CF_EMAIL',
-    'CF_API_KEY',
-    'DB_TIDB_HOST',
-    'DB_TIDB_USER',
-    'DB_TIDB_PASSWORD',
-    'DB_TIDB_DATABASE'
-];
-
-const missingVars = requiredEnvVars.filter(v => !process.env[v]);
-if (missingVars.length > 0) {
-    console.error('❌ 缺少必需的环境变量:', missingVars.join(', '));
-    console.log('[DEBUG] 当前环境变量:', Object.keys(process.env).filter(k => k.startsWith('DB_') || k.startsWith('CF_')));
+if (!CLOUDFLARE_API_KEY) {
+    console.error('错误: 请设置 CF_API_KEY 环境变量');
     process.exit(1);
 }
-
-console.log('[DEBUG] 环境变量检查通过');
-console.log(`[DEBUG] CF_EMAIL: ${CLOUDFLARE_EMAIL}`);
-console.log(`[DEBUG] CF_API_KEY: ${CLOUDFLARE_API_KEY ? CLOUDFLARE_API_KEY.substring(0, 10) + '...' : '未设置'}`);
-console.log(`[DEBUG] DB_TIDB_HOST: ${process.env.DB_TIDB_HOST}`);
-console.log(`[DEBUG] DB_TIDB_USER: ${process.env.DB_TIDB_USER}`);
-console.log(`[DEBUG] DB_TIDB_DATABASE: ${process.env.DB_TIDB_DATABASE}`);
 
 const TIDB_CONFIG = {
     host: process.env.DB_TIDB_HOST,
@@ -45,18 +24,23 @@ const TIDB_CONFIG = {
     ssl: { rejectUnauthorized: false }
 };
 
+if (!TIDB_CONFIG.user || !TIDB_CONFIG.password || !TIDB_CONFIG.host) {
+    console.error('错误: TiDB 配置不完整');
+    process.exit(1);
+}
+
 const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
 
 // ============ Cloudflare API ============
 
-async function cfApi(endpoint, method = 'GET', body = null) {
+function cfApi(endpoint, method = 'GET', body = null) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: 'api.cloudflare.com',
             path: `/client/v4${endpoint}`,
             method: method,
             headers: {
-                'X-Auth-Email': CLOUDFLARE_EMAIL,
+                'X-Auth-Email': '171519019@qq.com',
                 'X-Auth-Key': CLOUDFLARE_API_KEY,
                 'Content-Type': 'application/json'
             }
@@ -67,10 +51,9 @@ async function cfApi(endpoint, method = 'GET', body = null) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 try {
-                    const json = JSON.parse(data);
-                    resolve(json);
+                    resolve(JSON.parse(data));
                 } catch (e) {
-                    resolve(data);
+                    reject(new Error('API 响应解析失败'));
                 }
             });
         });
@@ -81,158 +64,109 @@ async function cfApi(endpoint, method = 'GET', body = null) {
     });
 }
 
-let cachedAccountId = null;
-
-async function getAccountId() {
-    if (cachedAccountId) return cachedAccountId;
-    
-    const res = await cfApi('/accounts');
-    if (res.success && res.result.length > 0) {
-        cachedAccountId = res.result[0].id;
-        console.log(`[DEBUG] Cloudflare Account ID: ${cachedAccountId}`);
-        return cachedAccountId;
-    }
-    throw new Error('无法获取 Cloudflare Account ID: ' + JSON.stringify(res.errors));
+function queryPromise(connection, sql) {
+    return new Promise((resolve, reject) => {
+        connection.query(sql, (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+        });
+    });
 }
 
-// D1 查询
-async function d1Query(sql) {
-    const accountId = await getAccountId();
-    console.log(`[DEBUG] D1 Query: ${sql.substring(0, 100)}...`);
-    
-    const res = await cfApi(
-        `/accounts/${accountId}/d1/database/${D1_DATABASE_ID}/query`,
-        'POST',
-        { sql }
-    );
-    
-    if (!res.success) {
-        console.error('[DEBUG] D1 API 错误:', JSON.stringify(res.errors));
-        throw new Error(res.errors?.[0]?.message || 'D1 查询失败: ' + JSON.stringify(res.errors));
-    }
-    
-    console.log(`[DEBUG] D1 返回 ${res.result.length} 个结果`);
-    return res.result;
-}
-
-// ============ 辅助函数 ============
-
-function log(message, type = 'info') {
-    const timestamp = new Date().toLocaleTimeString('zh-CN');
-    const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '📤';
-    console.log(`${prefix} [${timestamp}] ${message}`);
-}
-
-async function exportFromD1(tableName) {
-    log(`开始导出 D1 表: ${tableName}`);
-    try {
-        const result = await d1Query(`SELECT * FROM ${tableName}`);
-        const rows = result[0]?.results || [];
-        log(`✅ D1 表 ${tableName} 导出成功，共 ${rows.length} 条数据`);
-        
-        if (rows.length > 0) {
-            console.log(`[DEBUG] 第一条数据:`, JSON.stringify(rows[0]));
-        }
-        
-        return rows;
-    } catch (err) {
-        log(`❌ 导出 D1 表 ${tableName} 失败: ${err.message}`, 'error');
-        throw err; // 重新抛出错误，不再静默忽略
-    }
-}
-
-function formatValue(v) {
-    if (v === null) return 'NULL';
-    if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
-    if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
-    return v;
-}
-
-async function importToTiDB(pool, tableName, rows) {
-    if (rows.length === 0) {
-        log(`⚠️ 表 ${tableName} 无数据，跳过导入`);
-        return;
-    }
-
-    const connection = await pool.getConnection();
-    
-    try {
-        // 清空目标表
-        await connection.execute(`DELETE FROM ${tableName}`);
-        log(`🗑️ 已清空 TiDB 表: ${tableName}`);
-        
-        // 批量插入
-        const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
-        const values = rows.map(row => {
-            return `(${Object.values(row).map(formatValue).join(', ')})`;
-        }).join(', ');
-        
-        await connection.execute(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
-        log(`✅ 已导入 ${rows.length} 条数据到 TiDB 表: ${tableName}`);
-    } catch (err) {
-        log(`❌ 导入数据到 TiDB 表 ${tableName} 失败: ${err.message}`, 'error');
-        throw err;
-    } finally {
-        connection.release();
-    }
-}
-
-// ============ 主流程 ============
+// ============ 主函数 ============
 
 async function main() {
     console.log('='.repeat(50));
-    log('🚀 开始从 D1 同步到 TiDB');
-    console.log(`📍 TiDB 目标: ${TIDB_CONFIG.host}:${TIDB_CONFIG.port}/${TIDB_CONFIG.database}`);
-    console.log(`📍 D1 Database ID: ${D1_DATABASE_ID}`);
+    console.log('开始同步: D1 -> TiDB');
     console.log('='.repeat(50));
-    
-    // 创建连接池
-    const pool = mysql.createPool(TIDB_CONFIG);
-    
-    let successCount = 0;
-    let failCount = 0;
-    
+
+    // 获取 Cloudflare Account ID
+    let accountId = null;
     try {
-        for (const table of TABLES) {
-            console.log('-'.repeat(30));
-            try {
-                const rows = await exportFromD1(table);
-                if (rows.length > 0) {
-                    await importToTiDB(pool, table, rows);
-                    successCount++;
-                } else {
-                    successCount++; // 无数据的表也算成功
-                }
-            } catch (err) {
-                log(`❌ 同步表 ${table} 失败: ${err.message}`, 'error');
-                failCount++;
-            }
-        }
-        
-        console.log('='.repeat(50));
-        log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
-        
-        // 关闭连接池
-        await pool.end();
-        log('✅ 连接池已关闭');
-        
-        if (failCount > 0) {
-            process.exit(1);
+        const res = await cfApi('/accounts');
+        if (res.success && res.result.length > 0) {
+            accountId = res.result[0].id;
+        } else {
+            throw new Error('获取 Account ID 失败');
         }
     } catch (err) {
-        log(`同步出错: ${err.message}`, 'error');
-        console.error('[DEBUG] 完整错误:', err);
-        try {
-            await pool.end();
-        } catch (closeErr) {
-            console.error('[DEBUG] 关闭连接池时出错:', closeErr);
-        }
+        console.error('Cloudflare 连接失败:', err.message);
         process.exit(1);
     }
+
+    // 创建 TiDB 连接
+    let tidb;
+    try {
+        tidb = mysql.createConnection(TIDB_CONFIG);
+        await new Promise((resolve, reject) => {
+            tidb.connect(err => err ? reject(err) : resolve());
+        });
+        console.log('TiDB 连接成功');
+    } catch (err) {
+        console.error('TiDB 连接失败:', err.message);
+        process.exit(1);
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const table of TABLES) {
+        console.log(`\n[${table}] 同步中...`);
+        
+        try {
+            // 从 D1 获取数据
+            const d1Res = await cfApi(
+                `/accounts/${accountId}/d1/database/${D1_DATABASE_ID}/query`,
+                'POST',
+                { sql: `SELECT * FROM ${table}` }
+            );
+
+            if (!d1Res.success) {
+                throw new Error(d1Res.errors?.[0]?.message || 'D1 查询失败');
+            }
+
+            const rows = d1Res.result[0]?.results || [];
+            console.log(`  D1 导出: ${rows.length} 条`);
+
+            if (rows.length === 0) {
+                console.log(`  跳过 (无数据)`);
+                successCount++;
+                continue;
+            }
+
+            // 导入到 TiDB
+            await queryPromise(tidb, `DELETE FROM ${table}`);
+            
+            const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
+            const values = rows.map(row => {
+                return '(' + Object.values(row).map(v => {
+                    if (v === null) return 'NULL';
+                    if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+                    if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
+                    return v;
+                }).join(', ') + ')';
+            }).join(', ');
+
+            await queryPromise(tidb, `INSERT INTO ${table} (${columns}) VALUES ${values}`);
+            console.log(`  TiDB 导入: ${rows.length} 条`);
+            successCount++;
+
+        } catch (err) {
+            console.error(`  失败: ${err.message}`);
+            failCount++;
+        }
+    }
+
+    tidb.end();
+
+    console.log('\n' + '='.repeat(50));
+    console.log(`完成: 成功 ${successCount}, 失败 ${failCount}`);
+    console.log('='.repeat(50));
+
+    process.exit(failCount > 0 ? 1 : 0);
 }
 
 main().catch(err => {
-    log(`同步出错: ${err.message}`, 'error');
-    console.error('[DEBUG] 完整错误:', err);
+    console.error('执行出错:', err.message);
     process.exit(1);
 });
