@@ -25,6 +25,7 @@ jobs:
       - name: Sync D1 to TiDB
         run: node sync-d1-to-tidb.js
         env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
           CF_EMAIL: ${{ secrets.CF_EMAIL }}
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
           DB_TIDB_HOST: ${{ secrets.DB_TIDB_HOST }}
