@@ -157,13 +157,13 @@ function queryPromise(connection, sql) {
     });
 }
 
-async function importToTiDB(tableName, rows) {
+async function importToTiDB(pool, tableName, rows) {
     if (rows.length === 0) {
         log(`⚠️ 表 ${tableName} 无数据，跳过导入`);
         return;
     }
 
-    const connection = mysql.createConnection(TIDB_CONFIG);
+    const connection = pool.getConnection();
     
     try {
         // 清空目标表
@@ -182,7 +182,7 @@ async function importToTiDB(tableName, rows) {
         log(`❌ 导入数据到 TiDB 表 ${tableName} 失败: ${err.message}`, 'error');
         throw err;
     } finally {
-        connection.end();
+        connection.release();
     }
 }
 
@@ -195,30 +195,42 @@ async function main() {
     console.log(`📍 D1 Database ID: ${D1_DATABASE_ID}`);
     console.log('='.repeat(50));
     
+    // 创建连接池
+    const pool = mysql.createPool(TIDB_CONFIG);
+    
     let successCount = 0;
     let failCount = 0;
     
-    for (const table of TABLES) {
-        console.log('-'.repeat(30));
-        try {
-            const rows = await exportFromD1(table);
-            if (rows.length > 0) {
-                await importToTiDB(table, rows);
-                successCount++;
-            } else {
-                successCount++; // 无数据的表也算成功
+    try {
+        for (const table of TABLES) {
+            console.log('-'.repeat(30));
+            try {
+                const rows = await exportFromD1(table);
+                if (rows.length > 0) {
+                    await importToTiDB(pool, table, rows);
+                    successCount++;
+                } else {
+                    successCount++; // 无数据的表也算成功
+                }
+            } catch (err) {
+                log(`❌ 同步表 ${table} 失败: ${err.message}`, 'error');
+                failCount++;
             }
-        } catch (err) {
-            log(`❌ 同步表 ${table} 失败: ${err.message}`, 'error');
-            failCount++;
         }
-    }
-    
-    console.log('='.repeat(50));
-    log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
-    
-    if (failCount > 0) {
-        process.exit(1);
+        
+        console.log('='.repeat(50));
+        log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
+        
+        if (failCount > 0) {
+            process.exit(1);
+        }
+    } finally {
+        // 关闭连接池
+        pool.end((err) => {
+            if (err) {
+                log(`关闭连接池出错: ${err.message}`, 'error');
+            }
+        });
     }
 }
 
