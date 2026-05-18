@@ -3,7 +3,7 @@
  * 使用方法：node sync-tidb-to-d1.js
  */
 
-const mysql = require('mysql2/promise');
+const mysql = require('mysql2');
 const https = require('https');
 require('dotenv').config();
 
@@ -96,16 +96,25 @@ function log(message, type = 'info') {
     console.log(`${prefix} [${timestamp}] ${message}`);
 }
 
+function queryPromise(connection, sql) {
+    return new Promise((resolve, reject) => {
+        connection.query(sql, (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+        });
+    });
+}
+
 async function exportFromTiDB(tableName) {
     log(`从 TiDB 导出表: ${tableName}`);
-    const connection = await mysql.createConnection(TIDB_CONFIG);
+    const connection = mysql.createConnection(TIDB_CONFIG);
     
     try {
-        const [rows] = await connection.query(`SELECT * FROM ${tableName}`);
+        const rows = await queryPromise(connection, `SELECT * FROM ${tableName}`);
         log(`从 TiDB 导出 ${rows.length} 条数据`);
         return rows;
     } finally {
-        await connection.end();
+        connection.end();
     }
 }
 

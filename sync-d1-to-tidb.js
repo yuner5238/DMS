@@ -3,7 +3,7 @@
  * 使用方法：node sync-d1-to-tidb.js
  */
 
-const mysql = require('mysql2/promise');
+const mysql = require('mysql2');
 const https = require('https');
 require('dotenv').config();
 
@@ -116,17 +116,26 @@ function formatValue(v) {
     return v;
 }
 
+function queryPromise(connection, sql) {
+    return new Promise((resolve, reject) => {
+        connection.query(sql, (err, results) => {
+            if (err) reject(err);
+            else resolve(results);
+        });
+    });
+}
+
 async function importToTiDB(tableName, rows) {
     if (rows.length === 0) {
         log(`表 ${tableName} 无数据，跳过`);
         return;
     }
 
-    const connection = await mysql.createConnection(TIDB_CONFIG);
+    const connection = mysql.createConnection(TIDB_CONFIG);
     
     try {
         // 清空目标表
-        await connection.query(`DELETE FROM ${tableName}`);
+        await queryPromise(connection, `DELETE FROM ${tableName}`);
         log(`已清空 TiDB 表: ${tableName}`);
         
         // 批量插入
@@ -135,10 +144,10 @@ async function importToTiDB(tableName, rows) {
             return `(${Object.values(row).map(formatValue).join(', ')})`;
         }).join(', ');
         
-        await connection.query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
+        await queryPromise(connection, `INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
         log(`已导入 ${rows.length} 条数据到 TiDB 表: ${tableName}`, 'success');
     } finally {
-        await connection.end();
+        connection.end();
     }
 }
 
