@@ -8,7 +8,7 @@ const https = require('https');
 require('dotenv').config();
 
 // ============ 配置 ============
-const CLOUDFLARE_API_KEY = process.env.CF_API_KEY;
+const CLOUDFLARE_API_KEY = (process.env.CF_API_KEY || '').trim();
 const D1_DATABASE_ID = 'a57bd321-c1ab-427e-a06d-41073992ab06';
 
 if (!CLOUDFLARE_API_KEY) {
@@ -17,18 +17,31 @@ if (!CLOUDFLARE_API_KEY) {
 }
 
 const TIDB_CONFIG = {
-    host: process.env.DB_TIDB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+    host: (process.env.DB_TIDB_HOST || '').trim(),
     port: parseInt(process.env.DB_TIDB_PORT) || 4000,
-    user: process.env.DB_TIDB_USER,
-    password: process.env.DB_TIDB_PASSWORD,
-    database: process.env.DB_TIDB_DATABASE || 'DMS',
-    ssl: { rejectUnauthorized: false }
+    user: (process.env.DB_TIDB_USER || '').trim(),
+    password: (process.env.DB_TIDB_PASSWORD || '').trim(),
+    database: (process.env.DB_TIDB_DATABASE || 'DMS').trim(),
+    ssl: { rejectUnauthorized: false },
+    connectTimeout: 30000,
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0
 };
 
-if (!TIDB_CONFIG.user || !TIDB_CONFIG.password) {
-    console.error('请在 .env 中设置 TiDB 配置 (DB_TIDB_USER, DB_TIDB_PASSWORD)');
+if (!TIDB_CONFIG.user || !TIDB_CONFIG.password || !TIDB_CONFIG.host) {
+    console.error('错误: TiDB 配置不完整');
+    console.error('  DB_TIDB_HOST:', TIDB_CONFIG.host ? '已设置' : '未设置');
+    console.error('  DB_TIDB_USER:', TIDB_CONFIG.user ? '已设置' : '未设置');
+    console.error('  DB_TIDB_PASSWORD:', TIDB_CONFIG.password ? '已设置' : '未设置');
     process.exit(1);
 }
+
+console.log('[DEBUG] TiDB 配置:');
+console.log('  host:', TIDB_CONFIG.host);
+console.log('  port:', TIDB_CONFIG.port);
+console.log('  user:', TIDB_CONFIG.user);
+console.log('  database:', TIDB_CONFIG.database);
 
 const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
 
@@ -117,12 +130,49 @@ function queryPromise(connection, sql) {
     });
 }
 
+// 创建连接池
+const pool = mysql.createPool(TIDB_CONFIG);
+console.log('[DEBUG] TiDB 连接池已创建');
+
+// 测试连接
+pool.getConnection((err, connection) => {
+    if (err) {
+        console.error('[DEBUG] 连接池获取连接失败:', err.message);
+        console.error('[DEBUG] 错误代码:', err.code);
+        console.error('[DEBUG] 错误堆栈:', err.stack);
+    } else {
+        console.log('[DEBUG] 连接池测试成功，连接有效');
+        connection.release();
+    }
+});
+
 async function exportFromTiDB(tableName) {
     log(`开始导出 TiDB 表: ${tableName}`);
-    const connection = mysql.createConnection(TIDB_CONFIG);
     
     try {
-        const rows = await queryPromise(connection, `SELECT * FROM ${tableName}`);
+        const rows = await new Promise((resolve, reject) => {
+            pool.getConnection((err, connection) => {
+                if (err) {
+                    console.error('[DEBUG] 获取连接失败:', err.message);
+                    console.error('[DEBUG] 错误代码:', err.code);
+                    reject(err);
+                    return;
+                }
+                console.log(`[DEBUG] 为表 ${tableName} 获取到连接`);
+                connection.query(`SELECT * FROM ${tableName}`, (err, results) => {
+                    if (err) {
+                        console.error('[DEBUG] 查询失败:', err.message);
+                        connection.release();
+                        reject(err);
+                        return;
+                    }
+                    console.log(`[DEBUG] 表 ${tableName} 查询成功，释放连接`);
+                    connection.release();
+                    resolve(results);
+                });
+            });
+        });
+        
         log(`✅ TiDB 表 ${tableName} 导出成功，共 ${rows.length} 条数据`);
         
         if (rows.length > 0) {
@@ -131,10 +181,9 @@ async function exportFromTiDB(tableName) {
         
         return rows;
     } catch (err) {
+        console.error('[DEBUG] 完整错误堆栈:', err.stack);
         log(`❌ 导出 TiDB 表 ${tableName} 失败: ${err.message}`, 'error');
         throw err;
-    } finally {
-        connection.end();
     }
 }
 
@@ -200,6 +249,12 @@ async function main() {
     
     console.log('='.repeat(50));
     log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
+    
+    // 关闭连接池
+    pool.end((err) => {
+        if (err) console.error('[DEBUG] 关闭连接池时出错:', err);
+        else console.log('[DEBUG] TiDB 连接池已关闭');
+    });
     
     if (failCount > 0) {
         process.exit(1);
