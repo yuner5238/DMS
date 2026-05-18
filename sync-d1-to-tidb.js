@@ -188,6 +188,21 @@ async function importToTiDB(pool, tableName, rows) {
 
 // ============ 主流程 ============
 
+// 为 pool.end() 创建 Promise 包装器
+function closePool(pool) {
+    return new Promise((resolve, reject) => {
+        pool.end((err) => {
+            if (err) {
+                log(`关闭连接池出错: ${err.message}`, 'error');
+                reject(err);
+            } else {
+                log('✅ 连接池已关闭');
+                resolve();
+            }
+        });
+    });
+}
+
 async function main() {
     console.log('='.repeat(50));
     log('🚀 开始从 D1 同步到 TiDB');
@@ -221,16 +236,21 @@ async function main() {
         console.log('='.repeat(50));
         log(`同步完成！成功: ${successCount} 个表, 失败: ${failCount} 个表`);
         
+        // 关闭连接池并等待
+        await closePool(pool);
+        
         if (failCount > 0) {
             process.exit(1);
         }
-    } finally {
-        // 关闭连接池
-        pool.end((err) => {
-            if (err) {
-                log(`关闭连接池出错: ${err.message}`, 'error');
-            }
-        });
+    } catch (err) {
+        log(`同步出错: ${err.message}`, 'error');
+        console.error('[DEBUG] 完整错误:', err);
+        try {
+            await closePool(pool);
+        } catch (closeErr) {
+            console.error('[DEBUG] 关闭连接池时出错:', closeErr);
+        }
+        process.exit(1);
     }
 }
 
