@@ -17,18 +17,27 @@ if (!CLOUDFLARE_API_KEY) {
 }
 
 const TIDB_CONFIG = {
-    host: process.env.DB_TIDB_HOST,
+    host: (process.env.DB_TIDB_HOST || '').trim(),
     port: parseInt(process.env.DB_TIDB_PORT) || 4000,
-    user: process.env.DB_TIDB_USER,
-    password: process.env.DB_TIDB_PASSWORD,
-    database: process.env.DB_TIDB_DATABASE || 'DMS',
+    user: (process.env.DB_TIDB_USER || '').trim(),
+    password: (process.env.DB_TIDB_PASSWORD || '').trim(),
+    database: (process.env.DB_TIDB_DATABASE || 'DMS').trim(),
     ssl: { rejectUnauthorized: false }
 };
 
 if (!TIDB_CONFIG.user || !TIDB_CONFIG.password || !TIDB_CONFIG.host) {
     console.error('错误: TiDB 配置不完整');
+    console.error('  DB_TIDB_HOST:', TIDB_CONFIG.host ? '已设置' : '未设置');
+    console.error('  DB_TIDB_USER:', TIDB_CONFIG.user ? '已设置' : '未设置');
+    console.error('  DB_TIDB_PASSWORD:', TIDB_CONFIG.password ? '已设置' : '未设置');
     process.exit(1);
 }
+
+console.log('[DEBUG] TiDB 配置:');
+console.log('  host:', TIDB_CONFIG.host);
+console.log('  port:', TIDB_CONFIG.port);
+console.log('  user:', TIDB_CONFIG.user);
+console.log('  database:', TIDB_CONFIG.database);
 
 const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
 
