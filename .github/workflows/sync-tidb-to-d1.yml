@@ -17,6 +17,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Debug Environment Variables
+        run: |
+          echo "CF_EMAIL: [${{ secrets.CF_EMAIL }}]"
+          echo "DB_TIDB_HOST: [${{ secrets.DB_TIDB_HOST }}]"
+          echo "DB_TIDB_PORT: [${{ secrets.DB_TIDB_PORT }}]"
+          echo "DB_TIDB_USER: [${{ secrets.DB_TIDB_USER }}]"
+          echo "DB_TIDB_DATABASE: [${{ secrets.DB_TIDB_DATABASE }}]"
+          echo "(password hidden for security)"
+
       - name: Sync TiDB to D1
         run: node sync-tidb-to-d1.js
         env:
