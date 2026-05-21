@@ -13,7 +13,8 @@ let allDevices = [];
 let warehouses = [];
 let tagStats = [];
 let currentTagFilter = null;
-let tagEditMode = false;  // 标签管理模式
+let locationFilters = { in_stock: true, checked_out: false };  // 状态过滤，默认只显示在库设备
+let filterPanelVisible = true;  // 过滤面板默认显示
 let announcements = [];
 let dismissedAnnouncements = new Set();
 let viewMode = 'list';  // 视图模式：'list' 列表模式 或 'table' 表格模式
@@ -38,6 +39,24 @@ function formatDate(timeStr) {
     // 转换为北京时间（UTC+8）
     const beijingDate = new Date(date.getTime() + (8 * 60 * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
     return `${beijingDate.getFullYear()}.${String(beijingDate.getMonth() + 1).padStart(2, '0')}.${String(beijingDate.getDate()).padStart(2, '0')}`;
+}
+
+// 解析用户输入的日期字符串，支持 2026.5.20 或 2026.05.20 格式
+// 返回 YYYY-MM-DD 格式或 null
+function parseDateInput(dateStr) {
+    if (!dateStr || !dateStr.trim()) return null;
+    const cleaned = dateStr.trim();
+    // 支持 . - / 分隔符
+    const parts = cleaned.split(/[.\-\/]/);
+    if (parts.length !== 3) return null;
+    const [year, month, day] = parts;
+    if (!year || !month || !day) return null;
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+    const d = parseInt(day, 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+    if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 // 格式化日期为 MySQL datetime 格式（北京时间）
@@ -112,7 +131,8 @@ function renderDevicesTableView(devices) {
         const rows = deviceArr.map(device => {
             const locationText = isOut ? (device.destination || '已出库') : (device.storage_location || '在库');
             const timeText = device.checkin_time ? formatDate(device.checkin_time) : '-';
-            
+            const shelfLifeText = device.shelf_life ? formatDate(device.shelf_life) : '-';
+
             return `
                 <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail(${device.id})" style="cursor: pointer;">
                     <td class="device-name-cell"><strong>${device.name}</strong></td>
@@ -121,10 +141,11 @@ function renderDevicesTableView(devices) {
                     <td>${device.tag_name ? `<span class="tag-badge">${device.tag_name}</span>` : '-'}</td>
                     <td>${locationText}</td>
                     <td>${timeText}</td>
+                    <td>${shelfLifeText}</td>
                     <td>${device.remark ? '<i class="bi bi-file-text text-muted"></i>' : '-'}</td>
                     <td>
                         <div class="d-flex gap-1">
-                            ${isOut 
+                            ${isOut
                                 ? `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
                                 : `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`
                             }
@@ -146,6 +167,7 @@ function renderDevicesTableView(devices) {
                         <th>标签</th>
                         <th>位置/去向</th>
                         <th>入库时间</th>
+                        <th>保质期</th>
                         <th>备注</th>
                         <th>操作</th>
                     </tr>
@@ -195,13 +217,41 @@ async function loadWarehouses() {
     } catch (e) { console.error('加载仓库失败:', e); }
 }
 
-// 加载标签统计（支持按仓库筛选）
+// 加载标签统计（支持按仓库筛选和状态筛选）
 async function loadTagStats(warehouseName = null) {
     try {
-        const url = warehouseName ? `${API_BASE}/tag-stats?warehouseName=${encodeURIComponent(warehouseName)}` : `${API_BASE}/tag-stats`;
-        const res = await fetch(url);
-        const data = await res.json();
-        tagStats = Array.isArray(data) ? data : [];
+        // 先获取设备数据用于标签统计
+        let devicesUrl = `${API_BASE}/devices`;
+        if (warehouseName) {
+            devicesUrl += `?warehouseName=${encodeURIComponent(warehouseName)}`;
+        }
+        const res = await fetch(devicesUrl);
+        const devices = await res.json();
+        const allDevices = Array.isArray(devices) ? devices : [];
+
+        // 根据状态过滤设备
+        const filteredDevices = allDevices.filter(d => {
+            if (locationFilters.in_stock && d.location_status !== 'checked_out') return true;
+            if (locationFilters.checked_out && d.location_status === 'checked_out') return true;
+            return false;
+        });
+
+        // 计算标签统计
+        const tagCountMap = {};
+        filteredDevices.forEach(d => {
+            if (d.tag_name) {
+                if (!tagCountMap[d.tag_name]) {
+                    tagCountMap[d.tag_name] = 0;
+                }
+                tagCountMap[d.tag_name] += d.quantity || 1;
+            }
+        });
+
+        // 转换为标签统计数组
+        tagStats = Object.entries(tagCountMap)
+            .map(([name, total_count]) => ({ name, total_count }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
         renderTagStats();
     } catch (e) {
         console.error('加载标签统计失败:', e);
@@ -224,6 +274,7 @@ function renderWarehouseList() {
         const inStock = w.inStockCount || 0;
         const checkedOut = w.checkedOutCount || 0;
         const isAll = w.id === 0;
+        const isActive = currentWarehouseId === w.id;
         const icon = isAll ? 'bi-grid' : 'bi-box';
         const actionsHtml = isAll ? '' : `
             <div class="warehouse-actions" onclick="event.stopPropagation()">
@@ -232,7 +283,7 @@ function renderWarehouseList() {
             </div>
         `;
         return `
-            <div class="nav-link warehouse-card${isAll ? ' all' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
+            <div class="nav-link warehouse-card${isAll ? ' all' : ''}${isActive ? ' active' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
                 ${actionsHtml}
                 <div class="warehouse-name">
                     <i class="bi ${icon}"></i> ${w.name}
@@ -253,22 +304,8 @@ function renderTagStats() {
     list.innerHTML = tagStats.map(tag => `
         <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${tag.name}')" style="cursor:pointer;">
             <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
-            ${tagEditMode ? `<button class="btn btn-sm btn-link text-danger p-0 ms-2 delete-tag-btn" onclick="event.stopPropagation(); confirmDeleteTag(${tag.id}, '${tag.name}')" title="删除标签"><i class="bi bi-trash"></i></button>` : ''}
         </div>
     `).join('');
-}
-
-// 切换标签管理模式
-function toggleTagEditMode() {
-    tagEditMode = !tagEditMode;
-    renderTagStats();
-}
-
-// 确认删除标签
-function confirmDeleteTag(id, name) {
-    if (!confirm(`确定要删除标签 "${name}" 吗？`)) return;
-    document.getElementById('tagId').value = id;
-    deleteTag();
 }
 
 // 按标签筛选
@@ -283,12 +320,46 @@ function filterByTag(tagName) {
     loadDevices();
 }
 
+// 切换过滤面板显示/隐藏
+function toggleFilterPanel() {
+    filterPanelVisible = !filterPanelVisible;
+    const filterButtons = document.getElementById('filterButtons');
+    filterButtons.style.display = filterPanelVisible ? 'flex' : 'none';
+    updateFilterButtonStyles();
+}
+
+// 切换状态过滤
+function toggleLocationFilter(location) {
+    locationFilters[location] = !locationFilters[location];
+    updateFilterButtonStyles();
+    loadTagStats(currentWarehouseName);  // 刷新标签统计
+}
+
+// 更新过滤按钮样式
+function updateFilterButtonStyles() {
+    const inStockBtn = document.getElementById('filterInStock');
+    const checkedOutBtn = document.getElementById('filterCheckedOut');
+
+    if (locationFilters.in_stock) {
+        inStockBtn.classList.add('active-in-stock');
+    } else {
+        inStockBtn.classList.remove('active-in-stock');
+    }
+
+    if (locationFilters.checked_out) {
+        checkedOutBtn.classList.add('active-checked-out');
+    } else {
+        checkedOutBtn.classList.remove('active-checked-out');
+    }
+}
+
 // 选择仓库
 async function selectWarehouse(id, name) {
     currentWarehouseId = id;
     currentWarehouseName = name === '总仓库' ? null : name;
     currentTagFilter = null; // 切换仓库时清除标签筛选
-    document.querySelectorAll('.warehouse-card').forEach(card => { card.classList.toggle('active', card.dataset.id == id); });
+    locationFilters = { in_stock: true, checked_out: false }; // 切换仓库时重置状态筛选
+    updateFilterButtonStyles();
     document.getElementById('currentWarehouseTitle').innerHTML = `<i class="bi bi-folder"></i> ${name}`;
     document.getElementById('mobileWarehouseTitle').textContent = name;
     document.getElementById('deviceWarehouse').value = name;
@@ -321,6 +392,15 @@ async function loadDevices() {
         // 应用标签筛选
         if (currentTagFilter) {
             devices = devices.filter(d => d.tag_name === currentTagFilter);
+        }
+
+        // 应用状态筛选
+        if (!locationFilters.in_stock || !locationFilters.checked_out) {
+            devices = devices.filter(d => {
+                if (locationFilters.in_stock && d.location_status !== 'checked_out') return true;
+                if (locationFilters.checked_out && d.location_status === 'checked_out') return true;
+                return false;
+            });
         }
 
         allDevices = devices;
@@ -604,8 +684,7 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceStorageLocation').value = d.storage_location || '';
         // 入库时间
         if (d.checkin_time) {
-            const checkinDate = new Date(d.checkin_time);
-            document.getElementById('deviceCheckinTime').value = checkinDate.toISOString().split('T')[0];
+            document.getElementById('deviceCheckinTime').value = formatDate(d.checkin_time);
         } else {
             document.getElementById('deviceCheckinTime').value = '';
         }
@@ -613,6 +692,12 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceDestination').value = d.destination || '';
         document.getElementById('deviceStatus').value = d.status;
         document.getElementById('deviceRemark').value = d.remark || '';
+        // 保质期
+        if (d.shelf_life) {
+            document.getElementById('deviceShelfLife').value = formatDate(d.shelf_life);
+        } else {
+            document.getElementById('deviceShelfLife').value = '';
+        }
         document.getElementById('deviceRemarkEditor').innerHTML = decodeRichText(d.remark || '');
         document.getElementById('deleteDeviceBtn').style.display = 'block';
         document.getElementById('destinationField').style.display = (d.location_status === 'checked_out') ? 'block' : 'none';
@@ -623,11 +708,12 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceQuantity').value = 1;
         document.getElementById('deviceStorageLocation').value = '';
         // 新增设备默认入库时间为今天
-        document.getElementById('deviceCheckinTime').value = new Date().toISOString().split('T')[0];
+        document.getElementById('deviceCheckinTime').value = formatDate(new Date());
         document.getElementById('deviceLocationStatus').value = 'in_stock';
         document.getElementById('deviceDestination').value = '';
         document.getElementById('deviceStatus').value = '正常';
         document.getElementById('deviceRemark').value = '';
+        document.getElementById('deviceShelfLife').value = '';
         document.getElementById('deviceRemarkEditor').innerHTML = '';
         document.getElementById('deleteDeviceBtn').style.display = 'none';
         document.getElementById('destinationField').style.display = 'none';
@@ -711,7 +797,12 @@ async function saveDevice() {
     const location_status = document.getElementById('deviceLocationStatus').value;
     const destination = location_status === 'checked_out' ? document.getElementById('deviceDestination').value : '';
     const checkinTimeInput = document.getElementById('deviceCheckinTime').value;
+    const shelfLifeInput = document.getElementById('deviceShelfLife').value;
     const remarkEditor = document.getElementById('deviceRemarkEditor');
+
+    // 解析日期输入
+    const checkinTime = parseDateInput(checkinTimeInput);
+    const shelfLife = parseDateInput(shelfLifeInput);
 
     const data = {
         warehouseName: document.getElementById('deviceWarehouse').value,
@@ -723,7 +814,8 @@ async function saveDevice() {
         destination: destination,
         status: document.getElementById('deviceStatus').value,
         remark: encodeRichText(remarkEditor ? remarkEditor.innerHTML : ''),
-        checkin_time: checkinTimeInput ? checkinTimeInput + ' ' + new Date().toTimeString().slice(0,8) : null
+        checkin_time: checkinTime ? checkinTime + ' ' + new Date().toTimeString().slice(0,8) : null,
+        shelf_life: shelfLife
     };
 
     if (!data.name) { alert('请输入设备名称'); return; }
@@ -1139,51 +1231,6 @@ function saveRichTextContent() {
     setTimeout(() => {
         saveDevice();
     }, 300);
-}
-
-// ============ 标签操作 ============
-function showTagModal(id = null) {
-    const modal = new bootstrap.Modal(document.getElementById('tagModal'));
-    document.getElementById('tagModalTitle').textContent = id ? '编辑标签' : '添加标签';
-    document.getElementById('deleteTagBtn').style.display = id ? 'block' : 'none';
-    if (id) {
-        const tag = tagStats.find(t => t.id === id);
-        document.getElementById('tagId').value = tag.id;
-        document.getElementById('tagName').value = tag.name;
-    } else {
-        document.getElementById('tagId').value = '';
-        document.getElementById('tagName').value = '';
-    }
-    modal.show();
-}
-
-function editTag(id, name) { showTagModal(id); }
-
-function deleteTagConfirm(id) {
-    if (!confirm('确定要删除该标签吗？')) return;
-    document.getElementById('tagId').value = id;
-    deleteTag();
-}
-
-async function saveTag() {
-    const id = document.getElementById('tagId').value;
-    const data = { name: document.getElementById('tagName').value };
-    if (!data.name) { alert('请输入标签名称'); return; }
-    try {
-        if (id) await fetch(`${API_BASE}/tags/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        else await fetch(`${API_BASE}/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
-        await loadTagStats();
-    } catch (e) { alert('保存失败: ' + e.message); }
-}
-
-async function deleteTag() {
-    const id = document.getElementById('tagId').value;
-    try {
-        await fetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' });
-        bootstrap.Modal.getInstance(document.getElementById('tagModal')).hide();
-        await loadTagStats(); await loadWarehouses(); await loadDevices();
-    } catch (e) { alert('删除失败: ' + e.message); }
 }
 
 // 侧边栏收纳/展开控制（移动端）

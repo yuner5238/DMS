@@ -122,8 +122,7 @@ DMS/
 | GET | `/api/tags` | 获取标签列表 |
 | POST | `/api/tags` | 创建标签 |
 | PUT | `/api/tags/:id` | 更新标签 |
-| DELETE | `/api/tags/:id` | 删除标签 |
-| GET | `/api/tag-stats` | 标签统计 |
+| GET | `/api/tag-stats` | 标签统计（从 devices 表实时统计） |
 
 ---
 
@@ -134,10 +133,10 @@ DMS/
 | 表名 | 说明 |
 | --- | --- |
 | `warehouses` | 仓库表 |
-| `devices` | 设备表 |
-| `tags` | 标签表 |
-| `device_tags` | 设备-标签关联表 |
+| `devices` | 设备表（含 tag_name 字段） |
 | `announcements` | 公告表 |
+
+> **注意**：标签不再使用独立的 `tags` 表管理，而是直接从 `devices.tag_name` 字段动态提取。标签统计也基于此实现。
 
 ---
 
@@ -172,26 +171,6 @@ DMS/
 | `checkout_time` | DATETIME | 出库时间 |
 | `created_at` | DATETIME | 创建时间 |
 | `updated_at` | DATETIME | 更新时间 |
-
----
-
-### tags（标签表）
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | INTEGER | 主键，自增 |
-| `name` | TEXT | 标签名称（必填，唯一） |
-| `created_at` | DATETIME | 创建时间 |
-
----
-
-### device_tags（设备-标签关联表）
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `device_id` | INTEGER | 设备ID（外键） |
-| `tag_id` | INTEGER | 标签ID（外键） |
-| PRIMARY KEY | | 联合主键 (`device_id`, `tag_id`) |
 
 ---
 

@@ -169,19 +169,33 @@
         .sidebar .nav-link.active { background: #e5f1fb; color: var(--primary); font-weight: 500; }
         .sidebar .nav-link i { margin-right: 10px; font-size: 16px; }
 
-        /* 仓库卡片 */
+        /* 仓库卡片 - 更流畅的动画 */
         .warehouse-card {
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             border-radius: 6px;
             position: relative;
             background: transparent;
             margin: 2px 6px;
             padding: 8px 10px 8px 13px;
             border-left: 3px solid transparent;
+            user-select: none;
+            outline: none;
+            caret-color: transparent;
         }
 
-        .warehouse-card:hover { background: #f5f5f5; }
+        .warehouse-card:hover {
+            background: #f0f0f0;
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+        .warehouse-card:active {
+            transform: translateX(2px) scale(0.98);
+            background: #e8e8e8;
+        }
+        .warehouse-card:focus-visible {
+            transform: translateX(2px) scale(0.98);
+        }
         .warehouse-card.active { background: #e5f1fb; }
 
         .warehouse-card.all { border-left-color: #6c757d; background: #f8f9fa; font-weight: 600; }
@@ -341,14 +355,74 @@
             margin: 2px 8px;
             color: var(--text-primary);
             font-size: 13px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            user-select: none;
+            outline: none;
+            caret-color: transparent;
         }
 
-        .tag-list-item:hover { background: #f5f5f5; cursor: pointer; }
+        .tag-list-item:hover {
+            background: #f5f5f5;
+            cursor: pointer;
+            transform: translateX(2px);
+        }
+        .tag-list-item:active {
+            transform: translateX(2px) scale(0.98);
+            background: #eeeeee;
+        }
+        .tag-list-item:focus-visible {
+            transform: translateX(2px) scale(0.98);
+        }
         .tag-list-item.active { background: #e5f1fb; color: var(--primary); }
         .tag-list-item.active .count { background: var(--primary); color: white; }
-        .tag-list-item .count { background: #e5e5e5; color: var(--text-secondary); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-        .tag-list-item .tag-actions { opacity: 0; transition: opacity 0.15s; }
+        .tag-list-item .count {
+            background: #e5e5e5;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .tag-list-item:hover .count { transform: scale(1.05); }
+        .tag-list-item .tag-actions {
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
         .tag-list-item:hover .tag-actions { opacity: 1; }
+
+        /* 状态过滤按钮 - 更流畅的动画 */
+        .filter-buttons { display: flex; gap: 6px; }
+        .filter-btn {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            transform-origin: center;
+        }
+        .filter-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .filter-btn:active {
+            transform: scale(0.95);
+        }
+        .filter-btn.active-in-stock {
+            background: var(--success-bg);
+            border-color: var(--success-border);
+            color: var(--success);
+            box-shadow: 0 2px 6px rgba(16, 124, 16, 0.2);
+        }
+        .filter-btn.active-checked-out {
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+            color: var(--warning);
+            box-shadow: 0 2px 6px rgba(186, 134, 11, 0.2);
+        }
 
         /* 主内容区 */
         .main-content {
@@ -363,7 +437,7 @@
             overflow-y: auto;
         }
 
-        /* 统计卡片 - Win11 Fluent风格 */
+        /* 统计卡片 - Win11 Fluent风格 + 流畅动画 */
         .stat-card {
             background: var(--bg-card);
             border-radius: 8px;
@@ -371,11 +445,15 @@
             margin-bottom: 12px;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-sm);
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        .stat-card:hover { box-shadow: var(--shadow); }
-        .stat-card h3 { font-size: 28px; font-weight: 600; margin: 0; color: var(--text-primary); }
+        .stat-card:hover {
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
+        }
+        .stat-card h3 { font-size: 28px; font-weight: 600; margin: 0; color: var(--text-primary); transition: all 0.25s ease; }
+        .stat-card:hover h3 { transform: scale(1.02); }
         .stat-card p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
         .stat-card.success { border-left: 3px solid #107c10; background: linear-gradient(135deg, #f1faf1 0%, #ffffff 100%); }
         .stat-card.success h3 { color: #107c10; }
@@ -396,26 +474,35 @@
 
         .page-header h5 { margin: 0; font-weight: 600; color: var(--text-primary); font-size: 16px; }
 
-        /* 搜索框 - Win11风格 */
+        /* 搜索框 - Win11风格 + 流畅动画 */
         .search-box {
             border: 1px solid var(--border-color);
             border-radius: 4px;
             padding: 8px 12px;
             font-size: 13px;
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             background: var(--bg-card);
         }
 
-        .search-box:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); outline: none; }
+        .search-box:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 103, 192, 0.15);
+            outline: none;
+            transform: scale(1.01);
+        }
 
-        /* 按钮样式 - Win11风格 */
+        /* 按钮样式 - Win11风格 + 流畅动画 */
+        .btn { transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0) scale(0.98); }
         .btn-primary { background: var(--primary); border-color: var(--primary); font-weight: 500; border-radius: 4px; }
-        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 103, 192, 0.3); }
         .btn-outline-primary { color: var(--primary); border-color: var(--primary); border-radius: 4px; }
-        .btn-outline-primary:hover { background: var(--primary); border-color: var(--primary); }
-        .btn-outline-secondary { border-radius: 4px; }
-        .btn-light { background: #f5f5f5; border-color: var(--border-color); border-radius: 4px; }
-        .btn-light:hover { background: #e5e5e5; }
+        .btn-outline-primary:hover { background: var(--primary); border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 103, 192, 0.2); }
+        .btn-outline-secondary { border-radius: 4px; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn-outline-secondary:hover { background: #e9ecef; transform: translateY(-1px); }
+        .btn-light { background: #f5f5f5; border-color: var(--border-color); border-radius: 4px; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn-light:hover { background: #e5e5e5; transform: translateY(-1px); }
 
         /* 设备分区 */
         .device-section { margin-bottom: 20px; }
@@ -430,26 +517,40 @@
             border-bottom: none;
             border-radius: 8px 8px 0 0;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            caret-color: transparent;
         }
 
-        .device-section-header:hover { background: #fafafa; }
+        .device-section-header:hover { background: #f8f8f8; transform: scale(1.005); }
+        .device-section-header:active { transform: scale(0.998); }
         .device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px; }
-        .device-section-header .badge { font-size: 11px; padding: 4px 10px; font-weight: 500; border-radius: 4px; }
+        .device-section-header .badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            font-weight: 500;
+            border-radius: 4px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+        }
 
         .device-section-body {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
+            border-top: none;
             border-radius: 0 0 8px 8px;
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, border-color 0.25s ease, background 0.25s ease;
             opacity: 0;
         }
 
         .device-section-body.expanded {
-            max-height: 5000px;
+            max-height: 3000px;
             opacity: 1;
+        }
+
+        .device-section-body:not(.expanded) {
+            border-color: transparent;
+            background: transparent;
         }
 
         #deviceList {
@@ -464,36 +565,34 @@
         .checked-out-section .device-section-header { border-top: 3px solid #eaa300; }
         .checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
 
-        /* 设备项 */
+        /* 设备项 - 更流畅的动画 */
         .device-item {
             background: var(--bg-card);
             border-radius: 6px;
             padding: 12px 16px;
             margin: 8px;
-            transition: all 0.15s;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             border: 1px solid var(--border-color);
             border-left: 3px solid var(--success-border);
             overflow: hidden;
             cursor: pointer;
+            caret-color: transparent;
         }
 
-        .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
-        .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
-
-        .device-item {
-            background: var(--bg-card);
-            border-radius: 6px;
-            padding: 12px 16px;
-            margin: 8px;
-            transition: all 0.15s;
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--success-border);
-            overflow: hidden;
-            cursor: pointer;
+        .device-item:hover {
+            background: #fafafa;
+            border-color: #d0d0d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
-
-        .device-item:hover { background: #fafafa; border-color: #d0d0d0; }
-        .device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
+        .device-item:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+        .device-item.checked-out {
+            border-left-color: #eaa300;
+            background: #fffef8;
+        }
         .device-item strong { color: var(--text-primary); font-weight: 600; }
 
         /* 设备项内容布局 */
@@ -817,11 +916,17 @@
 
         /* Modal 样式 - Win11风格 */
         .modal-header { background: var(--bg-card); color: var(--text-primary); border-bottom: 1px solid var(--border-color); border-radius: 8px 8px 0 0; padding: 16px 20px; }
-        .modal-header .btn-close { opacity: 0.5; }
-        .modal-header .btn-close:hover { opacity: 1; }
-        .modal-content { border-radius: 8px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); }
+        .modal-header .btn-close { opacity: 0.5; transition: all 0.2s ease; }
+        .modal-header .btn-close:hover { opacity: 1; transform: rotate(90deg); }
+        .modal-content { border-radius: 8px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); animation: modalSlideIn 0.3s cubic-bezier(0.19, 1, 0.22, 1); }
         .modal-footer { border-top: 1px solid var(--border-color); background: var(--bg-card); border-radius: 0 0 8px 8px; padding: 12px 20px; }
         .modal-body { padding: 20px; }
+
+        /* Modal 弹出动画 */
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
 
         /* 设备详情样式 */
         .device-detail-container {
@@ -1870,9 +1975,16 @@
                         <div class="tag-section"  style="height: 50%;overflow: auto;">
                             <div class="tag-section-header">
                                 <h6><i class="bi bi-tags"></i> 标签统计</h6>
-                                <button class="btn btn-sm btn-link text-muted p-0" onclick="toggleTagEditMode()" title="管理标签">
-                                    <i class="bi bi-gear"></i>
-                                </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="filter-buttons" id="filterButtons">
+                                        <button class="btn btn-sm filter-btn active" id="filterInStock" onclick="toggleLocationFilter('in_stock')" title="在库设备">
+                                            <i class="bi bi-box-seam"></i>
+                                        </button>
+                                        <button class="btn btn-sm filter-btn" id="filterCheckedOut" onclick="toggleLocationFilter('checked_out')" title="出库设备">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="tag-container">
                                 <div id="tagStatsList"></div>
@@ -2046,7 +2158,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">入库时间</label>
-                        <input type="date" class="form-control" id="deviceCheckinTime" style="font-size: 14px;">
+                        <input type="text" class="form-control date-input" id="deviceCheckinTime" placeholder="2026.5.20" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">保质期 <span style="font-size: 11px; color: #adb5bd;">(选填)</span></label>
+                        <input type="text" class="form-control date-input" id="deviceShelfLife" placeholder="2026.5.20" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">在库状态</label>
@@ -2136,6 +2252,10 @@
                         <div class="detail-row">
                             <span class="detail-label">入库时间</span>
                             <span class="detail-value" id="detailCheckinTime"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">保质期</span>
+                            <span class="detail-value" id="detailShelfLife"></span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">创建时间</span>
@@ -2307,30 +2427,6 @@
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 24px; font-size: 14px;">关闭</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 标签Modal -->
-    <div class="modal fade" id="tagModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="tagModalTitle">添加标签</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="tagId">
-                    <div class="mb-3">
-                        <label class="form-label">标签名称 *</label>
-                        <input type="text" class="form-control" id="tagName" placeholder="例如：电脑">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" id="deleteTagBtn" style="display:none;" onclick="deleteTag()">删除</button>
-                    <button type="button" class="btn btn-primary" onclick="saveTag()">保存</button>
                 </div>
             </div>
         </div>

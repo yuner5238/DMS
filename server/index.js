@@ -104,61 +104,6 @@ app.delete('/api/warehouses/:id', async (req, res) => {
     }
 });
 
-// ============ 标签 API ============
-
-// 获取所有标签列表（带统计）
-app.get('/api/tags', async (req, res) => {
-    try {
-        const result = await query(`
-            SELECT t.id, t.name,
-                   COUNT(DISTINCT dt.device_id) as device_count,
-                   COALESCE(SUM(d.quantity), 0) as total_quantity
-            FROM tags t
-            LEFT JOIN device_tags dt ON t.id = dt.tag_id
-            LEFT JOIN devices d ON dt.device_id = d.id
-            GROUP BY t.id, t.name
-            ORDER BY t.name
-        `);
-        res.json(result);
-    } catch (err) {
-        console.error('获取标签列表失败:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 添加标签
-app.post('/api/tags', async (req, res) => {
-    try {
-        const { name } = req.body;
-        const result = await query('INSERT INTO tags (name) VALUES (?)', [name]);
-        res.json({ id: result.insertId, name });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 更新标签
-app.put('/api/tags/:id', async (req, res) => {
-    try {
-        const { name } = req.body;
-        await query('UPDATE tags SET name=? WHERE id=?', [name, req.params.id]);
-        res.json({ id: req.params.id, name });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 删除标签
-app.delete('/api/tags/:id', async (req, res) => {
-    try {
-        await query('DELETE FROM device_tags WHERE tag_id=?', [req.params.id]);
-        await query('DELETE FROM tags WHERE id=?', [req.params.id]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ============ 设备 API ============
 
 // 获取所有设备（或按仓库筛选）
@@ -212,7 +157,7 @@ app.get('/api/devices/:id', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time } = req.body;
+        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, shelf_life } = req.body;
         
         if (!name) return res.status(400).json({ error: '设备名称不能为空' });
         if (!warehouseName) return res.status(400).json({ error: '请选择仓库' });
@@ -221,8 +166,8 @@ app.post('/api/devices', async (req, res) => {
         const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
         
         const result = await query(
-            `INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [warehouseName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime]
+            `INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, shelf_life, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [warehouseName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', shelf_life || null, checkinTime]
         );
         
         res.json({ id: result.insertId, warehouseName, name });
@@ -235,11 +180,11 @@ app.post('/api/devices', async (req, res) => {
 // 更新设备
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = req.body;
-        
+        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, shelf_life } = req.body;
+
         await query(
-            `UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-            [warehouseName, name, tag_name || '', status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, req.params.id]
+            `UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, shelf_life=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+            [warehouseName, name, tag_name || '', status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', shelf_life || null, checkin_time || null, checkout_time || null, req.params.id]
         );
         
         res.json({ id: req.params.id, warehouseName, name });

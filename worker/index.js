@@ -51,22 +51,6 @@ export default {
                 return await deleteDevice(env, id);
             }
 
-            // ===== 标签 API =====
-            if (path === '/api/tags' && method === 'GET') {
-                return await getTags(env);
-            }
-            if (path === '/api/tags' && method === 'POST') {
-                return await createTag(request, env);
-            }
-            if (path.match(/^\/api\/tags\/\d+$/) && method === 'PUT') {
-                const id = path.split('/').pop();
-                return await updateTag(request, env, id);
-            }
-            if (path.match(/^\/api\/tags\/\d+$/) && method === 'DELETE') {
-                const id = path.split('/').pop();
-                return await deleteTag(env, id);
-            }
-
             // ===== 标签统计 API =====
             if (path === '/api/tag-stats' && method === 'GET') {
                 return await getTagStats(request, env);
@@ -202,42 +186,6 @@ async function updateDevice(request, env, id) {
 
 async function deleteDevice(env, id) {
     await env.DB.prepare('DELETE FROM devices WHERE id=?').bind(id).run();
-    return jsonResponse({ success: true });
-}
-
-// ============ 标签操作 ============
-
-async function getTags(env) {
-    const result = await env.DB.prepare(`
-        SELECT t.id, t.name,
-               COUNT(DISTINCT dt.device_id) as device_count,
-               COALESCE(SUM(d.quantity), 0) as total_quantity
-        FROM tags t
-        LEFT JOIN device_tags dt ON t.id = dt.tag_id
-        LEFT JOIN devices d ON dt.device_id = d.id
-        GROUP BY t.id, t.name
-        ORDER BY t.name
-    `).all();
-    return jsonResponse(result.results);
-}
-
-async function createTag(request, env) {
-    const { name } = await request.json();
-    if (!name) return jsonResponse({ error: '标签名称不能为空' }, 400);
-
-    const result = await env.DB.prepare('INSERT INTO tags (name) VALUES (?)').bind(name).run();
-    return jsonResponse({ id: result.meta.last_row_id, name });
-}
-
-async function updateTag(request, env, id) {
-    const { name } = await request.json();
-    await env.DB.prepare('UPDATE tags SET name=? WHERE id=?').bind(name, id).run();
-    return jsonResponse({ id, name });
-}
-
-async function deleteTag(env, id) {
-    await env.DB.prepare('DELETE FROM device_tags WHERE tag_id=?').bind(id).run();
-    await env.DB.prepare('DELETE FROM tags WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
 }
 

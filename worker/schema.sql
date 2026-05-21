@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS devices (
     location_status TEXT DEFAULT 'in_stock',
     destination TEXT DEFAULT '',
     remark TEXT DEFAULT '',
+    shelf_life DATE DEFAULT NULL,
     checkin_time DATETIME,
     checkout_time DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

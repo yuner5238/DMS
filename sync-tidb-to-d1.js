@@ -43,7 +43,7 @@ console.log('  port:', TIDB_CONFIG.port);
 console.log('  user:', TIDB_CONFIG.user);
 console.log('  database:', TIDB_CONFIG.database);
 
-const TABLES = ['warehouses', 'tags', 'devices', 'announcements'];
+const TABLES = ['warehouses', 'devices', 'announcements'];
 
 // ============ Cloudflare API ============
 

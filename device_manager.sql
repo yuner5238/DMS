@@ -20,6 +20,7 @@ CREATE TABLE `devices` (
   `location_status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'in_stock',
   `destination` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `remark` text COLLATE utf8mb4_unicode_ci,
+  `shelf_life` date DEFAULT NULL COMMENT '保质期/到期日期',
   `checkin_time` datetime DEFAULT NULL,
   `checkout_time` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

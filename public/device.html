@@ -497,6 +497,13 @@
             return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
         }
 
+        // 格式化日期（不含时间）
+        function formatDateOnly(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
         // 解码富文本
         function decodeRichText(text) {
             if (!text) return '';
@@ -596,6 +603,10 @@
                         <div class="detail-row">
                             <div class="detail-label">入库时间</div>
                             <div class="detail-value">${device.checkin_time ? formatDateTime(device.checkin_time) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">保质期</div>
+                            <div class="detail-value">${device.shelf_life ? formatDateOnly(device.shelf_life) : '-'}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">创建时间</div>
