@@ -184,6 +184,53 @@ DMS/
 
 ---
 
+## GitHub Actions 自动部署
+
+项目通过 GitHub Actions 实现自动部署和数据库同步。
+
+### 工作流
+
+| 工作流 | 触发条件 | 说明 |
+| --- | --- | --- |
+| Deploy Pages Frontend | push 到 `public/**`/`functions/**` | 自动部署前端到 Cloudflare Pages |
+| Deploy Worker Backend | push 到 `worker/**` | 自动部署后端到 Cloudflare Workers |
+| Sync D1 to TiDB | 每天 10:00 或手动触发 | 将 D1 数据同步到 TiDB |
+| Sync TiDB to D1 | 手动触发 | 将 TiDB 数据同步到 D1 |
+
+### 需要的 GitHub Secrets
+
+在仓库 Settings → Secrets and variables → Actions 中配置：
+
+| Secret | 用途 | 说明 |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Pages/Worker 部署 | 在 Cloudflare → My Profile → API Tokens 创建 |
+| `CF_EMAIL` | 同步脚本认证 | Cloudflare 注册邮箱 |
+| `CF_API_KEY` | 同步脚本认证 | Cloudflare → My Profile → Global API Key |
+| `DB_TIDB_HOST` | TiDB 连接 | TiDB Cloud 连接地址 |
+| `DB_TIDB_PORT` | TiDB 连接 | 端口（默认 4000） |
+| `DB_TIDB_USER` | TiDB 连接 | TiDB Cloud 用户名 |
+| `DB_TIDB_PASSWORD` | TiDB 连接 | TiDB Cloud 密码 |
+| `DB_TIDB_DATABASE` | TiDB 连接 | 数据库名（DMS） |
+
+### 创建 Cloudflare API Token
+
+**Pages/Worker 部署用**（`CLOUDFLARE_API_TOKEN`）：
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. My Profile → API Tokens → Create Token
+3. 选择 Custom token，权限设置：
+   - `Cloudflare Pages` → Edit
+   - `Cloudflare Workers Scripts` → Edit
+4. 创建后复制 Token，填入 GitHub Secrets
+
+**D1 同步用**（`CF_API_KEY`）：
+
+1. My Profile → API Tokens → 滚动到底部
+2. Global API Key → View → 复制 Key
+3. 填入 GitHub Secrets 的 `CF_API_KEY`
+
+---
+
 ## 常用网址
 
 | 平台 | 网址 |
@@ -191,3 +238,4 @@ DMS/
 | 在线访问 | <https://dms-2tu.pages.dev> |
 | Cloudflare Dashboard | <https://dash.cloudflare.com/> |
 | TiDB Cloud | <https://tidbcloud.com/> |
+| GitHub Actions | <https://github.com/> |

@@ -1,3 +1,14 @@
+/* 覆盖 Bootstrap 按钮激活样式 - 禁用默认的 active 背景色 */
+.btn-check:checked + .btn,
+.btn.active,
+.btn.show,
+.btn:first-child:active,
+:not(.btn-check) + .btn:active {
+    background-color: inherit;
+    border-color: inherit;
+    color: inherit;
+}
+
 /* Windows 11 风格配色 */
 :root {
     --primary: #0067c0;
@@ -73,13 +84,6 @@ body { background: var(--bg-main); min-height: 100%; }
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-}
-
-/* 视图切换按钮样式 */
-#viewToggleBtn.active {
-    background-color: var(--primary);
-    color: white;
-    border-color: var(--primary);
 }
 
 /* 表格视图样式 */

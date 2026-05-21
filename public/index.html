@@ -402,6 +402,9 @@
             color: var(--text-muted);
             transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             transform-origin: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .filter-btn:hover {
             background: #f0f0f0;
@@ -2040,20 +2043,20 @@
                     <!-- 标题栏 -->
                     <div class="page-header">
                         <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex align-items-center gap-2">
                             <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
                                 <option value="name">按名称排序</option>
                                 <option value="checkin">按入库时间排序</option>
                                 <option value="checkout">按出库时间排序</option>
                             </select>
                             <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
-                            <button class="btn btn-outline-secondary btn-sm" onclick="toggleViewMode()" title="切换视图" id="viewToggleBtn">
+                            <button class="btn btn-sm filter-btn" onclick="toggleViewMode()" title="切换视图" id="viewToggleBtn">
                                 <i class="bi bi-layout-text-sidebar"></i>
                             </button>
                             <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
                                 <i class="bi bi-plus-lg"></i> 添加设备
                             </button>
-                            <button class="btn btn-outline-secondary btn-sm position-relative" onclick="toggleAnnouncementBar()" title="公告栏" id="announcementToggleBtn">
+                            <button class="btn btn-sm filter-btn position-relative" onclick="toggleAnnouncementBar()" title="公告栏" id="announcementToggleBtn">
                                 <i class="bi bi-megaphone"></i>
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="announcementBtnBadge" style="display: none;">0</span>
                             </button>
@@ -2186,7 +2189,7 @@
                     <div class="mb-3">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <label class="form-label mb-0" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex align-items-center gap-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="insertImageToRemark()" style="font-size: 12px; padding: 4px 12px;">
                                     <i class="bi bi-image me-1"></i>插入图片
                                 </button>
