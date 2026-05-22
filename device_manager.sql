@@ -11,6 +11,7 @@ USE device_manager;
 DROP TABLE IF EXISTS devices;
 CREATE TABLE `devices` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `device_id` varchar(6) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '…Ë±∏ID',
   `warehouse_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
   `tag_names` text COLLATE utf8mb4_unicode_ci,

@@ -367,6 +367,59 @@
             display: block;
         }
 
+        /* 备注图标及悬停预览 */
+        .remark-icon {
+            color: #6c757d;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .remark-icon:hover {
+            color: #0d6efd;
+        }
+        .remark-tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* 设备ID徽章 */
+        .device-id-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            vertical-align: middle;
+            margin-left: 6px;
+            white-space: nowrap;
+            user-select: text;
+            cursor: text;
+        }
+
+        /* body 级别的气泡，绕过表格 overflow 裁剪 */
+        .remark-body-tooltip {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-width: 320px;
+            min-width: 120px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #495057;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
         /* 可编辑的标签徽章（Modal 中） */
         .tag-badge-editable {
             display: inline-flex;
@@ -2201,6 +2254,10 @@
                 </div>
                 <div class="modal-body" style="padding: 20px; max-height: 60vh; overflow-y: auto;">
                     <input type="hidden" id="deviceId">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备ID <span style="font-size: 11px; color: #adb5bd;">(6位码，选填)</span></label>
+                        <input type="text" class="form-control" id="deviceIdCode" placeholder="例如：A001" maxlength="6" style="font-size: 14px;">
+                    </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库 *</label>
                         <select class="form-select" id="deviceWarehouse" style="font-size: 14px;"></select>

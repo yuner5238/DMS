@@ -152,21 +152,22 @@ function renderDevicesTableView(devices) {
             return `<div class="text-center text-muted py-3">暂无${isOut ? '已出库' : '在库'}设备</div>`;
         }
         
-        const rows = deviceArr.map(device => {
+            const rows = deviceArr.map(device => {
             const locationText = isOut ? (device.destination || '已出库') : (device.storage_location || '在库');
-            const timeText = device.checkin_time ? formatDate(device.checkin_time) : '-';
             const expiryDateText = device.expiry_date ? formatDate(device.expiry_date) : '-';
 
             return `
                 <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail(${device.id})" style="cursor: pointer;">
-                    <td class="device-name-cell"><strong>${device.name}</strong></td>
+                    <td class="device-name-cell"><strong>${device.name}</strong>${device.device_id ? ` <span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}</td>
                     <td>${device.quantity || 1}</td>
                     <td><span class="status-badge ${statusClass[device.status]}">${device.status || '未知'}</span></td>
                     <td>${renderTagBadges(device)}</td>
                     <td>${locationText}</td>
-                    <td>${timeText}</td>
                     <td>${expiryDateText}</td>
-                    <td>${device.remark ? '<i class="bi bi-file-text text-muted"></i>' : '-'}</td>
+                    <td>${device.remark
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation(); showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(stripRichText(device.remark).substring(0, 120) + (stripRichText(device.remark).length > 120 ? '...' : ''))}" onmouseenter="showRemarkTooltip(this, this.getAttribute('data-remark-text'))" onmouseleave="hideRemarkTooltip()"></i></span>`
+                        : '<span class="text-muted">-</span>'
+                    }</td>
                     <td>
                         <div class="d-flex gap-1">
                             ${isOut
@@ -190,7 +191,6 @@ function renderDevicesTableView(devices) {
                         <th>状态</th>
                         <th>标签</th>
                         <th>位置/去向</th>
-                        <th>入库时间</th>
                         <th>到期日期</th>
                         <th>备注</th>
                         <th>操作</th>
@@ -484,6 +484,7 @@ function renderDevices(devices) {
                                 <div class="name-tags-row">
                                     <div class="name-quantity-wrapper">
                                         <strong id="device-name-${device.id}" class="device-name-text">${device.name}</strong>
+                                        ${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}
                                         ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
                                     </div>
                                     <div class="status-tags-row">
@@ -800,6 +801,7 @@ function showDeviceModal(id = null) {
     if (id) {
         const d = allDevices.find(dev => dev.id === id);
         document.getElementById('deviceId').value = d.id;
+        document.getElementById('deviceIdCode').value = d.device_id || '';
         document.getElementById('deviceWarehouse').value = d.warehouse_name;
         document.getElementById('deviceName').value = d.name;
         document.getElementById('deviceQuantity').value = d.quantity;
@@ -826,6 +828,7 @@ function showDeviceModal(id = null) {
         document.getElementById('destinationField').style.display = (d.location_status === 'checked_out') ? 'block' : 'none';
     } else {
         document.getElementById('deviceId').value = '';
+        document.getElementById('deviceIdCode').value = '';
         document.getElementById('deviceName').value = '';
         document.getElementById('deviceQuantity').value = 1;
         document.getElementById('deviceStorageLocation').value = '';
@@ -933,6 +936,7 @@ async function saveDevice() {
     const expiryDate = parseDateInput(expiryDateInput);
 
     const data = {
+        device_id: document.getElementById('deviceIdCode')?.value || '',
         warehouseName: document.getElementById('deviceWarehouse').value,
         name: document.getElementById('deviceName').value,
         tag_names: getDeviceTagsJSON(),
@@ -1300,6 +1304,56 @@ function decodeRichTextToSingleLine(text) {
     html = html.replace(/\s+/g, ' ').trim();
 
     return html;
+}
+
+// 剥离富文本标记，返回纯文本（用于工具提示等场景）
+function stripRichText(text) {
+    if (!text) return '';
+    return text.replace(/\[B\]|\[\/B\]|\[I\]|\[\/I\]|\[U\]|\[\/U\]|\[S\]|\[\/S\]/gi, '')
+               .replace(/\[COLOR=[^\]]+\]|\[\/COLOR\]/gi, '')
+               .replace(/\[SIZE=[^\]]+\]|\[\/SIZE\]/gi, '')
+               .replace(/\[图片:[^\]]+\]/g, '[图片]')
+               .replace(/\n/g, ' ')
+               .replace(/\s+/g, ' ')
+               .trim();
+}
+
+// 备注悬停气泡 (body 级别，绕过 overflow 裁剪)
+let _remarkTooltipEl = null;
+
+function showRemarkTooltip(triggerEl, text) {
+    hideRemarkTooltip();
+    _remarkTooltipEl = document.createElement('div');
+    _remarkTooltipEl.className = 'remark-body-tooltip';
+    _remarkTooltipEl.textContent = text;
+    document.body.appendChild(_remarkTooltipEl);
+
+    const rect = triggerEl.getBoundingClientRect();
+    const tipWidth = _remarkTooltipEl.offsetWidth;
+    const tipHeight = _remarkTooltipEl.offsetHeight;
+    const gap = 8;
+
+    // 水平：居中于图标
+    let left = rect.left + rect.width / 2 - tipWidth / 2;
+    if (left < 8) left = 8;
+    if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
+
+    // 垂直：默认在图标上方；空间不足则放下方
+    let top = rect.top - tipHeight - gap;
+    if (top < 8) {
+        top = rect.bottom + gap;
+    }
+
+    _remarkTooltipEl.style.left = left + 'px';
+    _remarkTooltipEl.style.top = top + 'px';
+    _remarkTooltipEl.style.display = 'block';
+}
+
+function hideRemarkTooltip() {
+    if (_remarkTooltipEl) {
+        _remarkTooltipEl.remove();
+        _remarkTooltipEl = null;
+    }
 }
 
 // 执行富文本命令

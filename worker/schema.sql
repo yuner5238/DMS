@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
 -- 设备表
 CREATE TABLE IF NOT EXISTS devices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT DEFAULT '',
     warehouse_name TEXT,
     name TEXT NOT NULL,
     tag_names TEXT DEFAULT '',
