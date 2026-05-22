@@ -165,7 +165,7 @@ function renderDevicesTableView(devices) {
                     <td>${locationText}</td>
                     <td>${expiryDateText}</td>
                     <td>${device.remark
-                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation(); showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(stripRichText(device.remark).substring(0, 120) + (stripRichText(device.remark).length > 120 ? '...' : ''))}" onmouseenter="showRemarkTooltip(this, this.getAttribute('data-remark-text'))" onmouseleave="hideRemarkTooltip()"></i></span>`
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation(); showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(device.remark)}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
                     <td>
@@ -495,7 +495,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')" title="${device.remark || ''}">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
                                     <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
@@ -1268,8 +1268,8 @@ function escapeHtml(text) {
 function decodeRichText(text) {
     if (!text) return '';
 
-    // 先将换行转换为 <br>
-    let html = text.replace(/\n/g, '<br>');
+    // 将转义的换行符和实际换行转换为 <br>
+    let html = text.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
 
     // 解析富文本标记
     html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
@@ -1320,36 +1320,62 @@ function stripRichText(text) {
 
 // 备注悬停气泡 (body 级别，绕过 overflow 裁剪)
 let _remarkTooltipEl = null;
+let _remarkTooltipTimer = null;
 
-function showRemarkTooltip(triggerEl, text) {
-    hideRemarkTooltip();
-    _remarkTooltipEl = document.createElement('div');
-    _remarkTooltipEl.className = 'remark-body-tooltip';
-    _remarkTooltipEl.textContent = text;
-    document.body.appendChild(_remarkTooltipEl);
+function showRemarkTooltip(e, text) {
+    // 清除之前的延迟关闭计时器
+    clearTimeout(_remarkTooltipTimer);
 
-    const rect = triggerEl.getBoundingClientRect();
+    if (!_remarkTooltipEl) {
+        _remarkTooltipEl = document.createElement('div');
+        _remarkTooltipEl.className = 'remark-body-tooltip';
+        _remarkTooltipEl.innerHTML = decodeRichText(text);
+        document.body.appendChild(_remarkTooltipEl);
+
+        // 鼠标进入气泡时，取消关闭
+        _remarkTooltipEl.addEventListener('mouseenter', () => {
+            clearTimeout(_remarkTooltipTimer);
+        });
+
+        // 鼠标离开气泡时，关闭
+        _remarkTooltipEl.addEventListener('mouseleave', () => {
+            hideRemarkTooltip();
+        });
+    }
+
+    // 基于鼠标位置定位，偏移 12px
+    let left = e.clientX + 12;
+    let top = e.clientY - 10;
+
     const tipWidth = _remarkTooltipEl.offsetWidth;
     const tipHeight = _remarkTooltipEl.offsetHeight;
-    const gap = 8;
 
-    // 水平：居中于图标
-    let left = rect.left + rect.width / 2 - tipWidth / 2;
-    if (left < 8) left = 8;
-    if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
-
-    // 垂直：默认在图标上方；空间不足则放下方
-    let top = rect.top - tipHeight - gap;
-    if (top < 8) {
-        top = rect.bottom + gap;
+    // 右侧溢出则显示在光标左侧
+    if (left + tipWidth > window.innerWidth - 8) {
+        left = e.clientX - tipWidth - 12;
     }
+    // 下方溢出则显示在光标上方
+    if (top + tipHeight > window.innerHeight - 8) {
+        top = e.clientY - tipHeight - 10;
+    }
+    // 兜底
+    if (left < 8) left = 8;
+    if (top < 8) top = 8;
 
     _remarkTooltipEl.style.left = left + 'px';
     _remarkTooltipEl.style.top = top + 'px';
     _remarkTooltipEl.style.display = 'block';
 }
 
+// 延迟关闭（允许鼠标从图标滑入气泡）
+function scheduleHideRemarkTooltip() {
+    _remarkTooltipTimer = setTimeout(() => {
+        hideRemarkTooltip();
+    }, 250);
+}
+
 function hideRemarkTooltip() {
+    clearTimeout(_remarkTooltipTimer);
     if (_remarkTooltipEl) {
         _remarkTooltipEl.remove();
         _remarkTooltipEl = null;

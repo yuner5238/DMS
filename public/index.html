@@ -404,20 +404,23 @@
         .remark-body-tooltip {
             display: none;
             position: fixed;
-            background: #fff;
-            border: 1px solid #d0d0d0;
+            background: rgba(50, 50, 50, 0.96);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 8px;
             padding: 10px 14px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-            white-space: pre-wrap;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+            white-space: normal;
             word-break: break-word;
             max-width: 320px;
+            max-height: 260px;
+            overflow-y: auto;
             min-width: 120px;
             font-size: 13px;
             line-height: 1.5;
-            color: #495057;
+            color: #f0f0f0;
             z-index: 9999;
-            pointer-events: none;
+            pointer-events: auto;
         }
 
         /* 可编辑的标签徽章（Modal 中） */
