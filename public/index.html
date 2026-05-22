@@ -331,6 +331,68 @@
             border: 1px solid #e0e0e0;
         }
 
+        /* 多余标签计数徽章 */
+        .tag-more {
+            position: relative;
+            cursor: default;
+            background: #e8f0fe;
+            color: var(--primary);
+            border-color: #b3d4fc;
+        }
+        .tag-more .tag-tooltip {
+            display: none;
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            background: #fff;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            padding: 4px 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            white-space: nowrap;
+            z-index: 999;
+            pointer-events: none;
+        }
+        .tag-more .tag-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #d0d0d0;
+        }
+        .tag-more:hover .tag-tooltip {
+            display: block;
+        }
+
+        /* 可编辑的标签徽章（Modal 中） */
+        .tag-badge-editable {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #e5f1fb;
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid #b3d4fc;
+        }
+        .tag-badge-editable .tag-remove {
+            cursor: pointer;
+            color: #005a9e;
+            font-size: 16px;
+            line-height: 1;
+            font-weight: bold;
+            padding: 0 2px;
+            transition: color 0.15s;
+        }
+        .tag-badge-editable .tag-remove:hover {
+            color: #c42b1c;
+        }
+
         .tag-count {
             background: var(--primary);
             color: white;
@@ -1983,7 +2045,7 @@
                                         <button class="btn btn-sm filter-btn active" id="filterInStock" onclick="toggleLocationFilter('in_stock')" title="在库设备">
                                             <i class="bi bi-box-seam"></i>
                                         </button>
-                                        <button class="btn btn-sm filter-btn" id="filterCheckedOut" onclick="toggleLocationFilter('checked_out')" title="出库设备">
+                                        <button class="btn btn-sm filter-btn active" id="filterCheckedOut" onclick="toggleLocationFilter('checked_out')" title="出库设备">
                                             <i class="bi bi-box-arrow-right"></i>
                                         </button>
                                     </div>
@@ -2148,8 +2210,17 @@
                         <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">标签名</label>
-                        <input type="text" class="form-control" id="deviceTagName" placeholder="例如：电脑、显示器" style="font-size: 14px;">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">标签（点击 × 删除）</label>
+                        <div id="deviceTagBadges" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 24px;"></div>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="text" class="form-control" id="deviceTagInput" placeholder="输入标签名，回车添加..." list="tagSuggestionsList"
+                                   style="font-size: 14px; flex: 1;"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToDevice();}">
+                            <datalist id="tagSuggestionsList"></datalist>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addTagToDevice()" style="white-space: nowrap;">
+                                <i class="bi bi-plus"></i> 添加
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">数量 *</label>
@@ -2164,8 +2235,8 @@
                         <input type="text" class="form-control date-input" id="deviceCheckinTime" placeholder="2026.5.20" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">保质期 <span style="font-size: 11px; color: #adb5bd;">(选填)</span></label>
-                        <input type="text" class="form-control date-input" id="deviceShelfLife" placeholder="2026.5.20" style="font-size: 14px;">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">到期日期 <span style="font-size: 11px; color: #adb5bd;">(选填)</span></label>
+                        <input type="text" class="form-control date-input" id="deviceExpiryDate" placeholder="2026.5.20" style="font-size: 14px;">
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">在库状态</label>
@@ -2257,8 +2328,8 @@
                             <span class="detail-value" id="detailCheckinTime"></span>
                         </div>
                         <div class="detail-row">
-                            <span class="detail-label">保质期</span>
-                            <span class="detail-value" id="detailShelfLife"></span>
+                            <span class="detail-label">到期日期</span>
+                            <span class="detail-value" id="detailExpiryDate"></span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">创建时间</span>

@@ -154,18 +154,19 @@ async function getDevice(env, id) {
 
 async function createDevice(request, env) {
     const body = await request.json();
-    const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time } = body;
+    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
     if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
 
     const locStatus = location_status || 'in_stock';
     const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
+    const tags = tag_names || tag_name || '';
 
     const result = await env.DB.prepare(
-        `INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO devices (warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        warehouseName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime
+        warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
@@ -173,12 +174,14 @@ async function createDevice(request, env) {
 
 async function updateDevice(request, env, id) {
     const body = await request.json();
-    const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = body;
+    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = body;
+
+    const tags = tag_names || tag_name || '';
 
     await env.DB.prepare(
-        `UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+        `UPDATE devices SET warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).bind(
-        warehouseName, name, tag_name || '', status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, id
+        warehouseName, name, tags, status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, id
     ).run();
 
     return jsonResponse({ id, warehouseName, name });
@@ -195,7 +198,7 @@ async function getTagStats(request, env) {
     const url = new URL(request.url);
     const warehouseName = url.searchParams.get('warehouseName');
 
-    let sql = `SELECT tag_name as name, COUNT(*) as device_count, SUM(quantity) as total_count FROM devices WHERE tag_name IS NOT NULL AND tag_name != ''`;
+    let sql = `SELECT tag_names, quantity FROM devices WHERE tag_names IS NOT NULL AND tag_names != ''`;
     let params = [];
 
     if (warehouseName) {
@@ -203,13 +206,37 @@ async function getTagStats(request, env) {
         params = [warehouseName];
     }
 
-    sql += ' GROUP BY tag_name ORDER BY total_count DESC';
-
-    const result = params.length > 0
+    const rows = params.length > 0
         ? await env.DB.prepare(sql).bind(...params).all()
         : await env.DB.prepare(sql).all();
 
-    return jsonResponse(result.results);
+    // 拆分 JSON 数组格式的标签并聚合
+    const tagCountMap = {};
+    (rows.results || []).forEach(row => {
+        if (row.tag_names) {
+            let tags = [];
+            try {
+                tags = JSON.parse(row.tag_names);
+            } catch (e) {
+                // 兼容旧的逗号分隔格式
+                tags = row.tag_names.split(',').map(t => t.trim()).filter(t => t);
+            }
+            tags.forEach(tag => {
+                const name = tag.trim();
+                if (name) {
+                    if (!tagCountMap[name]) {
+                        tagCountMap[name] = { name, device_count: 0, total_count: 0 };
+                    }
+                    tagCountMap[name].device_count += 1;
+                    tagCountMap[name].total_count += row.quantity || 1;
+                }
+            });
+        }
+    });
+
+    const result = Object.values(tagCountMap).sort((a, b) => b.total_count - a.total_count);
+
+    return jsonResponse(result);
 }
 
 // ============ 公告操作 ============

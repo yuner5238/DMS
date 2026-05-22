@@ -45,7 +45,7 @@ async function init() {
                 holder VARCHAR(100),
                 department VARCHAR(100),
                 remarks TEXT,
-                shelf_life DATE,
+                expiry_date DATE COMMENT '到期日期',
                 checkin_time DATETIME,
                 checkout_time DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

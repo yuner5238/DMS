@@ -157,17 +157,19 @@ app.get('/api/devices/:id', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, shelf_life } = req.body;
+        const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date } = req.body;
         
         if (!name) return res.status(400).json({ error: '设备名称不能为空' });
         if (!warehouseName) return res.status(400).json({ error: '请选择仓库' });
         
         const locStatus = location_status || 'in_stock';
         const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
+        // 兼容旧版 tag_name，新版用 tag_names（逗号分隔多标签）
+        const tags = tag_names || tag_name || '';
         
         const result = await query(
-            `INSERT INTO devices (warehouse_name, name, tag_name, status, quantity, storage_location, location_status, destination, remark, shelf_life, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [warehouseName, name, tag_name || '', status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', shelf_life || null, checkinTime]
+            `INSERT INTO devices (warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime]
         );
         
         res.json({ id: result.insertId, warehouseName, name });
@@ -180,11 +182,14 @@ app.post('/api/devices', async (req, res) => {
 // 更新设备
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { warehouseName, name, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, shelf_life } = req.body;
+        const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, expiry_date } = req.body;
+
+        // 兼容旧版 tag_name，新版用 tag_names
+        const tags = tag_names || tag_name || '';
 
         await query(
-            `UPDATE devices SET warehouse_name=?, name=?, tag_name=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, shelf_life=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-            [warehouseName, name, tag_name || '', status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', shelf_life || null, checkin_time || null, checkout_time || null, req.params.id]
+            `UPDATE devices SET warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+            [warehouseName, name, tags, status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', expiry_date || null, checkin_time || null, checkout_time || null, req.params.id]
         );
         
         res.json({ id: req.params.id, warehouseName, name });
@@ -209,9 +214,8 @@ app.get('/api/tag-stats', async (req, res) => {
     try {
         const { warehouseName } = req.query;
         
-        // 直接从 devices.tag_name 统计，与 Cloudflare 版本保持一致
-        let sql = `SELECT tag_name as name, COUNT(*) as device_count, SUM(quantity) as total_count 
-                   FROM devices WHERE tag_name IS NOT NULL AND tag_name != ''`;
+        // 获取设备和 tag_names，在应用层拆分多标签后聚合
+        let sql = `SELECT tag_names, quantity FROM devices WHERE tag_names IS NOT NULL AND tag_names != ''`;
         let params = [];
         
         if (warehouseName) {
@@ -219,9 +223,33 @@ app.get('/api/tag-stats', async (req, res) => {
             params = [warehouseName];
         }
         
-        sql += ' GROUP BY tag_name ORDER BY total_count DESC';
+        const rows = await query(sql, params);
         
-        const result = await query(sql, params);
+        // 拆分 JSON 数组格式的标签并聚合
+        const tagCountMap = {};
+        rows.forEach(row => {
+            if (row.tag_names) {
+                let tags = [];
+                try {
+                    tags = JSON.parse(row.tag_names);
+                } catch (e) {
+                    // 兼容旧的逗号分隔格式
+                    tags = row.tag_names.split(',').map(t => t.trim()).filter(t => t);
+                }
+                tags.forEach(tag => {
+                    const name = tag.trim();
+                    if (name) {
+                        if (!tagCountMap[name]) {
+                            tagCountMap[name] = { name, device_count: 0, total_count: 0 };
+                        }
+                        tagCountMap[name].device_count += 1;
+                        tagCountMap[name].total_count += row.quantity || 1;
+                    }
+                });
+            }
+        });
+        
+        const result = Object.values(tagCountMap).sort((a, b) => b.total_count - a.total_count);
         
         res.json(result);
     } catch (err) {
