@@ -495,7 +495,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
                                     <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
@@ -1329,7 +1329,6 @@ function showRemarkTooltip(e, text) {
     if (!_remarkTooltipEl) {
         _remarkTooltipEl = document.createElement('div');
         _remarkTooltipEl.className = 'remark-body-tooltip';
-        _remarkTooltipEl.innerHTML = decodeRichText(text);
         document.body.appendChild(_remarkTooltipEl);
 
         // 鼠标进入气泡时，取消关闭
@@ -1342,6 +1341,9 @@ function showRemarkTooltip(e, text) {
             hideRemarkTooltip();
         });
     }
+
+    // 始终更新内容（切换不同备注项时也能刷新）
+    _remarkTooltipEl.innerHTML = decodeRichText(text);
 
     // 基于鼠标位置定位，偏移 12px
     let left = e.clientX + 12;
