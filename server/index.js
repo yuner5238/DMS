@@ -179,20 +179,56 @@ app.post('/api/devices', async (req, res) => {
     }
 });
 
-// 更新设备
+// 更新设备（支持部分更新：只更新请求中实际携带的字段）
 app.put('/api/devices/:id', async (req, res) => {
     try {
-        const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, expiry_date, responsible_person } = req.body;
+        // 字段映射：请求体 key → 数据库列名 → 默认值处理函数
+        const fieldMap = [
+            { key: 'device_id',       col: 'device_id',         fn: v => v || null },
+            { key: 'warehouseName',   col: 'warehouse_name',    fn: v => v },
+            { key: 'name',            col: 'name',              fn: v => v },
+            { key: 'tag_names',       col: 'tag_names',         fn: v => v || req.body.tag_name || '' },
+            { key: 'tag_name',        col: 'tag_names',         fn: v => v || req.body.tag_names || '' },
+            { key: 'status',          col: 'status',            fn: v => v },
+            { key: 'quantity',        col: 'quantity',          fn: v => v || 1 },
+            { key: 'storage_location',col: 'storage_location',  fn: v => v || '' },
+            { key: 'location_status', col: 'location_status',   fn: v => v || 'in_stock' },
+            { key: 'destination',     col: 'destination',       fn: v => v || '' },
+            { key: 'remark',          col: 'remark',            fn: v => v || '' },
+            { key: 'expiry_date',     col: 'expiry_date',       fn: v => v || null },
+            { key: 'checkin_time',    col: 'checkin_time',      fn: v => v || null },
+            { key: 'checkout_time',   col: 'checkout_time',     fn: v => v || null },
+            { key: 'responsible_person', col: 'responsible_person', fn: v => v || null },
+        ];
 
-        // 兼容旧版 tag_name，新版用 tag_names
-        const tags = tag_names || tag_name || '';
+        // 只包含 req.body 中实际存在的字段（排除 undefined）
+        const setClauses = [];
+        const values = [];
 
-        await query(
-            `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-            [device_id || null, warehouseName, name, tags, status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', expiry_date || null, checkin_time || null, checkout_time || null, responsible_person || null, req.params.id]
-        );
-        
-        res.json({ id: req.params.id, warehouseName, name });
+        for (const { key, col, fn } of fieldMap) {
+            if (key in req.body && req.body[key] !== undefined) {
+                // 跳过 tag_name 如果 tag_names 已处理（避免重复）
+                if (key === 'tag_name' && 'tag_names' in req.body && req.body.tag_names !== undefined) continue;
+                setClauses.push(`${col}=?`);
+                values.push(fn(req.body[key]));
+            }
+        }
+
+        // 如果没有要更新的字段，至少也需要 updated_at
+        if (setClauses.length === 0) {
+            return res.status(400).json({ error: '没有提供要更新的字段' });
+        }
+
+        // 始终更新 updated_at
+        setClauses.push('updated_at=CURRENT_TIMESTAMP');
+        values.push(req.params.id);
+
+        const sql = `UPDATE devices SET ${setClauses.join(', ')} WHERE id=?`;
+        console.log('[PUT /api/devices/:id] 部分更新 SQL:', sql, values);
+
+        await query(sql, values);
+
+        res.json({ id: req.params.id, updatedFields: Object.keys(req.body).filter(k => req.body[k] !== undefined) });
     } catch (err) {
         console.error('更新设备失败:', err);
         res.status(500).json({ error: err.message });

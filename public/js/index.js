@@ -98,11 +98,106 @@ function formatDateTime(date) {
 }
 
 // 显示备注预览
-function showRemarkPreview(deviceName, remark) {
-    if (!remark) return;
-    document.getElementById('remarkDeviceName').textContent = deviceName;
-    document.getElementById('remarkContent').innerHTML = decodeRichText(remark);
+let _remarkOriginalContent = '';
+let _remarkPreviewSource = 'table'; // 'table' | 'deviceModal'
+
+function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
+    _remarkPreviewSource = source;
+
+    if (source === 'deviceModal') {
+        // 从设备编辑弹窗打开：从 deviceRemarkEditor 读取内容
+        const remarkEditor = document.getElementById('deviceRemarkEditor');
+        const content = remarkEditor ? remarkEditor.innerHTML : '';
+        document.getElementById('remarkPreviewDeviceId').value = document.getElementById('deviceId').value;
+        document.getElementById('remarkDeviceName').textContent = document.getElementById('deviceName').value;
+        document.getElementById('remarkContent').innerHTML = content;
+        _remarkOriginalContent = content;
+        // 更新标题
+        document.querySelector('#remarkPreviewModal .modal-title').innerHTML =
+            '<i class="bi bi-pencil-square me-2" style="color: #495057;"></i>编辑备注' +
+            '<span id="remarkPreviewStatus" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #198754; margin-left: 10px; flex-shrink: 0;" title="已是最新版本"></span>';
+    } else {
+        if (!remark) return;
+        document.getElementById('remarkPreviewDeviceId').value = deviceId;
+        document.getElementById('remarkDeviceName').textContent = deviceName;
+        const decoded = decodeRichText(remark);
+        document.getElementById('remarkContent').innerHTML = decoded;
+        _remarkOriginalContent = decoded;
+        // 更新标题
+        document.querySelector('#remarkPreviewModal .modal-title').innerHTML =
+            '<i class="bi bi-file-text me-2" style="color: #495057;"></i>备注详情' +
+            '<span id="remarkPreviewStatus" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #198754; margin-left: 10px; flex-shrink: 0;" title="已是最新版本"></span>';
+    }
+
+    updateRemarkPreviewStatus();
     new bootstrap.Modal(document.getElementById('remarkPreviewModal')).show();
+}
+
+// 更新备注预览窗口的状态指示器
+function updateRemarkPreviewStatus() {
+    const current = document.getElementById('remarkContent').innerHTML;
+    const dot = document.getElementById('remarkPreviewStatus');
+    if (current !== _remarkOriginalContent) {
+        dot.style.backgroundColor = '#dc3545';
+        dot.title = '有未保存的修改';
+    } else {
+        dot.style.backgroundColor = '#198754';
+        dot.title = '已是最新版本';
+    }
+}
+
+// 监听备注内容编辑（脚本在 body 底部执行时 DOM 已就绪）
+(function bindRemarkStatusWatcher() {
+    const remarkContent = document.getElementById('remarkContent');
+    if (remarkContent) {
+        remarkContent.addEventListener('input', updateRemarkPreviewStatus);
+    }
+})();
+
+// 从备注预览窗口保存备注
+async function saveRemarkFromPreview() {
+    const deviceId = document.getElementById('remarkPreviewDeviceId').value;
+    const content = document.getElementById('remarkContent').innerHTML;
+    const remark = encodeRichText(content);
+
+    try {
+        // 统一调 API 保存，数据库始终是唯一真实来源
+        const data = { remark: remark };
+
+        console.log('保存备注 - 请求数据:', { deviceId, remark, source: _remarkPreviewSource });
+
+        const res = await fetch(`${API_BASE}/devices/${deviceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('保存备注 - 服务器返回错误:', res.status, errorText);
+            throw new Error(`HTTP ${res.status}: ${errorText}`);
+        }
+
+        console.log('保存备注 - 成功');
+
+        // 从设备编辑弹窗打开时：同步回 deviceRemarkEditor
+        if (_remarkPreviewSource === 'deviceModal') {
+            const remarkEditor = document.getElementById('deviceRemarkEditor');
+            if (remarkEditor) remarkEditor.innerHTML = content;
+            document.getElementById('deviceRemark').value = remark;
+        }
+
+        _remarkOriginalContent = content;
+        updateRemarkPreviewStatus();
+        bootstrap.Modal.getInstance(document.getElementById('remarkPreviewModal')).hide();
+
+        if (_remarkPreviewSource !== 'deviceModal') {
+            await loadDevices();
+        }
+    } catch (e) {
+        console.error('保存备注 - 异常:', e);
+        alert('保存失败: ' + e.message);
+    }
 }
 
 // 排序设备
@@ -166,7 +261,7 @@ function renderDevicesTableView(devices) {
                     <td>${locationText}</td>
                     <td>${expiryDateText}</td>
                     <td>${device.remark
-                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(device.remark)}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation();showRemarkTooltipAtElement(this, this.getAttribute('data-remark-text'))"></i></span>`
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
                     <td>
@@ -497,7 +592,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <span class="detail-item"><span class="detail-label">负责人:</span><span class="detail-value">${device.responsible_person || '-'}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
@@ -1385,41 +1480,6 @@ function showRemarkTooltip(e, text) {
     _remarkTooltipEl.style.display = 'block';
 }
 
-// 触摸备注按钮时的预览气泡（固定在图标左侧20px）
-function showRemarkTooltipAtElement(el, text) {
-    clearTimeout(_remarkTooltipTimer);
-    clearTimeout(_remarkTouchHideTimer);
-
-    _ensureRemarkTooltipEl();
-
-    _remarkTooltipEl.innerHTML = decodeRichText(text);
-
-    const rect = el.getBoundingClientRect();
-    const tipWidth = _remarkTooltipEl.offsetWidth || 200;
-    const tipHeight = _remarkTooltipEl.offsetHeight || 100;
-
-    // 固定在图标左侧20px，垂直居中
-    let left = rect.left - tipWidth - 20;
-    let top = rect.top + rect.height / 2 - tipHeight / 2;
-
-    // 左侧空间不够则显示在右侧
-    if (left < 8) {
-        left = rect.right + 20;
-    }
-    if (top < 8) top = 8;
-    if (top + tipHeight > window.innerHeight - 8) {
-        top = window.innerHeight - tipHeight - 8;
-    }
-
-    _remarkTooltipEl.style.left = left + 'px';
-    _remarkTooltipEl.style.top = top + 'px';
-    _remarkTooltipEl.style.display = 'block';
-
-    // 触摸后2.5秒自动关闭
-    _remarkTouchHideTimer = setTimeout(() => {
-        hideRemarkTooltip();
-    }, 2500);
-}
 
 // 延迟关闭（允许鼠标从图标滑入气泡）
 function scheduleHideRemarkTooltip() {
