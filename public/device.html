@@ -499,7 +499,7 @@
 
         // 从URL获取设备ID
         const urlParams = new URLSearchParams(window.location.search);
-        const deviceId = urlParams.get('id');
+        const deviceId = urlParams.get('device_id');
 
         // 格式化日期
         function formatDate(timeStr) {
@@ -554,7 +554,15 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/devices/${deviceId}`);
+                let res;
+
+                // 优先通过设备ID码（6位码）查找
+                res = await fetch(`${API_BASE}/devices/by-code/${deviceId}`);
+                if (!res.ok) {
+                    // 回退：通过数据库主键ID查找
+                    res = await fetch(`${API_BASE}/devices/${deviceId}`);
+                }
+
                 if (!res.ok) {
                     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
                 }

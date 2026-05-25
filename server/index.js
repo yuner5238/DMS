@@ -3,10 +3,40 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const mysql = require('mysql');
 const path = require('path');
+const multer = require('multer');
+const crypto = require('crypto');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { active, dbConfig } = require('./db.config');
 
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Multer：内存存储
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('仅支持 JPG/PNG/GIF/WebP/BMP 图片格式'));
+        }
+    },
+});
+
+// S3 客户端
+const s3 = new S3Client({
+    endpoint: process.env.S3_ENDPOINT,
+    region: process.env.S3_REGION,
+    credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY,
+        secretAccessKey: process.env.S3_SECRET_KEY,
+    },
+    forcePathStyle: true,
+});
 
 // MySQL 连接配置
 const pool = mysql.createPool({
@@ -106,6 +136,61 @@ app.delete('/api/warehouses/:id', async (req, res) => {
 
 // ============ 设备 API ============
 
+// 生成下一个可用的6位设备ID码
+app.get('/api/devices/next-code', async (req, res) => {
+    try {
+        // 查找当前最大的纯数字设备ID
+        const rows = await query(
+            `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+        );
+        const maxCode = rows[0]?.max_code || 0;
+        const nextCode = maxCode + 1;
+        if (nextCode > 999999) {
+            return res.status(500).json({ error: '设备ID已用尽（超过999999）' });
+        }
+        const code = String(nextCode).padStart(6, '0');
+        res.json({ code });
+    } catch (err) {
+        console.error('生成设备ID失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 补全所有缺失 device_id 的设备（按 id 升序分配6位码）
+app.post('/api/devices/backfill-codes', async (req, res) => {
+    try {
+        // 查出所有 device_id 为 NULL 的设备，按 id 升序
+        const nullDevices = await query(
+            `SELECT id FROM devices WHERE device_id IS NULL ORDER BY id ASC`
+        );
+        if (nullDevices.length === 0) {
+            return res.json({ message: '所有设备已有设备ID码，无需补全', updated: 0 });
+        }
+
+        // 找到当前最大的6位数字码
+        const maxRows = await query(
+            `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+        );
+        let nextCode = (maxRows[0]?.max_code || 0) + 1;
+
+        let count = 0;
+        for (const device of nullDevices) {
+            if (nextCode > 999999) {
+                break;
+            }
+            const code = String(nextCode).padStart(6, '0');
+            await query(`UPDATE devices SET device_id=? WHERE id=?`, [code, device.id]);
+            nextCode++;
+            count++;
+        }
+
+        res.json({ message: `已为 ${count} 台设备补全设备ID码`, updated: count });
+    } catch (err) {
+        console.error('补全设备ID码失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 获取所有设备（或按仓库筛选）
 app.get('/api/devices', async (req, res) => {
     try {
@@ -154,6 +239,22 @@ app.get('/api/devices/:id', async (req, res) => {
     }
 });
 
+// 通过设备ID码（6位码）获取设备详情
+app.get('/api/devices/by-code/:code', async (req, res) => {
+    try {
+        const device = await query('SELECT * FROM devices WHERE device_id=?', [req.params.code]);
+
+        if (device.length === 0) {
+            return res.status(404).json({ error: '设备不存在' });
+        }
+
+        res.json(device[0]);
+    } catch (err) {
+        console.error('通过设备ID码获取详情失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
@@ -167,9 +268,23 @@ app.post('/api/devices', async (req, res) => {
         // 兼容旧版 tag_name，新版用 tag_names（逗号分隔多标签）
         const tags = tag_names || tag_name || '';
         
+        // 如果没有传 device_id，自动生成一个
+        let finalDeviceId = device_id || null;
+        if (!finalDeviceId) {
+            const maxRows = await query(
+                `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+            );
+            const maxCode = maxRows[0]?.max_code || 0;
+            const nextCode = maxCode + 1;
+            if (nextCode > 999999) {
+                return res.status(500).json({ error: '设备ID已用尽（超过999999）' });
+            }
+            finalDeviceId = String(nextCode).padStart(6, '0');
+        }
+
         const result = await query(
             `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null]
+            [finalDeviceId, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null]
         );
         
         res.json({ id: result.insertId, warehouseName, name });
@@ -339,6 +454,45 @@ app.delete('/api/announcements/:id', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============ 图片上传 API（S3） ============
+
+// 上传图片到 S3
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+    try {
+        const { deviceId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: '请选择图片文件' });
+        }
+        if (!deviceId) {
+            return res.status(400).json({ error: '缺少 deviceId 参数' });
+        }
+
+        // 生成唯一文件名：时间戳_随机6位.原始扩展名
+        const ext = path.extname(file.originalname).toLowerCase() || '.png';
+        const filename = `${Date.now()}_${crypto.randomBytes(3).toString('hex')}${ext}`;
+        const s3Key = `images/${deviceId}/${filename}`;
+
+        // 上传到 S3
+        await s3.send(new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: s3Key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        }));
+
+        // 构造公开访问 URL
+        const imageUrl = `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}/${s3Key}`;
+
+        console.log(`[S3] 图片上传成功: ${s3Key}`);
+        res.json({ success: true, url: imageUrl, key: s3Key });
+    } catch (err) {
+        console.error('[S3] 上传失败:', err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 

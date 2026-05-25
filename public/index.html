@@ -2174,6 +2174,9 @@
                             <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
                                 <i class="bi bi-plus-lg"></i> 添加设备
                             </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="backfillDeviceCodes()" id="btnBackfillCodes" style="display: none;" title="为旧设备补全设备ID码">
+                                <i class="bi bi-qr-code-scan"></i> 补全设备ID
+                            </button>
                             <button class="btn btn-sm filter-btn position-relative" onclick="toggleAnnouncementBar()" title="公告栏" id="announcementToggleBtn">
                                 <i class="bi bi-megaphone"></i>
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="announcementBtnBadge" style="display: none;">0</span>
@@ -2258,8 +2261,13 @@
                 <div class="modal-body" style="padding: 20px; max-height: 60vh; overflow-y: auto;">
                     <input type="hidden" id="deviceId">
                     <div class="mb-3">
-                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备ID <span style="font-size: 11px; color: #adb5bd;">(6位码，选填)</span></label>
-                        <input type="text" class="form-control" id="deviceIdCode" placeholder="例如：A001" maxlength="6" style="font-size: 14px;">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备ID <span style="font-size: 11px; color: #adb5bd;">(6位码，自动生成)</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="deviceIdCode" readonly placeholder="新建时自动生成" maxlength="6" style="font-size: 14px; background-color: #f8f9fa;">
+                            <button type="button" class="btn btn-outline-secondary" id="btnGenerateDeviceCode" onclick="generateDeviceCode()" title="重新生成设备ID" style="font-size: 12px;">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库 *</label>
@@ -2324,9 +2332,14 @@
                     <div class="mb-3">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <label class="form-label mb-0" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
-                            <button type="button" class="btn btn-sm btn-outline-success" onclick="showRemarkPreview(null, '', '', 'deviceModal')" style="font-size: 12px; padding: 4px 12px;">
-                                <i class="bi bi-pencil-square me-1"></i>富文本模式
-                            </button>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark(document.getElementById('deviceIdCode').value || '0')" title="插入图片" style="font-size: 12px; padding: 4px 8px;">
+                                    <i class="bi bi-image"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="showRemarkPreview(null, '', '', 'deviceModal')" style="font-size: 12px; padding: 4px 12px;">
+                                    <i class="bi bi-pencil-square me-1"></i>富文本模式
+                                </button>
+                            </div>
                         </div>
                         <!-- 使用隐藏的textarea存储原始数据 -->
                         <textarea id="deviceRemark" style="display: none;"></textarea>
@@ -2334,6 +2347,7 @@
                         <div id="deviceRemarkEditor" contenteditable="true"
                              data-placeholder="其他说明（可选）"
                              style="min-height: 80px; max-height: 200px; overflow-y: auto; padding: 8px 12px; font-size: 14px; line-height: 1.6; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; outline: none;"></div>
+                        <input type="file" id="remarkImageInput" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
                     </div>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
@@ -2522,6 +2536,9 @@
                             </div>
                         </div>
                         <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark(document.getElementById('deviceIdCode').value || '0', 'remarkContent')" title="插入图片">
+                            <i class="bi bi-image"></i>
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('removeFormat')" title="清除格式">
                             <i class="bi bi-eraser"></i>
                         </button>
@@ -2606,6 +2623,9 @@
                             </div>
                         </div>
                         <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark(document.getElementById('deviceIdCode').value || '0', 'remarkContent')" title="插入图片">
+                            <i class="bi bi-image"></i>
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('removeFormat')" title="清除格式">
                             <i class="bi bi-eraser"></i>
                         </button>

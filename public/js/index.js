@@ -117,6 +117,11 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
             '<i class="bi bi-pencil-square me-2" style="color: #495057;"></i>编辑备注' +
             '<span id="remarkPreviewStatus" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #198754; margin-left: 10px; flex-shrink: 0;" title="已是最新版本"></span>';
     } else {
+        // 如果 remark 未传入，从 allDevices 数组中查找（避免 HTML/JS 引号转义问题）
+        if (remark === undefined || remark === null) {
+            const device = allDevices.find(d => d.id == deviceId);
+            remark = device ? (device.remark || '') : '';
+        }
         if (!remark) return;
         document.getElementById('remarkPreviewDeviceId').value = deviceId;
         document.getElementById('remarkDeviceName').textContent = deviceName;
@@ -252,7 +257,7 @@ function renderDevicesTableView(devices) {
             const expiryDateText = device.expiry_date ? formatDate(device.expiry_date) : '-';
 
             return `
-                <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail(${device.id})" style="cursor: pointer;">
+                <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')" style="cursor: pointer;">
                     <td class="device-name-cell"><strong>${device.name}</strong>${device.device_id ? ` <span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}</td>
                     <td>${device.quantity || 1}</td>
                     <td><span class="status-badge ${statusClass[device.status]}">${device.status || '未知'}</span></td>
@@ -261,7 +266,7 @@ function renderDevicesTableView(devices) {
                     <td>${locationText}</td>
                     <td>${expiryDateText}</td>
                     <td>${device.remark
-                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
                     <td>
@@ -538,6 +543,13 @@ async function loadDevices() {
         allDevices = devices;
         renderDevices(devices);
         await updateStats();
+
+        // 检查是否有设备缺少 device_id，显示/隐藏补全按钮
+        const btnBackfill = document.getElementById('btnBackfillCodes');
+        if (btnBackfill) {
+            const nullCount = devices.filter(d => !d.device_id).length;
+            btnBackfill.style.display = nullCount > 0 ? '' : 'none';
+        }
     } catch (e) {
         console.error('加载设备失败:', e);
         allDevices = [];
@@ -573,7 +585,7 @@ function renderDevices(devices) {
         const storageLocationValue = device.storage_location ? device.storage_location : '';
 
         return `
-            <div class="device-item ${isOut ? 'checked-out' : ''}" onclick="showDeviceDetail(${device.id})">
+            <div class="device-item ${isOut ? 'checked-out' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
                         <div class="device-header-row">
@@ -592,7 +604,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <span class="detail-item"><span class="detail-label">负责人:</span><span class="detail-value">${device.responsible_person || '-'}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
@@ -890,6 +902,63 @@ function initModalTags(device) {
     updateTagDatalist();
 }
 
+// 自动生成6位设备ID码
+async function generateDeviceCode() {
+    const input = document.getElementById('deviceIdCode');
+    const btn = document.getElementById('btnGenerateDeviceCode');
+    if (!input || !btn) return;
+
+    // 编辑已有设备时不重新生成
+    const deviceId = document.getElementById('deviceId').value;
+    if (deviceId) {
+        alert('已有设备ID不可重新生成');
+        return;
+    }
+
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+    try {
+        const res = await fetch(`${API_BASE}/devices/next-code`);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || '生成失败');
+        }
+        const data = await res.json();
+        input.value = data.code;
+    } catch (e) {
+        alert('生成设备ID失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// 补全所有缺失 device_id 的旧设备
+async function backfillDeviceCodes() {
+    if (!confirm('将为所有缺少设备ID码的旧设备自动生成6位码，是否继续？')) return;
+
+    const btn = document.getElementById('btnBackfillCodes');
+    if (!btn) return;
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 补全中...';
+
+    try {
+        const res = await fetch(`${API_BASE}/devices/backfill-codes`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '补全失败');
+        alert(data.message);
+        loadDevices(); // 刷新列表
+    } catch (e) {
+        alert('补全设备ID失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
 // ============ 设备操作 ============
 function showDeviceModal(id = null) {
     if (warehouses.length === 0) { alert('请先创建仓库'); return; }
@@ -946,6 +1015,8 @@ function showDeviceModal(id = null) {
         document.getElementById('deleteDeviceBtn').style.display = 'none';
         document.getElementById('destinationField').style.display = 'none';
         if (currentWarehouseName) document.getElementById('deviceWarehouse').value = currentWarehouseName;
+        // 自动生成设备ID码
+        generateDeviceCode();
     }
     modal.show();
     
@@ -1014,13 +1085,13 @@ function handleDeviceModalKeydown(event) {
 }
 
 // 显示设备详情
-async function showDeviceDetail(id) {
-    if (!id) {
+async function showDeviceDetail(deviceIdRef) {
+    if (!deviceIdRef) {
         alert('设备ID无效');
         return;
     }
-    // 跳转到设备详情页面，地址栏末尾包含设备ID
-    window.location.href = `/device.html?id=${id}`;
+    // 优先使用设备ID码（6位码），否则使用数据库ID
+    window.location.href = `/device.html?device_id=${deviceIdRef}`;
 }
 
 function editDevice(id) { showDeviceModal(id); }
@@ -1108,30 +1179,69 @@ async function deleteDeviceFromList(id, name) {
 }
 
 // ============ 备注图片功能 ============
-function insertImageToRemark() {
+
+// 当前编辑上下文：知道是哪个设备的备注，以及目标编辑器
+let _imageUploadDeviceId = null;
+let _imageTargetEditorId = 'deviceRemarkEditor'; // 默认目标编辑器
+
+function insertImageToRemark(deviceId, editorId) {
+    _imageUploadDeviceId = deviceId;
+    _imageTargetEditorId = editorId || 'deviceRemarkEditor';
     document.getElementById('remarkImageInput').click();
 }
 
-function handleImageSelect(event) {
+async function handleImageSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // 检查文件大小（限制为2MB）
-    if (file.size > 2 * 1024 * 1024) {
-        alert('图片大小不能超过2MB');
+    const deviceId = _imageUploadDeviceId;
+    const targetEditorId = _imageTargetEditorId;
+
+    // 检查文件大小（限制为5MB）
+    if (file.size > 5 * 1024 * 1024) {
+        alert('图片大小不能超过5MB');
         event.target.value = '';
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const base64 = e.target.result;
-        const remarkEditor = document.getElementById('deviceRemarkEditor');
-        const imgTag = `<img src="${base64}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" />`;
+    // 显示上传中状态
+    const remarkEditor = document.getElementById(targetEditorId);
+    if (!remarkEditor) { event.target.value = ''; return; }
+    const loadingHtml = '<span id="imgUploadLoading" style="color:#6c757d;font-style:italic;">[图片上传中...]</span>';
+    remarkEditor.innerHTML += loadingHtml;
+
+    try {
+        // 上传到服务器（服务器再存 S3）
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('deviceId', deviceId || '0');
+
+        const res = await fetch(`${API_BASE}/upload/image`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || '上传失败');
+        }
+
+        const data = await res.json();
+
+        // 移除上传中提示
+        const loadingEl = document.getElementById('imgUploadLoading');
+        if (loadingEl) loadingEl.remove();
+
+        // 插入图片
+        const imgTag = `<img src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" />`;
         remarkEditor.innerHTML += imgTag;
+    } catch (err) {
+        const loadingEl = document.getElementById('imgUploadLoading');
+        if (loadingEl) loadingEl.remove();
+        alert('图片上传失败: ' + err.message);
+    } finally {
         event.target.value = '';
-    };
-    reader.readAsDataURL(file);
+    }
 }
 
 function formatRemarkWithImages(remark) {

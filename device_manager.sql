@@ -11,7 +11,7 @@ USE device_manager;
 DROP TABLE IF EXISTS devices;
 CREATE TABLE `devices` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `device_id` varchar(6) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '设备ID',
+  `device_id` varchar(6) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '设备ID（6位数字码，自动生成，唯一）',
   `warehouse_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
   `tag_names` text COLLATE utf8mb4_unicode_ci,
@@ -28,6 +28,7 @@ CREATE TABLE `devices` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `device_id` (`device_id`),
   KEY `warehouse_id` (`warehouse_name`),
   KEY `tag_names` (`tag_names`(191))
 ) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
