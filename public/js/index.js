@@ -592,7 +592,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <span class="detail-item"><span class="detail-label">负责人:</span><span class="detail-value">${device.responsible_person || '-'}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
