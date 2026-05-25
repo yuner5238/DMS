@@ -17,7 +17,7 @@ let locationFilters = { in_stock: true, checked_out: true };  // 状态过滤，
 let filterPanelVisible = true;  // 过滤面板默认显示
 let announcements = [];
 let dismissedAnnouncements = new Set();
-let viewMode = 'list';  // 视图模式：'list' 列表模式 或 'table' 表格模式
+let viewMode = 'table';  // 视图模式：'list' 列表模式 或 'table' 表格模式
 
 // 格式化时间（北京时间）
 function formatTime(timeStr) {
@@ -161,11 +161,12 @@ function renderDevicesTableView(devices) {
                     <td class="device-name-cell"><strong>${device.name}</strong>${device.device_id ? ` <span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}</td>
                     <td>${device.quantity || 1}</td>
                     <td><span class="status-badge ${statusClass[device.status]}">${device.status || '未知'}</span></td>
+                    <td>${device.responsible_person || '-'}</td>
                     <td>${renderTagBadges(device)}</td>
                     <td>${locationText}</td>
                     <td>${expiryDateText}</td>
                     <td>${device.remark
-                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation(); showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(device.remark)}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()"></i></span>`
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview('${device.name.replace(/'/g, "\\'")}', '${(device.remark || '').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\n/g, '\\n')}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" data-remark-text="${escapeHtml(device.remark)}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmousemove="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation();showRemarkTooltipAtElement(this, this.getAttribute('data-remark-text'))"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
                     <td>
@@ -189,6 +190,7 @@ function renderDevicesTableView(devices) {
                         <th>设备名称</th>
                         <th>数量</th>
                         <th>状态</th>
+                        <th>负责人</th>
                         <th>标签</th>
                         <th>位置/去向</th>
                         <th>到期日期</th>
@@ -496,6 +498,7 @@ function renderDevices(devices) {
                             </div>
                             <div class="device-details">
                                 <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" data-remark-text="${escapeHtml(device.remark || '')}" onmouseenter="showRemarkTooltip(event, this.getAttribute('data-remark-text'))" onmouseleave="scheduleHideRemarkTooltip()" onclick="event.stopPropagation(); showRemarkPreview('${device.name}', '${(device.remark || '').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/`/g, '\\`')}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item"><span class="detail-label">负责人:</span><span class="detail-value">${device.responsible_person || '-'}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
                                     <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
@@ -618,7 +621,8 @@ async function confirmCheckout() {
                 warehouseName: device.warehouse_name, name: device.name, tag_names: device.tag_names || '[]',
                 status: device.status, quantity: device.quantity, storage_location: device.storage_location,
                 location_status: 'checked_out', destination: destination || '', remark: device.remark,
-                checkin_time: device.checkin_time, checkout_time: formatDateTime(new Date())
+                checkin_time: device.checkin_time, checkout_time: formatDateTime(new Date()),
+                responsible_person: device.responsible_person || ''
             })
         });
         bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
@@ -645,7 +649,8 @@ async function confirmCheckin() {
                 warehouseName: device.warehouse_name, name: device.name, tag_names: device.tag_names || '[]',
                 status: device.status, quantity: device.quantity, storage_location: device.storage_location,
                 location_status: 'in_stock', destination: '', remark: device.remark,
-                checkin_time: formatDateTime(new Date()), checkout_time: null
+                checkin_time: formatDateTime(new Date()), checkout_time: null,
+                responsible_person: device.responsible_person || ''
             })
         });
         bootstrap.Modal.getInstance(document.getElementById('checkinModal')).hide();
@@ -817,6 +822,7 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceDestination').value = d.destination || '';
         document.getElementById('deviceStatus').value = d.status;
         document.getElementById('deviceRemark').value = d.remark || '';
+        document.getElementById('deviceResponsiblePerson').value = d.responsible_person || '';
         // 到期日期
         if (d.expiry_date) {
             document.getElementById('deviceExpiryDate').value = formatDate(d.expiry_date);
@@ -839,6 +845,7 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceDestination').value = '';
         document.getElementById('deviceStatus').value = '正常';
         document.getElementById('deviceRemark').value = '';
+        document.getElementById('deviceResponsiblePerson').value = '';
         document.getElementById('deviceExpiryDate').value = '';
         document.getElementById('deviceRemarkEditor').innerHTML = '';
         document.getElementById('deleteDeviceBtn').style.display = 'none';
@@ -947,7 +954,8 @@ async function saveDevice() {
         status: document.getElementById('deviceStatus').value,
         remark: encodeRichText(remarkEditor ? remarkEditor.innerHTML : ''),
         checkin_time: checkinTime ? checkinTime + ' ' + new Date().toTimeString().slice(0,8) : null,
-        expiry_date: expiryDate
+        expiry_date: expiryDate,
+        responsible_person: document.getElementById('deviceResponsiblePerson')?.value || ''
     };
 
     if (!data.name) { alert('请输入设备名称'); return; }
@@ -1321,11 +1329,9 @@ function stripRichText(text) {
 // 备注悬停气泡 (body 级别，绕过 overflow 裁剪)
 let _remarkTooltipEl = null;
 let _remarkTooltipTimer = null;
+let _remarkTouchHideTimer = null;
 
-function showRemarkTooltip(e, text) {
-    // 清除之前的延迟关闭计时器
-    clearTimeout(_remarkTooltipTimer);
-
+function _ensureRemarkTooltipEl() {
     if (!_remarkTooltipEl) {
         _remarkTooltipEl = document.createElement('div');
         _remarkTooltipEl.className = 'remark-body-tooltip';
@@ -1334,6 +1340,7 @@ function showRemarkTooltip(e, text) {
         // 鼠标进入气泡时，取消关闭
         _remarkTooltipEl.addEventListener('mouseenter', () => {
             clearTimeout(_remarkTooltipTimer);
+            clearTimeout(_remarkTouchHideTimer);
         });
 
         // 鼠标离开气泡时，关闭
@@ -1341,6 +1348,15 @@ function showRemarkTooltip(e, text) {
             hideRemarkTooltip();
         });
     }
+    return _remarkTooltipEl;
+}
+
+function showRemarkTooltip(e, text) {
+    // 清除之前的延迟关闭计时器
+    clearTimeout(_remarkTooltipTimer);
+    clearTimeout(_remarkTouchHideTimer);
+
+    _ensureRemarkTooltipEl();
 
     // 始终更新内容（切换不同备注项时也能刷新）
     _remarkTooltipEl.innerHTML = decodeRichText(text);
@@ -1369,6 +1385,42 @@ function showRemarkTooltip(e, text) {
     _remarkTooltipEl.style.display = 'block';
 }
 
+// 触摸备注按钮时的预览气泡（固定在图标左侧20px）
+function showRemarkTooltipAtElement(el, text) {
+    clearTimeout(_remarkTooltipTimer);
+    clearTimeout(_remarkTouchHideTimer);
+
+    _ensureRemarkTooltipEl();
+
+    _remarkTooltipEl.innerHTML = decodeRichText(text);
+
+    const rect = el.getBoundingClientRect();
+    const tipWidth = _remarkTooltipEl.offsetWidth || 200;
+    const tipHeight = _remarkTooltipEl.offsetHeight || 100;
+
+    // 固定在图标左侧20px，垂直居中
+    let left = rect.left - tipWidth - 20;
+    let top = rect.top + rect.height / 2 - tipHeight / 2;
+
+    // 左侧空间不够则显示在右侧
+    if (left < 8) {
+        left = rect.right + 20;
+    }
+    if (top < 8) top = 8;
+    if (top + tipHeight > window.innerHeight - 8) {
+        top = window.innerHeight - tipHeight - 8;
+    }
+
+    _remarkTooltipEl.style.left = left + 'px';
+    _remarkTooltipEl.style.top = top + 'px';
+    _remarkTooltipEl.style.display = 'block';
+
+    // 触摸后2.5秒自动关闭
+    _remarkTouchHideTimer = setTimeout(() => {
+        hideRemarkTooltip();
+    }, 2500);
+}
+
 // 延迟关闭（允许鼠标从图标滑入气泡）
 function scheduleHideRemarkTooltip() {
     _remarkTooltipTimer = setTimeout(() => {
@@ -1378,6 +1430,7 @@ function scheduleHideRemarkTooltip() {
 
 function hideRemarkTooltip() {
     clearTimeout(_remarkTooltipTimer);
+    clearTimeout(_remarkTouchHideTimer);
     if (_remarkTooltipEl) {
         _remarkTooltipEl.remove();
         _remarkTooltipEl = null;
@@ -1545,12 +1598,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedViewMode = localStorage.getItem('viewMode');
     if (savedViewMode) {
         viewMode = savedViewMode;
-        const btn = document.getElementById('viewToggleBtn');
-        const icon = btn?.querySelector('i');
-        if (viewMode === 'table' && icon) {
-            icon.className = 'bi bi-grid-3x3-gap';
-            btn.classList.add('active');
-        }
+    }
+    // 初始化按钮图标（默认表格视图）
+    const btn = document.getElementById('viewToggleBtn');
+    const icon = btn?.querySelector('i');
+    if (viewMode === 'table' && icon && btn) {
+        icon.className = 'bi bi-grid-3x3-gap';
+        btn.classList.add('active');
     }
 
     // 恢复已关闭的公告状态

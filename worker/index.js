@@ -154,7 +154,7 @@ async function getDevice(env, id) {
 
 async function createDevice(request, env) {
     const body = await request.json();
-    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time } = body;
+    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, responsible_person } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
     if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
@@ -164,9 +164,9 @@ async function createDevice(request, env) {
     const tags = tag_names || tag_name || '';
 
     const result = await env.DB.prepare(
-        `INSERT INTO devices (warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, checkin_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO devices (warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, checkin_time, responsible_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime
+        warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', checkinTime, responsible_person || null
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
@@ -174,14 +174,14 @@ async function createDevice(request, env) {
 
 async function updateDevice(request, env, id) {
     const body = await request.json();
-    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time } = body;
+    const { warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, responsible_person } = body;
 
     const tags = tag_names || tag_name || '';
 
     await env.DB.prepare(
-        `UPDATE devices SET warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+        `UPDATE devices SET warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, checkin_time=?, checkout_time=?, responsible_person=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).bind(
-        warehouseName, name, tags, status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, id
+        warehouseName, name, tags, status, quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', checkin_time || null, checkout_time || null, responsible_person || null, id
     ).run();
 
     return jsonResponse({ id, warehouseName, name });

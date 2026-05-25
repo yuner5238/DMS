@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS devices (
     storage_location TEXT DEFAULT '',
     location_status TEXT DEFAULT 'in_stock',
     destination TEXT DEFAULT '',
+    responsible_person TEXT DEFAULT '',  -- 负责人
     remark TEXT DEFAULT '',
     expiry_date DATE DEFAULT NULL,           -- 到期日期
     checkin_time DATETIME,
