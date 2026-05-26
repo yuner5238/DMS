@@ -5,7 +5,7 @@ const mysql = require('mysql');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { active, dbConfig } = require('./db.config');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -457,6 +457,13 @@ app.delete('/api/announcements/:id', async (req, res) => {
     }
 });
 
+// 公开配置（S3 URL 等，前端动态读取）
+app.get('/api/config', (req, res) => {
+    res.json({
+        s3PublicUrl: process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`,
+    });
+});
+
 // ============ 图片上传 API（S3） ============
 
 // 上传图片到 S3
@@ -477,21 +484,185 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
         const filename = `${Date.now()}_${crypto.randomBytes(3).toString('hex')}${ext}`;
         const s3Key = `images/${deviceId}/${filename}`;
 
+        console.log(`[S3上传] 开始上传: ${s3Key}, 大小: ${file.buffer.length} 字节, 类型: ${file.mimetype}`);
+
         // 上传到 S3
-        await s3.send(new PutObjectCommand({
+        const putResult = await s3.send(new PutObjectCommand({
             Bucket: process.env.S3_BUCKET,
             Key: s3Key,
             Body: file.buffer,
             ContentType: file.mimetype,
         }));
 
-        // 构造公开访问 URL
-        const imageUrl = `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}/${s3Key}`;
+        console.log(`[S3上传] PutObject 响应: HTTP ${putResult.$metadata.httpStatusCode}`);
 
-        console.log(`[S3] 图片上传成功: ${s3Key}`);
+        // 立即验证文件是否成功写入（某些 S3 兼容服务可能静默失败）
+        try {
+            await s3.send(new GetObjectCommand({
+                Bucket: process.env.S3_BUCKET,
+                Key: s3Key,
+            }));
+            console.log(`[S3上传] 验证通过: ${s3Key} 已确认存在`);
+        } catch (verifyErr) {
+            console.error(`[S3上传] 验证失败: ${s3Key}`, verifyErr.name, verifyErr.message);
+            return res.status(500).json({ error: `图片上传后验证失败（文件可能未成功存储）: ${verifyErr.message}` });
+        }
+
+        // Bucket 已开启公开读，直接返回 S3 URL
+        const s3BaseUrl = process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`;
+        const imageUrl = `${s3BaseUrl}/images/${deviceId}/${filename}`;
+
+        console.log(`[S3上传] 完成: ${s3Key}`);
         res.json({ success: true, url: imageUrl, key: s3Key });
     } catch (err) {
         console.error('[S3] 上传失败:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============ S3 图片管理 API（必须在 :deviceId/:filename 之前，否则会被代理路由拦截） ============
+
+// 列出指定设备文件夹下的所有图片
+app.get('/api/images/list/:deviceId', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const prefix = `images/${deviceId}/`;
+
+        console.log(`[S3列表] 查询目录: ${prefix}`);
+
+        const command = new ListObjectsV2Command({
+            Bucket: process.env.S3_BUCKET,
+            Prefix: prefix,
+            MaxKeys: 500,
+        });
+
+        const response = await s3.send(command);
+
+        const images = (response.Contents || [])
+            .filter(item => !item.Key.endsWith('/')) // 排除目录占位
+            .map(item => {
+                const filename = item.Key.replace(prefix, '');
+                return {
+                    filename,
+                    key: item.Key,
+                    size: item.Size,
+                    lastModified: item.LastModified,
+                    url: `${process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`}/images/${deviceId}/${filename}`,
+                };
+            });
+
+        console.log(`[S3列表] 找到 ${images.length} 个文件`);
+        res.json({ success: true, images });
+    } catch (err) {
+        console.error('[S3列表] 失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 删除 S3 中的指定图片
+app.delete('/api/images/:deviceId/:filename', async (req, res) => {
+    try {
+        const { deviceId, filename } = req.params;
+        const s3Key = `images/${deviceId}/${filename}`;
+
+        console.log(`[S3删除] 删除: ${s3Key}`);
+
+        await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: s3Key,
+        }));
+
+        console.log(`[S3删除] 成功: ${s3Key}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[S3删除] 失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 图片代理：通过服务器中转访问 S3（解决 bucket 私有问题）
+app.get('/api/images/:deviceId/:filename', async (req, res) => {
+    try {
+        const { deviceId, filename } = req.params;
+        const s3Key = `images/${deviceId}/${filename}`;
+
+        console.log(`[S3代理] 请求图片: ${s3Key}`);
+
+        const getCommand = new GetObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: s3Key,
+        });
+
+        const s3Response = await s3.send(getCommand);
+
+        // 将 S3 流读取为 Buffer（比 pipe 更可靠，兼容各种 S3 兼容服务）
+        const chunks = [];
+        for await (const chunk of s3Response.Body) {
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        // 设置响应头
+        if (s3Response.ContentType) {
+            res.set('Content-Type', s3Response.ContentType);
+        } else {
+            // 根据扩展名推断
+            const ext = path.extname(filename).toLowerCase();
+            const mimeMap = {
+                '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+            };
+            res.set('Content-Type', mimeMap[ext] || 'application/octet-stream');
+        }
+        res.set('Content-Length', buffer.length.toString());
+        res.set('Cache-Control', 'public, max-age=86400');
+
+        console.log(`[S3代理] 返回图片: ${s3Key}, 大小: ${buffer.length} 字节`);
+        res.end(buffer);
+    } catch (err) {
+        console.error('[S3] 代理读取失败:', err.name, err.message, err.$metadata);
+        if (err.name === 'NoSuchKey') {
+            return res.status(404).json({ error: '图片不存在' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 诊断：检查 S3 中图片是否存在
+app.get('/api/test/image-check/:deviceId/:filename', async (req, res) => {
+    try {
+        const { deviceId, filename } = req.params;
+        const s3Key = `images/${deviceId}/${filename}`;
+        const proxyUrl = `/api/images/${deviceId}/${filename}`;
+
+        let info = {
+            s3Key,
+            proxyUrl: `http://localhost:${PORT}${proxyUrl}`,
+            exists: false,
+            error: null,
+            size: 0,
+            contentType: null,
+        };
+
+        try {
+            const s3Response = await s3.send(new GetObjectCommand({
+                Bucket: process.env.S3_BUCKET,
+                Key: s3Key,
+            }));
+            const chunks = [];
+            for await (const chunk of s3Response.Body) {
+                chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            info.exists = true;
+            info.size = buffer.length;
+            info.contentType = s3Response.ContentType || '未知';
+        } catch (err) {
+            info.error = err.name + ': ' + err.message;
+        }
+
+        res.json(info);
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

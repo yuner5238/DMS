@@ -497,6 +497,21 @@
             : '/api';  // 优先使用同域名的 Pages Functions
         // ===================
 
+        // ===== 公开配置（从服务器动态获取） =====
+        window.S3_PUBLIC_URL = '';
+
+        async function loadPublicConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                window.S3_PUBLIC_URL = cfg.s3PublicUrl || '';
+            } catch (e) {
+                console.warn('加载公开配置失败:', e);
+            }
+        }
+        // ===================
+
+
         // 从URL获取设备ID
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('device_id');
@@ -539,6 +554,18 @@
 
             // 确保连续的换行被正确处理
             html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+            // 将旧代理URL 替换为 S3 公开URL
+            if (window.S3_PUBLIC_URL) {
+                html = html.replace(/\/api\/images\/(\d+)\/([^"'>\s]+)/gi,
+                    window.S3_PUBLIC_URL + '/images/$1/$2');
+            }
+
+            // 为图片添加加载错误提示
+            html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
+                if (attrs.includes('onerror')) return match;
+                return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');">`;
+            });
 
             return html;
         }
@@ -713,7 +740,10 @@
         }
 
         // 页面加载时获取设备详情
-        document.addEventListener('DOMContentLoaded', loadDeviceDetail);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPublicConfig();
+            loadDeviceDetail();
+        });
     </script>
 </body>
 </html>

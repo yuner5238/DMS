@@ -1,3 +1,16 @@
+// ===== 公开配置（从服务器动态获取） =====
+window.S3_PUBLIC_URL = '';
+
+async function loadPublicConfig() {
+    try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        window.S3_PUBLIC_URL = cfg.s3PublicUrl || '';
+    } catch (e) {
+        console.warn('加载公开配置失败:', e);
+    }
+}
+
 // ===== API 配置（自动切换）=====
 // 本地开发（Node.js + MySQL）：http://localhost:3000 → 走本地 /api
 // 云端部署（Pages Functions）：使用相对路径，直接调用 Pages Functions
@@ -1180,38 +1193,211 @@ async function deleteDeviceFromList(id, name) {
 
 // ============ 备注图片功能 ============
 
-// 当前编辑上下文：知道是哪个设备的备注，以及目标编辑器
-let _imageUploadDeviceId = null;
-let _imageTargetEditorId = 'deviceRemarkEditor'; // 默认目标编辑器
 
+
+// ========== 图片管理（popup选择框 + 已有图片浏览弹窗） ==========
+
+let _imageUploadDeviceId = null;
+let _imageTargetEditorId = 'deviceRemarkEditor';
+let _selectedImages = new Set();
+let _existingImages = [];
+
+// 打开图片选择 popup（定位到按钮位置）
 function insertImageToRemark(deviceId, editorId) {
     _imageUploadDeviceId = deviceId;
     _imageTargetEditorId = editorId || 'deviceRemarkEditor';
-    document.getElementById('remarkImageInput').click();
+    _selectedImages = new Set();
+
+    const fileInput = document.getElementById('imagePickerFileInput');
+    if (fileInput) fileInput.value = '';
+
+    const popup = document.getElementById('imageInsertPopup');
+    if (!popup) return;
+
+    // 获取触发按钮的位置（兼容全局 event 和代码直接调用）
+    const evt = (typeof event !== 'undefined') ? event : null;
+    const btn = (evt && evt.target && evt.target.closest('button')) || document.activeElement;
+    if (btn) {
+        const rect = btn.getBoundingClientRect();
+        // 先暂时显示以便测量高度
+        popup.style.display = '';
+        popup.style.visibility = 'hidden';
+        const popupH = popup.offsetHeight;
+        popup.style.visibility = '';
+
+        popup.style.left = (rect.left + rect.width / 2) + 'px';
+        // 弹窗显示在按钮上方
+        popup.style.top = (rect.top - popupH - 8) + 'px';
+        popup.style.transform = 'translateX(-50%)';
+    }
+
+    popup.style.display = '';
+
+    // 点击外部关闭
+    setTimeout(() => {
+        document.addEventListener('click', _closeImagePopupOnOutside, { once: true });
+    }, 0);
 }
 
-async function handleImageSelect(event) {
+function _closeImagePopupOnOutside(e) {
+    const popup = document.getElementById('imageInsertPopup');
+    if (popup && !popup.contains(e.target)) {
+        closeImageInsertPopup();
+    } else if (popup) {
+        // 如果点击的是popup内部，重新监听
+        document.addEventListener('click', _closeImagePopupOnOutside, { once: true });
+    }
+}
+
+// 关闭popup
+function closeImageInsertPopup() {
+    const popup = document.getElementById('imageInsertPopup');
+    if (popup) popup.style.display = 'none';
+}
+
+// 触发文件上传
+function triggerImageUpload() {
+    document.getElementById('imagePickerFileInput').click();
+}
+
+// 打开已有图片浏览弹窗
+function openImageBrowser() {
+    _selectedImages = new Set();
+    loadExistingImages(_imageUploadDeviceId);
+    new bootstrap.Modal(document.getElementById('imageBrowserModal')).show();
+}
+
+// 加载已有图片列表
+async function loadExistingImages(deviceId) {
+    const container = document.getElementById('imageGridContainer');
+    if (!container) return;
+
+    if (!deviceId || deviceId === '0') {
+        container.innerHTML = `
+            <div class="image-empty-state">
+                <i class="bi bi-inbox d-block"></i>
+                <p>保存设备后可查看已有图片</p>
+            </div>`;
+        updateImageSelectionUI();
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="image-empty-state">
+            <i class="bi bi-hourglass-split d-block"></i>
+            <p>加载中...</p>
+        </div>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/images/list/${deviceId}`);
+        const data = await res.json();
+        if (data.success) {
+            _existingImages = data.images || [];
+            renderImageGrid(_existingImages);
+        } else {
+            throw new Error(data.error || '加载失败');
+        }
+    } catch (err) {
+        container.innerHTML = `
+            <div class="image-empty-state">
+                <i class="bi bi-exclamation-triangle d-block"></i>
+                <p>加载失败: ${err.message}</p>
+            </div>`;
+    }
+}
+
+// 渲染图片网格
+function renderImageGrid(images) {
+    _selectedImages = new Set();
+    const container = document.getElementById('imageGridContainer');
+    if (!container) return;
+
+    if (!images || images.length === 0) {
+        container.innerHTML = `
+            <div class="image-empty-state">
+                <i class="bi bi-camera d-block"></i>
+                <p>暂无图片，请先上传</p>
+            </div>`;
+        updateImageSelectionUI();
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="image-grid">
+            ${images.map(img => `
+                <div class="image-grid-item" data-filename="${escapeHtml(img.filename)}" onclick="toggleImageSelection('${escapeHtml(img.filename)}')">
+                    <img src="${img.url}" alt="${escapeHtml(img.filename)}" loading="lazy"
+                         onerror="this.parentElement.style.display='none'">
+                    <button class="delete-btn" title="删除此图片"
+                            onclick="event.stopPropagation(); deleteSingleImage('${escapeHtml(img.filename)}')">
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="select-check"><i class="bi bi-check-lg"></i></div>
+                    <div class="file-info">
+                        <span class="file-name">${truncateFilename(img.filename, 18)}</span>
+                        <span class="file-size">${formatFileSize(img.size)}</span>
+                    </div>
+                </div>
+            `).join('')}
+        </div>`;
+    updateImageSelectionUI();
+}
+
+// 切换单张图片选中状态
+function toggleImageSelection(filename) {
+    if (_selectedImages.has(filename)) {
+        _selectedImages.delete(filename);
+    } else {
+        _selectedImages.add(filename);
+    }
+    document.querySelectorAll('#imageGridContainer .image-grid-item').forEach(el => {
+        if (el.dataset.filename === filename) {
+            el.classList.toggle('selected', _selectedImages.has(filename));
+        }
+    });
+    updateImageSelectionUI();
+}
+
+// 插入选中图片到编辑器
+function insertSelectedImages() {
+    if (_selectedImages.size === 0) return;
+
+    const remarkEditor = document.getElementById(_imageTargetEditorId);
+    if (!remarkEditor) return;
+
+    _selectedImages.forEach(filename => {
+        const img = _existingImages.find(i => i.filename === filename);
+        if (img) {
+            const imgId = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            const imgTag = `<img id="${imgId}" src="${img.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+            insertHTMLAtCursor(remarkEditor, imgTag);
+        }
+    });
+
+    bootstrap.Modal.getInstance(document.getElementById('imageBrowserModal')).hide();
+}
+
+// 上传新图片
+async function handleImagePickerUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const deviceId = _imageUploadDeviceId;
-    const targetEditorId = _imageTargetEditorId;
 
-    // 检查文件大小（限制为5MB）
     if (file.size > 5 * 1024 * 1024) {
         alert('图片大小不能超过5MB');
         event.target.value = '';
         return;
     }
 
-    // 显示上传中状态
-    const remarkEditor = document.getElementById(targetEditorId);
-    if (!remarkEditor) { event.target.value = ''; return; }
-    const loadingHtml = '<span id="imgUploadLoading" style="color:#6c757d;font-style:italic;">[图片上传中...]</span>';
-    remarkEditor.innerHTML += loadingHtml;
+    // 在编辑器光标位置显示上传中
+    const remarkEditor = document.getElementById(_imageTargetEditorId);
+    if (remarkEditor) {
+        const loadingHtml = '<span id="imgUploadLoading" style="color:#6c757d;font-style:italic;">[图片上传中...]</span>';
+        insertHTMLAtCursor(remarkEditor, loadingHtml);
+    }
 
     try {
-        // 上传到服务器（服务器再存 S3）
         const formData = new FormData();
         formData.append('image', file);
         formData.append('deviceId', deviceId || '0');
@@ -1228,13 +1414,14 @@ async function handleImageSelect(event) {
 
         const data = await res.json();
 
-        // 移除上传中提示
         const loadingEl = document.getElementById('imgUploadLoading');
         if (loadingEl) loadingEl.remove();
 
-        // 插入图片
-        const imgTag = `<img src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" />`;
-        remarkEditor.innerHTML += imgTag;
+        if (remarkEditor) {
+            const imgId = 'img_' + Date.now();
+            const imgTag = `<img id="${imgId}" src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+            insertHTMLAtCursor(remarkEditor, imgTag);
+        }
     } catch (err) {
         const loadingEl = document.getElementById('imgUploadLoading');
         if (loadingEl) loadingEl.remove();
@@ -1242,6 +1429,127 @@ async function handleImageSelect(event) {
     } finally {
         event.target.value = '';
     }
+}
+
+// 删除单个图片
+async function deleteSingleImage(filename) {
+    if (!confirm(`确定要删除图片 "${filename}" 吗？此操作不可撤销。`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/images/${_imageUploadDeviceId}/${encodeURIComponent(filename)}`, {
+            method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || '删除失败');
+
+        _existingImages = _existingImages.filter(i => i.filename !== filename);
+        _selectedImages.delete(filename);
+        renderImageGrid(_existingImages);
+    } catch (err) {
+        alert('删除失败: ' + err.message);
+    }
+}
+
+// 批量删除选中图片
+async function deleteSelectedImages() {
+    if (_selectedImages.size === 0) return;
+
+    const count = _selectedImages.size;
+    if (!confirm(`确定要删除选中的 ${count} 张图片吗？此操作不可撤销。`)) return;
+
+    let failed = 0;
+    const toDelete = [..._selectedImages];
+
+    for (const filename of toDelete) {
+        try {
+            const res = await fetch(`${API_BASE}/images/${_imageUploadDeviceId}/${encodeURIComponent(filename)}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (data.success) {
+                _existingImages = _existingImages.filter(i => i.filename !== filename);
+                _selectedImages.delete(filename);
+            } else {
+                failed++;
+            }
+        } catch (err) {
+            failed++;
+        }
+    }
+
+    renderImageGrid(_existingImages);
+    if (failed > 0) {
+        alert(`删除完成，但有 ${failed} 张图片删除失败。`);
+    }
+}
+
+// 更新选中状态UI
+function updateImageSelectionUI() {
+    const btnInsert = document.getElementById('btnInsertSelectedImages');
+    const btnDelete = document.getElementById('btnDeleteSelectedImages');
+    const countEl = document.getElementById('imageSelectionCount');
+
+    if (btnInsert) btnInsert.disabled = _selectedImages.size === 0;
+    if (btnDelete) btnDelete.disabled = _selectedImages.size === 0;
+    if (countEl) {
+        countEl.textContent = _selectedImages.size > 0
+            ? `已选 ${_selectedImages.size} 张`
+            : '';
+    }
+}
+
+// 辅助：HTML转义
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// 在 contenteditable 编辑器光标位置插入 HTML（无光标时追加到末尾）
+function insertHTMLAtCursor(editor, html) {
+    editor.focus();
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        // 确保光标在 editor 内部
+        if (editor.contains(range.commonAncestorContainer)) {
+            range.deleteContents();
+            const fragment = range.createContextualFragment(html);
+            range.insertNode(fragment);
+            // 将光标移到插入内容之后
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+        }
+    }
+    // fallback: 追加到末尾
+    editor.innerHTML += html;
+}
+
+// 辅助：截断文件名
+function truncateFilename(name, maxLen) {
+    if (name.length <= maxLen) return name;
+    const ext = name.lastIndexOf('.');
+    if (ext > 0) {
+        const extStr = name.slice(ext);
+        const base = name.slice(0, ext);
+        return base.slice(0, maxLen - extStr.length - 2) + '..' + extStr;
+    }
+    return name.slice(0, maxLen - 2) + '..';
+}
+
+// 辅助：格式化文件大小
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let size = bytes;
+    while (size >= 1024 && i < units.length - 1) {
+        size /= 1024;
+        i++;
+    }
+    return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
 }
 
 function formatRemarkWithImages(remark) {
@@ -1494,6 +1802,18 @@ function decodeRichText(text) {
 
     // 确保连续的换行被正确处理
     html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+    // 将旧代理URL 替换为 S3 公开URL
+    if (window.S3_PUBLIC_URL) {
+        html = html.replace(/\/api\/images\/(\d+)\/([^"'>\s]+)/gi,
+            window.S3_PUBLIC_URL + '/images/$1/$2');
+    }
+
+    // 为已有 <img> 标签添加加载错误提示（避免重复添加）
+    html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
+        if (attrs.includes('onerror')) return match;
+        return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');">`;
+    });
 
     return html;
 }
@@ -1762,6 +2082,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadPublicConfig();
     initSidebarResize();
 
     // 恢复视图模式
