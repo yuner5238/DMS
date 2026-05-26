@@ -7,3 +7,12 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "dms-db"
 database_id = "a57bd321-c1ab-427e-a06d-41073992ab06"
+
+# S3 对象存储配置
+[vars]
+S3_ENDPOINT = "https://s3.hi168.com"
+S3_BUCKET = "hi168-u314763-pto14gg8-s"
+S3_PUBLIC_URL = "https://s3.hi168.com/hi168-u314763-pto14gg8-s"
+S3_REGION = "us-east-1"
+S3_ACCESS_KEY = "VBIV1E550GZTRQGC6BRZ"
+S3_SECRET_KEY = "aZ6ggMkgPpFGKqFxsxUXLOCWunhCv2VYKcRytrJA"

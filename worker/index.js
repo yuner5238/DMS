@@ -68,6 +68,26 @@ export default {
                 return await deleteAnnouncement(env, id);
             }
 
+            // ===== S3 图片 API =====
+            // 上传图片
+            if (path === '/api/upload/image' && method === 'POST') {
+                return await uploadImage(request, env);
+            }
+            // 列出设备图片
+            const imageListMatch = path.match(/^\/api\/images\/list\/([^/]+)$/);
+            if (imageListMatch && method === 'GET') {
+                return await listImages(env, imageListMatch[1]);
+            }
+            // 删除图片
+            const imageDeleteMatch = path.match(/^\/api\/images\/([^/]+)\/([^/]+)$/);
+            if (imageDeleteMatch && method === 'DELETE') {
+                return await deleteImage(env, imageDeleteMatch[1], imageDeleteMatch[2]);
+            }
+            // 代理图片（GET 图片）
+            if (imageDeleteMatch && method === 'GET') {
+                return await proxyImage(env, imageDeleteMatch[1], imageDeleteMatch[2]);
+            }
+
             return jsonResponse({ error: 'Not Found' }, 404);
         } catch (err) {
             console.error(err);
@@ -266,6 +286,246 @@ async function createAnnouncement(request, env) {
 async function deleteAnnouncement(env, id) {
     await env.DB.prepare('DELETE FROM announcements WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
+}
+
+// ============ S3 图片操作 ============
+
+// 列出设备图片
+async function listImages(env, deviceId) {
+    if (!deviceId || deviceId === '0') {
+        return jsonResponse({ success: true, images: [] });
+    }
+
+    const prefix = `images/${deviceId}/`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}`);
+    s3Url.searchParams.set('list-type', '2');
+    s3Url.searchParams.set('prefix', prefix);
+    s3Url.searchParams.set('max-keys', '500');
+
+    const signedRequest = await signS3Request(env, 'GET', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), { headers: signedRequest.headers });
+        if (!resp.ok) {
+            const body = await resp.text();
+            console.error('[S3列表] HTTP', resp.status, body);
+            return jsonResponse({ error: 'S3 请求失败' }, 502);
+        }
+
+        const xml = await resp.text();
+        const images = parseS3ListXml(xml, prefix, env);
+
+        return jsonResponse({ success: true, images });
+    } catch (err) {
+        console.error('[S3列表] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
+// 上传图片到 S3
+async function uploadImage(request, env) {
+    try {
+        const formData = await request.formData();
+        const file = formData.get('image');
+        const deviceId = formData.get('deviceId');
+
+        if (!file || !file.name) return jsonResponse({ error: '请选择图片文件' }, 400);
+        if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId 参数' }, 400);
+        if (file.size > 5 * 1024 * 1024) return jsonResponse({ error: '图片大小不能超过5MB' }, 400);
+
+        // 生成唯一文件名
+        const ext = file.name.includes('.') ? '.' + file.name.split('.').pop().toLowerCase() : '.png';
+        const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}${ext}`;
+        const s3Key = `images/${deviceId}/${filename}`;
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+
+        const body = await file.arrayBuffer();
+        const contentType = file.type || 'application/octet-stream';
+
+        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType);
+
+        const resp = await fetch(s3Url.toString(), {
+            method: 'PUT',
+            headers: signedRequest.headers,
+            body: new Uint8Array(body),
+        });
+
+        if (!resp.ok && resp.status !== 200) {
+            const text = await resp.text();
+            console.error('[S3上传] HTTP', resp.status, text);
+            return jsonResponse({ error: '上传到 S3 失败' }, 502);
+        }
+
+        const imageUrl = `${env.S3_PUBLIC_URL}/${s3Key}`;
+
+        return jsonResponse({ success: true, url: imageUrl, key: s3Key });
+    } catch (err) {
+        console.error('[S3上传] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
+// 删除 S3 图片
+async function deleteImage(env, deviceId, filename) {
+    if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
+
+    const s3Key = `images/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+
+    const signedRequest = await signS3Request(env, 'DELETE', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), {
+            method: 'DELETE',
+            headers: signedRequest.headers,
+        });
+
+        if (!resp.ok && resp.status !== 204) {
+            return jsonResponse({ error: 'S3 删除失败' }, 502);
+        }
+
+        return jsonResponse({ success: true });
+    } catch (err) {
+        console.error('[S3删除] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
+// 代理 S3 图片（直接重定向到公开 URL）
+async function proxyImage(env, deviceId, filename) {
+    const imageUrl = `${env.S3_PUBLIC_URL}/images/${deviceId}/${filename}`;
+    return Response.redirect(imageUrl, 302);
+}
+
+// ============ S3 工具函数 ============
+
+// AWS Signature V4 签名
+async function signS3Request(env, method, s3Url, body, contentType) {
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'; // YYYYMMDD'T'HHMMSS'Z'
+    const dateStamp = amzDate.slice(0, 8);
+
+    const region = env.S3_REGION || 'us-east-1';
+    const service = 's3';
+    const host = s3Url.host;
+    const canonicalUri = s3Url.pathname;
+    const canonicalQuery = s3Url.searchParams.toString()
+        .split('&').sort().join('&');
+
+    const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const payloadHash = body ? await sha256Hash(body) : 'UNSIGNED-PAYLOAD';
+
+    const headersToSign = {
+        'host': host,
+        'x-amz-content-sha256': payloadHash,
+        'x-amz-date': amzDate,
+    };
+
+    // 对于 PUT，添加 Content-Type 到头
+    if (method === 'PUT' && contentType) {
+        headersToSign['content-type'] = contentType;
+    }
+
+    const signedHeaders = Object.keys(headersToSign).sort().join(';');
+
+    const canonicalHeaders = Object.keys(headersToSign)
+        .sort()
+        .map(k => `${k}:${headersToSign[k]}`)
+        .join('\n') + '\n';
+
+    const canonicalRequest = [
+        method,
+        canonicalUri,
+        canonicalQuery,
+        canonicalHeaders,
+        signedHeaders,
+        payloadHash,
+    ].join('\n');
+
+    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+    const stringToSign = [
+        'AWS4-HMAC-SHA256',
+        amzDate,
+        credentialScope,
+        await sha256Hash(new TextEncoder().encode(canonicalRequest)),
+    ].join('\n');
+
+    const key = await _hmacSha256(
+        await _hmacSha256(
+            await _hmacSha256(
+                await _hmacSha256(
+                    new TextEncoder().encode('AWS4' + env.S3_SECRET_KEY),
+                    new TextEncoder().encode(dateStamp)
+                ),
+                new TextEncoder().encode(region)
+            ),
+            new TextEncoder().encode(service)
+        ),
+        new TextEncoder().encode('aws4_request')
+    );
+
+    const signature = _hex(await _hmacSha256(key, new TextEncoder().encode(stringToSign)));
+
+    const authorization = `AWS4-HMAC-SHA256 Credential=${env.S3_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+    return {
+        headers: {
+            ...headersToSign,
+            'Authorization': authorization,
+        }
+    };
+}
+
+// SHA256 哈希（Web Crypto API）
+async function sha256Hash(data) {
+    let buf = data;
+    if (typeof data === 'string') buf = new TextEncoder().encode(data);
+    else if (data instanceof ArrayBuffer) buf = new Uint8Array(data);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return _hex(hash);
+}
+
+// HMAC-SHA256
+function _hmacSha256(key, data) {
+    return crypto.subtle.importKey(
+        'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    ).then(k => crypto.subtle.sign('HMAC', k, data));
+}
+
+// 字节数组转十六进制
+function _hex(buffer) {
+    const arr = new Uint8Array(buffer);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 解析 S3 ListObjectsV2 XML 响应
+function parseS3ListXml(xml, prefix, env) {
+    const images = [];
+    // 简单正则解析（避免引入 XML 解析器）
+    const contents = xml.match(/<Contents>[\s\S]*?<\/Contents>/g) || [];
+    for (const content of contents) {
+        const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
+        const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
+        const timeMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+        if (keyMatch) {
+            const key = keyMatch[1];
+            if (key.endsWith('/')) continue; // 跳过目录占位符
+            const filename = key.replace(prefix, '');
+            images.push({
+                filename,
+                key,
+                size: sizeMatch ? parseInt(sizeMatch[1]) : 0,
+                lastModified: timeMatch ? timeMatch[1] : '',
+                url: `${env.S3_PUBLIC_URL}/images/${filename ? prefix.replace(/\/$/, '') + '/' + filename : key}`,
+            });
+        }
+    }
+    // 修正 URL：使用原始 deviceId
+    const deviceId = prefix.replace('images/', '').replace('/', '');
+    images.forEach(img => {
+        img.url = `${env.S3_PUBLIC_URL}/images/${deviceId}/${img.filename}`;
+    });
+    return images;
 }
 
 // ============ 工具函数 ============

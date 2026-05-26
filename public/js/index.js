@@ -125,7 +125,7 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
         document.getElementById('remarkPreviewDeviceIdCode').value = document.getElementById('deviceIdCode').value;
         document.getElementById('remarkDeviceName').textContent = document.getElementById('deviceName').value;
         document.getElementById('remarkContent').innerHTML = content;
-        _remarkOriginalContent = content;
+        _remarkOriginalContent = document.getElementById('remarkContent').innerHTML;
         // 更新标题
         document.querySelector('#remarkPreviewModal .modal-title').innerHTML =
             '<i class="bi bi-pencil-square me-2" style="color: #495057;"></i>编辑备注' +
@@ -148,7 +148,7 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
         document.getElementById('remarkDeviceName').textContent = deviceName;
         const decoded = decodeRichText(remark);
         document.getElementById('remarkContent').innerHTML = decoded;
-        _remarkOriginalContent = decoded;
+        _remarkOriginalContent = document.getElementById('remarkContent').innerHTML;
         // 更新标题
         document.querySelector('#remarkPreviewModal .modal-title').innerHTML =
             '<i class="bi bi-file-text me-2" style="color: #495057;"></i>备注详情' +
