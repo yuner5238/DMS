@@ -122,6 +122,7 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
         const remarkEditor = document.getElementById('deviceRemarkEditor');
         const content = remarkEditor ? remarkEditor.innerHTML : '';
         document.getElementById('remarkPreviewDeviceId').value = document.getElementById('deviceId').value;
+        document.getElementById('remarkPreviewDeviceIdCode').value = document.getElementById('deviceIdCode').value;
         document.getElementById('remarkDeviceName').textContent = document.getElementById('deviceName').value;
         document.getElementById('remarkContent').innerHTML = content;
         _remarkOriginalContent = content;
@@ -131,12 +132,19 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
             '<span id="remarkPreviewStatus" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #198754; margin-left: 10px; flex-shrink: 0;" title="已是最新版本"></span>';
     } else {
         // 如果 remark 未传入，从 allDevices 数组中查找（避免 HTML/JS 引号转义问题）
+        let deviceIdCode = '';
         if (remark === undefined || remark === null) {
             const device = allDevices.find(d => d.id == deviceId);
-            remark = device ? (device.remark || '') : '';
+            if (device) {
+                remark = device.remark || '';
+                deviceIdCode = device.device_id || '';
+            } else {
+                remark = '';
+            }
         }
         if (!remark) return;
         document.getElementById('remarkPreviewDeviceId').value = deviceId;
+        document.getElementById('remarkPreviewDeviceIdCode').value = deviceIdCode;
         document.getElementById('remarkDeviceName').textContent = deviceName;
         const decoded = decodeRichText(remark);
         document.getElementById('remarkContent').innerHTML = decoded;

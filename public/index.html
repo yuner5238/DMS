@@ -2537,7 +2537,7 @@
                             </div>
                         </div>
                         <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceId')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceIdCode')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
                         <i class="bi bi-image"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('removeFormat')" title="清除格式">
@@ -2568,6 +2568,7 @@
                 </div>
                 <div class="modal-body" style="padding: 0;">
                     <input type="hidden" id="remarkPreviewDeviceId">
+                    <input type="hidden" id="remarkPreviewDeviceIdCode">
                     <div style="padding: 14px 20px; background-color: #fff; border-bottom: 1px solid #dee2e6;">
                         <label style="display: block; font-size: 13px; font-weight: 500; color: #6c757d; margin-bottom: 4px;">设备名称</label>
                         <div id="remarkDeviceName" style="font-size: 15px; font-weight: 500; color: #212529;"></div>
@@ -2624,7 +2625,7 @@
                             </div>
                         </div>
                         <div style="width: 1px; background-color: #dee2e6; margin: 0 4px;"></div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceId')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceIdCode')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
                             <i class="bi bi-image"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="execCmd('removeFormat')" title="清除格式">
