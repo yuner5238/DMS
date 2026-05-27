@@ -254,6 +254,13 @@ function updateRemarkPreviewStatus() {
     const remarkContent = document.getElementById('remarkContent');
     if (remarkContent) {
         remarkContent.addEventListener('input', updateRemarkPreviewStatus);
+        // 双击图片全屏查看
+        remarkContent.addEventListener('dblclick', function(e) {
+            if (e.target.tagName === 'IMG') {
+                e.preventDefault();
+                showImageFullscreen(e.target.src);
+            }
+        });
     }
 })();
 
@@ -1147,6 +1154,14 @@ function showDeviceModal(id = null) {
                 selection.addRange(range);
             }
         });
+
+        // 双击图片全屏查看
+        remarkEditor.addEventListener('dblclick', function(e) {
+            if (e.target.tagName === 'IMG') {
+                e.preventDefault();
+                showImageFullscreen(e.target.src);
+            }
+        });
     }
 }
 
@@ -1285,6 +1300,31 @@ async function deleteDeviceFromList(id, name) {
 }
 
 // ============ 备注图片功能 ============
+
+// 双击图片全屏查看
+function showImageFullscreen(src) {
+    // 移除已有的全屏层
+    const existing = document.querySelector('.image-fullscreen-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'image-fullscreen-overlay';
+    overlay.innerHTML = `
+        <div class="image-fullscreen-close"><i class="bi bi-x-lg"></i></div>
+        <img src="${src}" class="image-fullscreen-img" />
+    `;
+    overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.image-fullscreen-img').addEventListener('click', (e) => e.stopPropagation());
+
+    document.addEventListener('keydown', function onEsc(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', onEsc);
+        }
+    });
+
+    document.body.appendChild(overlay);
+}
 
 
 
@@ -1715,6 +1755,14 @@ function openRichTextEditor() {
 
     // 直接从主富文本编辑器加载内容
     richTextEditor.innerHTML = remarkEditor.innerHTML;
+
+    // 双击图片全屏查看
+    richTextEditor.addEventListener('dblclick', function(e) {
+        if (e.target.tagName === 'IMG') {
+            e.preventDefault();
+            showImageFullscreen(e.target.src);
+        }
+    });
 
     new bootstrap.Modal(document.getElementById('richTextEditorModal')).show();
 }

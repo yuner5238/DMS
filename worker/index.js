@@ -50,6 +50,19 @@ export default {
                 const id = path.split('/').pop();
                 return await deleteDevice(env, id);
             }
+            // 通过设备码(device_id)查询设备
+            if (path.match(/^\/api\/devices\/by-code\/[^/]+$/) && method === 'GET') {
+                const code = path.split('/').pop();
+                return await getDeviceByCode(env, code);
+            }
+            // 生成下一个设备码
+            if (path === '/api/devices/next-code' && method === 'GET') {
+                return await getNextDeviceCode(env);
+            }
+            // 批量补全设备码
+            if (path === '/api/devices/backfill-codes' && method === 'POST') {
+                return await backfillDeviceCodes(env);
+            }
 
             // ===== 标签统计 API =====
             if (path === '/api/tag-stats' && method === 'GET') {
@@ -217,6 +230,45 @@ async function updateDevice(request, env, id) {
 async function deleteDevice(env, id) {
     await env.DB.prepare('DELETE FROM devices WHERE id=?').bind(id).run();
     return jsonResponse({ success: true });
+}
+
+// 通过设备码(device_id)查询设备
+async function getDeviceByCode(env, code) {
+    const device = await env.DB.prepare('SELECT * FROM devices WHERE device_id=?').bind(code).first();
+    if (!device) return jsonResponse({ error: '设备不存在' }, 404);
+    return jsonResponse(device);
+}
+
+// 生成下一个设备码（6位数字）
+async function getNextDeviceCode(env) {
+    const result = await env.DB.prepare(
+        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
+    ).first();
+    const maxCode = result && result.max_code ? result.max_code : 0;
+    const nextCode = String(maxCode + 1).padStart(6, '0');
+    return jsonResponse({ code: nextCode });
+}
+
+// 批量补全缺失 device_id 的旧设备
+async function backfillDeviceCodes(env) {
+    const devices = await env.DB.prepare(
+        "SELECT id FROM devices WHERE device_id IS NULL OR device_id = '' ORDER BY id"
+    ).all();
+
+    const maxResult = await env.DB.prepare(
+        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
+    ).first();
+    let maxCode = maxResult && maxResult.max_code ? maxResult.max_code : 0;
+
+    let count = 0;
+    for (const device of devices.results) {
+        maxCode++;
+        const newCode = String(maxCode).padStart(6, '0');
+        await env.DB.prepare('UPDATE devices SET device_id=? WHERE id=?').bind(newCode, device.id).run();
+        count++;
+    }
+
+    return jsonResponse({ message: `已为 ${count} 个设备补全设备ID码` });
 }
 
 // ============ 标签统计 ============

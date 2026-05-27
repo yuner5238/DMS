@@ -779,6 +779,61 @@ body { background: var(--bg-main); min-height: 100%; }
     .stat-card h3 { font-size: 22px; }
 }
 
+/* ===== 图片全屏查看 ===== */
+.image-fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    animation: imgFadeIn 0.2s ease;
+}
+
+@keyframes imgFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.image-fullscreen-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: #fff;
+    font-size: 28px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.image-fullscreen-close:hover { opacity: 1; }
+
+.image-fullscreen-img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+    cursor: default;
+}
+
+/* 备注编辑器中图片的交互提示 */
+#deviceRemarkEditor img,
+#richTextEditor img,
+#remarkContent img {
+    cursor: zoom-in;
+    transition: transform 0.15s;
+}
+
+#deviceRemarkEditor img:hover,
+#richTextEditor img:hover,
+#remarkContent img:hover {
+    transform: scale(1.01);
+}
+
 @media (min-width: 769px) { .mobile-header { display: none; } }
 
 /* ========== 桌面端优化 (≥1025px) ========== */
