@@ -115,11 +115,6 @@ body { background: var(--bg-main); min-height: 100%; }
     background-color: #f5f5f5 !important;
 }
 
-/* 已出库设备行样式 - 无背景色，左侧橙色边框指示 */
-.device-table tbody tr.checked-out-row {
-    border-left: 3px solid var(--warning-border);
-}
-
 .device-table tbody tr.checked-out-row:hover {
     background-color: #f8f8f8 !important;
 }
