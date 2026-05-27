@@ -32,6 +32,83 @@ let announcements = [];
 let dismissedAnnouncements = new Set();
 let viewMode = 'table';  // 视图模式：'list' 列表模式 或 'table' 表格模式
 
+// ===== 表格列显示控制 =====
+const COLUMN_DEFS = [
+    { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
+    { key: 'name',        label: '设备名称', dataCol: 'name' },
+    { key: 'quantity',    label: '数量',     dataCol: 'quantity' },
+    { key: 'tags',        label: '标签',     dataCol: 'tags' },
+    { key: 'location',    label: '位置/去向', dataCol: 'location' },
+    { key: 'expiry',      label: '到期日期', dataCol: 'expiry' },
+    { key: 'remark',      label: '备注',     dataCol: 'remark' },
+    { key: 'responsible', label: '负责人',   dataCol: 'responsible', defaultVisible: false },
+    { key: 'status',      label: '状态',     dataCol: 'status',      defaultVisible: false },
+    { key: 'checkin',     label: '入库时间', dataCol: 'checkin',      defaultVisible: false },
+    { key: 'actions',     label: '操作',     dataCol: 'actions' },
+];
+
+let columnVisibility = (() => {
+    try {
+        const saved = localStorage.getItem('dms_column_visibility');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            COLUMN_DEFS.forEach(c => { if (!(c.key in parsed)) parsed[c.key] = c.defaultVisible !== false; });
+            return parsed;
+        }
+    } catch (e) {}
+    const defaults = {};
+    COLUMN_DEFS.forEach(c => defaults[c.key] = c.defaultVisible !== false);
+    return defaults;
+})();
+
+function applyColumnVisibility() {
+    const visibleCols = new Set();
+    for (const [key, val] of Object.entries(columnVisibility)) {
+        if (val) {
+            const def = COLUMN_DEFS.find(d => d.key === key);
+            if (def) visibleCols.add(def.dataCol);
+        }
+    }
+    document.querySelectorAll('[data-col]').forEach(el => {
+        const col = el.getAttribute('data-col');
+        el.classList.toggle('d-none', !visibleCols.has(col));
+    });
+    localStorage.setItem('dms_column_visibility', JSON.stringify(columnVisibility));
+}
+
+function toggleColumnSettings(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('columnSettingsMenu');
+    if (!menu) return;
+    const isOpen = menu.style.display === 'block';
+    // 关闭
+    if (isOpen) { menu.style.display = 'none'; return; }
+    // 生成菜单
+    menu.innerHTML = COLUMN_DEFS.map(c => `
+        <label class="column-settings-item">
+            <input type="checkbox" ${columnVisibility[c.key] ? 'checked' : ''} onchange="toggleColumn('${c.key}', this.checked)">
+            <span>${c.label}</span>
+        </label>
+    `).join('');
+    menu.style.display = 'block';
+}
+
+function toggleColumn(key, visible) {
+    columnVisibility[key] = visible;
+    applyColumnVisibility();
+}
+
+// 点击外部关闭列设置菜单
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('columnSettingsMenu');
+    if (menu && menu.style.display === 'block') {
+        const btn = document.querySelector('.col-settings-btn');
+        if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+            menu.style.display = 'none';
+        }
+    }
+});
+
 // 格式化时间（北京时间）
 function formatTime(timeStr) {
     if (!timeStr) return '';
@@ -279,18 +356,20 @@ function renderDevicesTableView(devices) {
 
             return `
                 <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')" style="cursor: pointer;">
-                    <td class="device-name-cell"><strong>${device.name}</strong>${device.device_id ? ` <span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}</td>
-                    <td>${device.quantity || 1}</td>
-                    <td><span class="status-badge ${statusClass[device.status]}">${device.status || '未知'}</span></td>
-                    <td>${device.responsible_person || '-'}</td>
-                    <td>${renderTagBadges(device)}</td>
-                    <td>${locationText}</td>
-                    <td>${expiryDateText}</td>
-                    <td>${device.remark
+                    <td data-col="device-id">${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
+                    <td data-col="name" class="device-name-cell"><strong>${device.name}</strong></td>
+                    <td data-col="quantity">${device.quantity || 1}</td>
+                    <td data-col="tags">${renderTagBadges(device)}</td>
+                    <td data-col="location">${locationText}</td>
+                    <td data-col="expiry">${expiryDateText}</td>
+                    <td data-col="remark">${device.remark
                         ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
-                    <td>
+                    <td data-col="responsible">${device.responsible_person || '<span class="text-muted">-</span>'}</td>
+                    <td data-col="status"><span class="status-badge ${statusClass[device.status] || ''}">${device.status || '-'}</span></td>
+                    <td data-col="checkin">${device.checkin_time ? formatDate(device.checkin_time) : '<span class="text-muted">-</span>'}</td>
+                    <td data-col="actions">
                         <div class="d-flex gap-1">
                             ${isOut
                                 ? `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
@@ -308,15 +387,23 @@ function renderDevicesTableView(devices) {
             <table class="table table-hover table-sm device-table">
                 <thead>
                     <tr>
-                        <th>设备名称</th>
-                        <th>数量</th>
-                        <th>状态</th>
-                        <th>负责人</th>
-                        <th>标签</th>
-                        <th>位置/去向</th>
-                        <th>到期日期</th>
-                        <th>备注</th>
-                        <th>操作</th>
+                        <th data-col="device-id">设备ID</th>
+                        <th data-col="name">设备名称</th>
+                        <th data-col="quantity">数量</th>
+                        <th data-col="tags">标签</th>
+                        <th data-col="location">位置/去向</th>
+                        <th data-col="expiry">到期日期</th>
+                        <th data-col="remark">备注</th>
+                        <th data-col="responsible">负责人</th>
+                        <th data-col="status">状态</th>
+                        <th data-col="checkin">入库时间</th>
+                        <th data-col="actions">操作</th>
+                        <th class="col-settings-th">
+                            <button class="btn btn-sm btn-outline-secondary col-settings-btn" onclick="event.stopPropagation();toggleColumnSettings(event)" title="列设置">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <div class="column-settings-menu" id="columnSettingsMenu" style="display:none;"></div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
@@ -349,6 +436,7 @@ function renderDevicesTableView(devices) {
     `;
 
     list.innerHTML = inStockHtml + checkedOutHtml;
+    setTimeout(applyColumnVisibility, 0);
 }
 
 // 加载仓库列表
@@ -594,7 +682,6 @@ function renderDevices(devices) {
 
     const inStockDevices = devices.filter(d => d.location_status === 'in_stock' || !d.location_status);
     const checkedOutDevices = devices.filter(d => d.location_status === 'checked_out');
-    const statusClass = { '正常': 'status-normal', '异常': 'status-abnormal', '维修中': 'status-maintenance' };
 
     const renderDeviceItem = (device, isOut) => {
         const tagHtml = renderTagBadges(device);
@@ -613,12 +700,11 @@ function renderDevices(devices) {
                             <div class="device-name-section">
                                 <div class="name-tags-row">
                                     <div class="name-quantity-wrapper">
+                                        ${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : ''}
                                         <strong id="device-name-${device.id}" class="device-name-text">${device.name}</strong>
-                                        ${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">ID：${device.device_id}</span>` : ''}
                                         ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
                                     </div>
                                     <div class="status-tags-row">
-                                        <span class="status-badge ${statusClass[device.status]}">${device.status}</span>
                                         ${tagHtml}
                                         ${destinationTag}
                                     </div>
@@ -626,7 +712,6 @@ function renderDevices(devices) {
                             </div>
                             <div class="device-details">
                                 <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
-                                <span class="detail-item"><span class="detail-label">负责人:</span><span class="detail-value">${device.responsible_person || '-'}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
                                     <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
