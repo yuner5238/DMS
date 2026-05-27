@@ -1386,7 +1386,24 @@ function insertSelectedImages() {
 }
 
 // 上传新图片
-async function handleImagePickerUpload(event) {
+// 图片上传进度条样式（注入页面）
+const UPLOAD_PROGRESS_CSS = `
+#imgUploadProgressCss{display:none}
+.img-upload-progress{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;margin:4px 0;background:rgba(0,0,0,0.03);border-radius:6px;}
+.img-upload-progress-bar-outer{flex-shrink:0;width:180px;height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;}
+.img-upload-progress-bar-inner{display:block;height:100%;width:0;background:linear-gradient(90deg,#0d6efd,#6610f2);border-radius:4px;transition:width 0.2s;}
+.img-upload-progress-text{color:#6c757d;font-size:12px;white-space:nowrap;min-width:32px;}
+.img-upload-progress-done{color:#198754;font-size:12px;}
+.img-upload-progress-error{color:#dc3545;font-size:12px;}
+`;
+if (!document.getElementById('imgUploadProgressCss')) {
+    const style = document.createElement('style');
+    style.id = 'imgUploadProgressCss';
+    style.textContent = UPLOAD_PROGRESS_CSS;
+    document.head.appendChild(style);
+}
+
+function handleImagePickerUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -1398,45 +1415,78 @@ async function handleImagePickerUpload(event) {
         return;
     }
 
-    // 在编辑器光标位置显示上传中
     const remarkEditor = document.getElementById(_imageTargetEditorId);
+    const progressId = 'imgUploadProg_' + Date.now();
+
+    // 在编辑器光标位置插入进度条
     if (remarkEditor) {
-        const loadingHtml = '<span id="imgUploadLoading" style="color:#6c757d;font-style:italic;">[图片上传中...]</span>';
-        insertHTMLAtCursor(remarkEditor, loadingHtml);
+        const progressHtml = `<div id="${progressId}" class="img-upload-progress">
+            <span class="img-upload-progress-bar-outer">
+                <span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span>
+            </span>
+            <span id="${progressId}_text" class="img-upload-progress-text">0%</span>
+        </div>`;
+        insertHTMLAtCursor(remarkEditor, progressHtml);
     }
 
-    try {
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('deviceId', deviceId || '0');
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('deviceId', deviceId || '0');
 
-        const res = await fetch(`${API_BASE}/upload/image`, {
-            method: 'POST',
-            body: formData,
-        });
+    xhr.open('POST', `${API_BASE}/upload/image`);
 
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || '上传失败');
+    xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            const bar = document.getElementById(progressId + '_bar');
+            const text = document.getElementById(progressId + '_text');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = pct + '%';
         }
+    };
 
-        const data = await res.json();
+    xhr.onload = function () {
+        const progEl = document.getElementById(progressId);
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (progEl) progEl.remove();
 
-        const loadingEl = document.getElementById('imgUploadLoading');
-        if (loadingEl) loadingEl.remove();
-
-        if (remarkEditor) {
-            const imgId = 'img_' + Date.now();
-            const imgTag = `<img id="${imgId}" src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
-            insertHTMLAtCursor(remarkEditor, imgTag);
+                if (remarkEditor) {
+                    const imgId = 'img_' + Date.now();
+                    const imgTag = `<img id="${imgId}" src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+                    insertHTMLAtCursor(remarkEditor, imgTag);
+                }
+            } catch (e) {
+                if (progEl && progEl.querySelector) {
+                    const textEl = progEl.querySelector('.img-upload-progress-text');
+                    if (textEl) { textEl.textContent = '解析失败'; textEl.className = 'img-upload-progress-error'; }
+                }
+            }
+        } else {
+            if (progEl && progEl.querySelector) {
+                const textEl = progEl.querySelector('.img-upload-progress-text');
+                if (textEl) { textEl.textContent = '上传失败'; textEl.className = 'img-upload-progress-error'; }
+            }
+            try {
+                const err = JSON.parse(xhr.responseText);
+                console.error('图片上传失败:', err.error || xhr.status);
+            } catch (_) { }
         }
-    } catch (err) {
-        const loadingEl = document.getElementById('imgUploadLoading');
-        if (loadingEl) loadingEl.remove();
-        alert('图片上传失败: ' + err.message);
-    } finally {
         event.target.value = '';
-    }
+    };
+
+    xhr.onerror = function () {
+        const progEl = document.getElementById(progressId);
+        if (progEl && progEl.querySelector) {
+            const textEl = progEl.querySelector('.img-upload-progress-text');
+            if (textEl) { textEl.textContent = '网络错误'; textEl.className = 'img-upload-progress-error'; }
+        }
+        event.target.value = '';
+    };
+
+    xhr.send(formData);
 }
 
 // 删除单个图片
@@ -1622,10 +1672,20 @@ function encodeRichText(html) {
                 case 'font':
                     let color = node.getAttribute('color');
                     let size = node.getAttribute('size');
+                    let fontBgColor = node.style.backgroundColor || node.getAttribute('style')?.match(/background-color:\s*([^;]+)/)?.[1]?.trim();
+                    if (fontBgColor) {
+                        return `[HIGHLIGHT=${fontBgColor}]${content}[/HIGHLIGHT]`;
+                    }
                     if (color) {
                         return `[COLOR=${color}]${content}[/COLOR]`;
                     } else if (size) {
                         return `[SIZE=${size}]${content}[/SIZE]`;
+                    }
+                    return content;
+                case 'span':
+                    let spanBgColor = node.style.backgroundColor || node.getAttribute('style')?.match(/background-color:\s*([^;]+)/)?.[1]?.trim();
+                    if (spanBgColor) {
+                        return `[HIGHLIGHT=${spanBgColor}]${content}[/HIGHLIGHT]`;
                     }
                     return content;
                 case 'br':
@@ -1806,6 +1866,7 @@ function decodeRichText(text) {
     html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
     html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
     html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+    html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
     html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
 
     // 确保连续的换行被正确处理
@@ -1839,6 +1900,7 @@ function decodeRichTextToSingleLine(text) {
     html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
     html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
     html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+    html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
     html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
 
     // 移除多余的空格
@@ -1852,6 +1914,7 @@ function stripRichText(text) {
     if (!text) return '';
     return text.replace(/\[B\]|\[\/B\]|\[I\]|\[\/I\]|\[U\]|\[\/U\]|\[S\]|\[\/S\]/gi, '')
                .replace(/\[COLOR=[^\]]+\]|\[\/COLOR\]/gi, '')
+               .replace(/\[HIGHLIGHT=[^\]]+\]|\[\/HIGHLIGHT\]/gi, '')
                .replace(/\[SIZE=[^\]]+\]|\[\/SIZE\]/gi, '')
                .replace(/\[图片:[^\]]+\]/g, '[图片]')
                .replace(/\n/g, ' ')
@@ -1938,6 +2001,112 @@ function hideRemarkTooltip() {
 // 执行富文本命令
 function execCmd(command, value = null) {
     document.execCommand(command, false, value);
+}
+
+// 色板颜色配置 - 9x9 统一色板
+const SWATCH_COLORS = [
+    // Row 1: 灰度
+    '#FFFFFF', '#E6E6E6', '#CCCCCC', '#B3B3B3', '#999999', '#808080', '#666666', '#4D4D4D', '#000000',
+    // Row 2: 红
+    '#800000', '#A52A2A', '#B22222', '#DC143C', '#FF0000', '#FF3333', '#FF6666', '#FF8C69', '#FFA07A',
+    // Row 3: 橙
+    '#D2691E', '#FF4500', '#FF6600', '#FF8C00', '#FFA500', '#FFD700', '#FFCC00', '#DAA520', '#B8860B',
+    // Row 4: 黄绿
+    '#FFFF00', '#CCCC00', '#9ACD32', '#7FFF00', '#00FF00', '#32CD32', '#228B22', '#008000', '#006400',
+    // Row 5: 绿
+    '#00B050', '#2E8B57', '#3CB371', '#66CDAA', '#8FBC8F', '#90EE90', '#98FB98', '#ADFF2F', '#556B2F',
+    // Row 6: 青
+    '#00FFFF', '#00CED1', '#20B2AA', '#008B8B', '#008080', '#5F9EA0', '#7FFFD4', '#E0FFFF', '#B0E0E6',
+    // Row 7: 蓝
+    '#0070C0', '#0000FF', '#0000CD', '#00008B', '#1E90FF', '#4169E1', '#6495ED', '#87CEEB', '#B0C4DE',
+    // Row 8: 紫
+    '#8A2BE2', '#9400D3', '#800080', '#4B0082', '#6A5ACD', '#BA55D3', '#DA70D6', '#DDA0DD', '#E6E6FA',
+    // Row 9: 暖/粉
+    '#8B4513', '#CD853F', '#DEB887', '#F5DEB3', '#FFE4B5', '#FFDAB9', '#FFE4E1', '#FFC0CB', '#FFB6C1'
+];
+
+function toggleColorPanel(btn, command) {
+    const panel = document.getElementById('colorSwatchPopover');
+    const grid = document.getElementById('colorSwatchGrid');
+    const title = document.getElementById('swatchTitle');
+    if (!panel || !grid) return;
+
+    if (panel.style.display === 'block' && panel.dataset.command === command) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.dataset.command = command;
+    title.textContent = (command === 'hiliteColor' || command === 'backColor') ? '突出显示' : '文字颜色';
+
+    grid.innerHTML = SWATCH_COLORS.map(c =>
+        `<div class="color-swatch-item"
+             style="background-color:${c};${c === '#FFFFFF' ? 'border-color:rgba(0,0,0,0.25);' : ''}"
+             onmousedown="event.preventDefault(); applyColor('${c}');"
+             title="${c}"></div>`
+    ).join('');
+
+    const rect = btn.getBoundingClientRect();
+    panel.style.left = Math.min(rect.left, window.innerWidth - 256) + 'px';
+    panel.style.top = (rect.bottom + 6) + 'px';
+    panel.style.display = 'block';
+
+    setTimeout(() => {
+        document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true });
+    }, 0);
+}
+
+function closeColorPanelOnOutside(e) {
+    const panel = document.getElementById('colorSwatchPopover');
+    if (panel && !panel.contains(e.target)) {
+        panel.style.display = 'none';
+    } else {
+        setTimeout(() => {
+            document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true });
+        }, 0);
+    }
+}
+
+function applyColor(color) {
+    const panel = document.getElementById('colorSwatchPopover');
+    const command = panel.dataset.command;
+    if (command) {
+        execCmd(command, color);
+    }
+    panel.style.display = 'none';
+}
+
+function toggleFontSizePanel(btn) {
+    const panel = document.getElementById('fontSizePopover');
+    if (!panel) return;
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        return;
+    }
+    const rect = btn.getBoundingClientRect();
+    panel.style.left = Math.min(rect.left, window.innerWidth - 120) + 'px';
+    panel.style.top = (rect.bottom + 6) + 'px';
+    panel.style.display = 'block';
+    setTimeout(() => {
+        document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true });
+    }, 0);
+}
+
+function closeFontSizePanelOnOutside(e) {
+    const panel = document.getElementById('fontSizePopover');
+    if (panel && !panel.contains(e.target)) {
+        panel.style.display = 'none';
+    } else {
+        setTimeout(() => {
+            document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true });
+        }, 0);
+    }
+}
+
+function applyFontSize(size) {
+    execCmd('fontSize', size);
+    const panel = document.getElementById('fontSizePopover');
+    if (panel) panel.style.display = 'none';
 }
 
 // 保存富文本内容

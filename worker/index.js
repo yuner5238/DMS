@@ -68,6 +68,13 @@ export default {
                 return await deleteAnnouncement(env, id);
             }
 
+            // ===== 公开配置 API =====
+            if (path === '/api/config' && method === 'GET') {
+                return jsonResponse({
+                    s3PublicUrl: env.S3_PUBLIC_URL || `${env.S3_ENDPOINT}/${env.S3_BUCKET}`,
+                });
+            }
+
             // ===== S3 图片 API =====
             // 上传图片
             if (path === '/api/upload/image' && method === 'POST') {
