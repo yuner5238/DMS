@@ -261,6 +261,11 @@ function updateRemarkPreviewStatus() {
                 showImageFullscreen(e.target.src);
             }
         });
+        // 右键图片显示尺寸菜单
+        setupImageContextMenu(remarkContent);
+
+        // 粘贴截图自动上传
+        setupImagePaste(remarkContent, () => document.getElementById('remarkPreviewDeviceId').value);
     }
 })();
 
@@ -1162,6 +1167,12 @@ function showDeviceModal(id = null) {
                 showImageFullscreen(e.target.src);
             }
         });
+
+        // 右键图片显示尺寸菜单
+        setupImageContextMenu(remarkEditor);
+
+        // 粘贴截图自动上传
+        setupImagePaste(remarkEditor, () => document.getElementById('deviceId').value);
     }
 }
 
@@ -1325,6 +1336,81 @@ function showImageFullscreen(src) {
 
     document.body.appendChild(overlay);
 }
+
+// ========== 图片右键尺寸菜单 ==========
+let _imgSizeMenuTargetImg = null;
+let _imgSizeMenuDocClick = null;
+let _imgSizeMenuDocCtxMenu = null;
+
+function setupImageContextMenu(editor) {
+    editor.addEventListener('contextmenu', function(e) {
+        // 使用 closest 确保找到图片元素（处理浏览器包裹的情况）
+        const img = e.target.closest('img');
+        if (img) {
+            e.preventDefault();
+            e.stopPropagation();
+            _imgSizeMenuTargetImg = img;
+
+            const menu = document.getElementById('imgSizeContextMenu');
+            if (!menu) return;
+
+            // 定位菜单
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+
+            // 高亮当前尺寸
+            const items = menu.querySelectorAll('.img-size-menu-item');
+            items.forEach(item => {
+                item.classList.toggle('active', img.classList.contains('img-size-' + item.dataset.size));
+            });
+
+            // 移除上一次残留的 document 监听器
+            _removeDocListeners();
+
+            // 点击其他地方关闭
+            _imgSizeMenuDocClick = () => _closeImgSizeMenu();
+            _imgSizeMenuDocCtxMenu = (ev) => { ev.preventDefault(); _closeImgSizeMenu(); };
+            document.addEventListener('click', _imgSizeMenuDocClick);
+            document.addEventListener('contextmenu', _imgSizeMenuDocCtxMenu);
+        }
+    });
+}
+
+function _removeDocListeners() {
+    if (_imgSizeMenuDocClick) {
+        document.removeEventListener('click', _imgSizeMenuDocClick);
+        _imgSizeMenuDocClick = null;
+    }
+    if (_imgSizeMenuDocCtxMenu) {
+        document.removeEventListener('contextmenu', _imgSizeMenuDocCtxMenu);
+        _imgSizeMenuDocCtxMenu = null;
+    }
+}
+
+function _closeImgSizeMenu(e) {
+    const menu = document.getElementById('imgSizeContextMenu');
+    if (menu && (!e || !menu.contains(e.target))) {
+        menu.style.display = 'none';
+        _removeDocListeners();
+    }
+}
+
+function setImageSize(size) {
+    const img = _imgSizeMenuTargetImg;
+    if (!img) return;
+
+    // 移除旧尺寸类
+    img.classList.remove('img-size-small', 'img-size-medium', 'img-size-large');
+
+    // 添加新尺寸类
+    img.classList.add('img-size-' + size);
+
+    _closeImgSizeMenu();
+}
+
+
+
 
 
 
@@ -1503,7 +1589,7 @@ function insertSelectedImages() {
         const img = _existingImages.find(i => i.filename === filename);
         if (img) {
             const imgId = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-            const imgTag = `<img id="${imgId}" src="${img.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+            const imgTag = `<img id="${imgId}" src="${img.url}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
             insertHTMLAtCursor(remarkEditor, imgTag);
         }
     });
@@ -1581,7 +1667,7 @@ function handleImagePickerUpload(event) {
 
                 if (remarkEditor) {
                     const imgId = 'img_' + Date.now();
-                    const imgTag = `<img id="${imgId}" src="${data.url}" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+                    const imgTag = `<img id="${imgId}" src="${data.url}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
                     insertHTMLAtCursor(remarkEditor, imgTag);
                 }
             } catch (e) {
@@ -1610,6 +1696,102 @@ function handleImagePickerUpload(event) {
             if (textEl) { textEl.textContent = '网络错误'; textEl.className = 'img-upload-progress-error'; }
         }
         event.target.value = '';
+    };
+
+    xhr.send(formData);
+}
+
+// ========== 粘贴截图自动上传 ==========
+function setupImagePaste(editor, getDeviceId) {
+    editor.addEventListener('paste', function(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = items[i].getAsFile();
+                const deviceId = getDeviceId();
+                if (!deviceId) {
+                    alert('无法确定设备ID');
+                    return;
+                }
+                pasteAndUploadImage(blob, deviceId, editor);
+                return;
+            }
+        }
+    });
+}
+
+function pasteAndUploadImage(blob, deviceId, editor) {
+    if (blob.size > 5 * 1024 * 1024) {
+        alert('图片大小不能超过5MB');
+        return;
+    }
+
+    const progressId = 'imgPasteProg_' + Date.now();
+
+    // 在光标位置插入进度条
+    const progressHtml = `<div id="${progressId}" class="img-upload-progress">
+        <span class="img-upload-progress-bar-outer">
+            <span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span>
+        </span>
+        <span id="${progressId}_text" class="img-upload-progress-text">0%</span>
+    </div>`;
+    insertHTMLAtCursor(editor, progressHtml);
+
+    // 生成文件名
+    const ext = blob.type === 'image/png' ? '.png' : blob.type === 'image/jpeg' ? '.jpg' : '.png';
+    const filename = 'paste_' + Date.now() + ext;
+    const file = new File([blob], filename, { type: blob.type });
+
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('deviceId', deviceId || '0');
+
+    xhr.open('POST', `${API_BASE}/upload/image`);
+
+    xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            const bar = document.getElementById(progressId + '_bar');
+            const text = document.getElementById(progressId + '_text');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = pct + '%';
+        }
+    };
+
+    xhr.onload = function () {
+        const progEl = document.getElementById(progressId);
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (progEl) progEl.remove();
+
+                const imgId = 'img_' + Date.now();
+                const imgTag = `<img id="${imgId}" src="${data.url}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+                insertHTMLAtCursor(editor, imgTag);
+            } catch (_) {
+                if (progEl && progEl.querySelector) {
+                    const textEl = progEl.querySelector('.img-upload-progress-text');
+                    if (textEl) { textEl.textContent = '解析失败'; textEl.className = 'img-upload-progress-error'; }
+                }
+            }
+        } else {
+            if (progEl && progEl.querySelector) {
+                const textEl = progEl.querySelector('.img-upload-progress-text');
+                if (textEl) { textEl.textContent = '上传失败'; textEl.className = 'img-upload-progress-error'; }
+            }
+        }
+    };
+
+    xhr.onerror = function () {
+        const progEl = document.getElementById(progressId);
+        if (progEl && progEl.querySelector) {
+            const textEl = progEl.querySelector('.img-upload-progress-text');
+            if (textEl) { textEl.textContent = '网络错误'; textEl.className = 'img-upload-progress-error'; }
+        }
     };
 
     xhr.send(formData);
@@ -1764,6 +1946,12 @@ function openRichTextEditor() {
             showImageFullscreen(e.target.src);
         }
     });
+
+    // 右键图片显示尺寸菜单
+    setupImageContextMenu(richTextEditor);
+
+    // 粘贴截图自动上传
+    setupImagePaste(richTextEditor, () => document.getElementById('deviceId').value);
 
     new bootstrap.Modal(document.getElementById('richTextEditorModal')).show();
 }
@@ -2021,10 +2209,23 @@ function decodeRichText(text) {
             window.S3_PUBLIC_URL + '/images/$1/$2');
     }
 
-    // 为已有 <img> 标签添加加载错误提示（避免重复添加）
+    // 为已有 <img> 标签添加加载错误提示（避免重复添加），并补默认 size 类
     html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-        if (attrs.includes('onerror')) return match;
-        return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');">`;
+        let newAttrs = attrs;
+        if (!attrs.includes('onerror')) {
+            newAttrs += " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');\"";
+        }
+        // 补默认 size 类
+        if (!attrs.includes('img-size-')) {
+            if (newAttrs.includes('class="')) {
+            newAttrs = newAttrs.replace('class="', 'class="img-size-large ');
+        } else if (newAttrs.includes("class='")) {
+            newAttrs = newAttrs.replace("class='", "class='img-size-large ");
+        } else {
+            newAttrs += ' class="img-size-large"';
+            }
+        }
+        return `<img${newAttrs}>`;
     });
 
     return html;
