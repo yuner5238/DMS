@@ -1331,6 +1331,7 @@ function showImageFullscreen(src) {
 // ========== 图片管理（popup选择框 + 已有图片浏览弹窗） ==========
 
 let _imageUploadDeviceId = null;
+let _tablePickerOutsideHandler = null;
 let _imageTargetEditorId = 'deviceRemarkEditor';
 let _selectedImages = new Set();
 let _existingImages = [];
@@ -1829,6 +1830,15 @@ function encodeRichText(html) {
                 case 'img':
                     // 保留图片标签
                     return node.outerHTML;
+                case 'table':
+                case 'thead':
+                case 'tbody':
+                case 'tfoot':
+                case 'tr':
+                case 'th':
+                case 'td':
+                    // 保留表格结构
+                    return node.outerHTML;
                 default:
                     return content;
             }
@@ -2134,6 +2144,96 @@ function hideRemarkTooltip() {
 // 执行富文本命令
 function execCmd(command, value = null) {
     document.execCommand(command, false, value);
+}
+
+// ============ 表格插入功能 ============
+let _tablePickerRows = 6;
+let _tablePickerCols = 6;
+
+function showTablePicker(btn) {
+    const existing = document.querySelector('.table-picker-popup');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    const rect = btn.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.className = 'table-picker-popup';
+    popup.style.position = 'fixed';
+    popup.style.left = rect.left + 'px';
+    popup.style.top = (rect.bottom + 4) + 'px';
+
+    let html = '<div class="table-picker-label" id="tablePickerLabel">1 × 1 表格</div><div class="table-picker-grid">';
+    for (let r = 0; r < _tablePickerRows; r++) {
+        for (let c = 0; c < _tablePickerCols; c++) {
+            html += `<div class="table-picker-cell" data-row="${r}" data-col="${c}"></div>`;
+        }
+    }
+    html += '</div>';
+    popup.innerHTML = html;
+
+    // hover 高亮
+    const cells = popup.querySelectorAll('.table-picker-cell');
+    const label = popup.querySelector('#tablePickerLabel');
+    let selectedRows = 0, selectedCols = 0;
+
+    cells.forEach(cell => {
+        cell.addEventListener('mouseenter', function() {
+            const r = parseInt(this.dataset.row);
+            const c = parseInt(this.dataset.col);
+            selectedRows = r + 1;
+            selectedCols = c + 1;
+            label.textContent = `${selectedRows} × ${selectedCols} 表格`;
+            cells.forEach(cell2 => {
+                const r2 = parseInt(cell2.dataset.row);
+                const c2 = parseInt(cell2.dataset.col);
+                cell2.classList.toggle('active', r2 <= r && c2 <= c);
+            });
+        });
+        cell.addEventListener('click', function() {
+            const r = parseInt(this.dataset.row) + 1;
+            const c = parseInt(this.dataset.col) + 1;
+            popup.remove();
+            insertTableHtml(r, c);
+            document.removeEventListener('click', _tablePickerOutsideHandler);
+        });
+    });
+
+    document.body.appendChild(popup);
+
+    // 点击外部关闭
+    _tablePickerOutsideHandler = function(e) {
+        if (!popup.contains(e.target) && e.target !== btn) {
+            popup.remove();
+            document.removeEventListener('click', _tablePickerOutsideHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', _tablePickerOutsideHandler), 0);
+}
+
+function insertTableHtml(rows, cols) {
+    let html = '<div style="overflow-x:auto;margin:8px 0;">';
+    html += '<table style="border-collapse:collapse;width:100%;min-width:300px;border:1px solid #dee2e6;">';
+    html += '<thead>';
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) {
+        html += '<th style="border:1px solid #dee2e6;padding:6px 10px;background:#f8f9fa;font-weight:600;text-align:left;min-width:60px;">&nbsp;</th>';
+    }
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+    for (let r = 1; r < rows; r++) {
+        html += '<tr>';
+        for (let c = 0; c < cols; c++) {
+            html += '<td style="border:1px solid #dee2e6;padding:6px 10px;min-width:60px;">&nbsp;</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    html += '</table>';
+    html += '</div>';
+    execCmd('insertHTML', html);
 }
 
 // 色板颜色配置 - 9x9 统一色板

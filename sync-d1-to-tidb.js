@@ -118,6 +118,52 @@ function queryPool(sql) {
     });
 }
 
+// 在事务中执行多条 SQL：先 DELETE 旧数据，再 INSERT 新数据
+// 如果 INSERT 失败则自动回滚，不会丢失 TiDB 原有数据
+function syncTableInTransaction(table, columns, valuesSql) {
+    return new Promise((resolve, reject) => {
+        pool.getConnection((err, connection) => {
+            if (err) return reject(err);
+
+            const sqls = [
+                `DELETE FROM ${table}`,
+                `INSERT INTO ${table} (${columns}) VALUES ${valuesSql}`
+            ];
+
+            connection.beginTransaction(err => {
+                if (err) {
+                    connection.release();
+                    return reject(err);
+                }
+
+                let i = 0;
+                const next = () => {
+                    if (i >= sqls.length) {
+                        // 全部执行完毕，提交事务
+                        return connection.commit(err => {
+                            connection.release();
+                            if (err) return reject(err);
+                            resolve();
+                        });
+                    }
+                    connection.query(sqls[i], (err) => {
+                        if (err) {
+                            // 出错回滚
+                            return connection.rollback(() => {
+                                connection.release();
+                                reject(err);
+                            });
+                        }
+                        i++;
+                        next();
+                    });
+                };
+                next();
+            });
+        });
+    });
+}
+
 // ============ 主函数 ============
 
 async function main() {
@@ -168,26 +214,26 @@ async function main() {
                 continue;
             }
 
-            // 导入到 TiDB (使用连接池)
-            await queryPool(`DELETE FROM ${table}`);
-            
+            // 在事务中同步到 TiDB（DELETE + INSERT，失败自动回滚）
             const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
             const values = rows.map(row => {
                 return '(' + Object.values(row).map(v => {
                     if (v === null) return 'NULL';
-                    if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+                    if (typeof v === 'string') return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
                     if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
                     return v;
                 }).join(', ') + ')';
             }).join(', ');
 
-            await queryPool(`INSERT INTO ${table} (${columns}) VALUES ${values}`);
-            console.log(`  TiDB 导入: ${rows.length} 条`);
+            await syncTableInTransaction(table, columns, values);
+            console.log(`  TiDB 导入: ${rows.length} 条 (事务提交成功)`);
             successCount++;
 
         } catch (err) {
             console.error(`  失败: ${err.message}`);
-            console.error(`  错误堆栈:`, err.stack);
+            console.error(`  错误代码: ${err.code || '无'}`);
+            console.error(`  SQL状态: ${err.sqlState || '无'}`);
+            if (err.sql) console.error(`  出错的SQL: ${err.sql.substring(0, 200)}...`);
             failCount++;
         }
     }

@@ -189,7 +189,7 @@ async function exportFromTiDB(tableName) {
 
 function formatValue(v) {
     if (v === null) return 'NULL';
-    if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+    if (typeof v === 'string') return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
     if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
     return v;
 }
@@ -200,21 +200,49 @@ async function importToD1(tableName, rows) {
         return;
     }
 
+    // 先备份 D1 原有数据（防止 INSERT 失败后数据丢失）
+    let d1Backup = null;
+    try {
+        const result = await d1Query(`SELECT * FROM ${tableName}`);
+        d1Backup = result[0]?.results || [];
+        log(`📋 D1 表 ${tableName} 已备份 ${d1Backup.length} 条数据`);
+    } catch (e) {
+        log(`⚠️ D1 表 ${tableName} 备份跳过（可能不存在）: ${e.message}`);
+    }
+
     try {
         // 清空 D1 表
         await d1Query(`DELETE FROM ${tableName}`);
         log(`🗑️ 已清空 D1 表: ${tableName}`);
-        
+
         // 批量插入
         const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
         const values = rows.map(row => {
             return `(${Object.values(row).map(formatValue).join(', ')})`;
         }).join(', ');
-        
+
         await d1Query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
         log(`✅ 已导入 ${rows.length} 条数据到 D1 表: ${tableName}`);
     } catch (err) {
         log(`❌ 导入数据到 D1 表 ${tableName} 失败: ${err.message}`, 'error');
+
+        // 尝试恢复备份数据
+        if (d1Backup && d1Backup.length > 0) {
+            log(`🔄 尝试恢复 D1 备份数据 (${d1Backup.length} 条)...`);
+            try {
+                const backupColumns = Object.keys(d1Backup[0]).map(c => `\`${c}\``).join(', ');
+                const backupValues = d1Backup.map(row => {
+                    return `(${Object.values(row).map(formatValue).join(', ')})`;
+                }).join(', ');
+                await d1Query(`INSERT INTO ${tableName} (${backupColumns}) VALUES ${backupValues}`);
+                log(`✅ D1 备份数据已恢复`);
+            } catch (restoreErr) {
+                log(`❌ 恢复备份也失败: ${restoreErr.message}`, 'error');
+                log(`💾 备份数据仍在内存中，共 ${d1Backup.length} 条，请排查后手动恢复`, 'error');
+            }
+        } else {
+            log(`💾 无备份数据可恢复（D1 原表为空或不存在），可重试同步`, 'error');
+        }
         throw err;
     }
 }
