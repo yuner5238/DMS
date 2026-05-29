@@ -59,6 +59,24 @@ DB_LOCAL_DATABASE=DMS
 
 > 修改后需重启服务器生效。
 
+#### 切换对象存储（S3）
+
+在 `.env` 中修改 `S3_ACTIVE`：
+
+| 值 | 说明 |
+| --- | --- |
+| `config1` | hi168 测试仓库 |
+| `config2` | cstcloud 中国科技云 |
+
+```env
+S3_ACTIVE=config2   # 正式仓库
+S3_ACTIVE=config1   # 切换为测试仓库
+```
+
+新增仓库只需在 `.env` 中加一组 `S3_CONFIG3_*` 配置，然后改 `S3_ACTIVE` 即可，无需改代码。配置模块 `server/s3.config.js` 自动读取。
+
+> 修改后需重启服务器生效。
+
 ---
 
 ## 项目结构
@@ -133,7 +151,7 @@ DMS/
 | 表名 | 说明 |
 | --- | --- |
 | `warehouses` | 仓库表 |
-| `devices` | 设备表（含 tag_name 字段） |
+| `devices` | 设备表（含 tag\_name 字段） |
 | `announcements` | 公告表 |
 
 > **注意**：标签不再使用独立的 `tags` 表管理，而是直接从 `devices.tag_name` 字段动态提取。标签统计也基于此实现。

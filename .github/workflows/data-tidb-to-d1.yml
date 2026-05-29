@@ -1,9 +1,7 @@
-name: Sync D1 to TiDB
+name: Data - TiDB to D1
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 10 * * *'
 
 jobs:
   sync:
@@ -19,8 +17,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Sync D1 to TiDB
-        run: node sync-d1-to-tidb.js
+      - name: Sync TiDB → D1
+        run: node data-tidb-to-d1.js
         env:
           CF_EMAIL: ${{ secrets.CF_EMAIL }}
           CF_API_KEY: ${{ secrets.CF_API_KEY }}

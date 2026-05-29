@@ -8,11 +8,11 @@ binding = "DB"
 database_name = "dms-db"
 database_id = "a57bd321-c1ab-427e-a06d-41073992ab06"
 
-# S3 对象存储配置
+# S3 对象存储配置（cstcloud 中国科技云）
 [vars]
-S3_ENDPOINT = "https://s3.hi168.com"
-S3_BUCKET = "hi168-u314763-pto14gg8-s"
-S3_PUBLIC_URL = "https://s3.hi168.com/hi168-u314763-pto14gg8-s"
+S3_ENDPOINT = "https://s3.cstcloud.cn"
+S3_BUCKET = "4e76329535754d69938766237acfe5f3"
+S3_PUBLIC_URL = "https://s3.cstcloud.cn/4e76329535754d69938766237acfe5f3"
 S3_REGION = "us-east-1"
-S3_ACCESS_KEY = "VBIV1E550GZTRQGC6BRZ"
-S3_SECRET_KEY = "aZ6ggMkgPpFGKqFxsxUXLOCWunhCv2VYKcRytrJA"
+S3_ACCESS_KEY = "AKIAR4T1UFMZMRTEVBUV"
+S3_SECRET_KEY = "TQ=1T7BPLRGBAU0S3BPVB6KIQ8AO0J3FNN689ZYA"

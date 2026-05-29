@@ -1,0 +1,31 @@
+name: Data - D1 to TiDB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Sync D1 → TiDB
+        run: node data-d1-to-tidb.js
+        env:
+          CF_EMAIL: ${{ secrets.CF_EMAIL }}
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          DB_TIDB_HOST: ${{ secrets.DB_TIDB_HOST }}
+          DB_TIDB_PORT: ${{ secrets.DB_TIDB_PORT }}
+          DB_TIDB_USER: ${{ secrets.DB_TIDB_USER }}
+          DB_TIDB_PASSWORD: ${{ secrets.DB_TIDB_PASSWORD }}
+          DB_TIDB_DATABASE: ${{ secrets.DB_TIDB_DATABASE }}

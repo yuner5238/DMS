@@ -1,12 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
+const { s3Config } = require('./s3.config');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -27,23 +29,36 @@ const upload = multer({
     },
 });
 
+// Multer：附件上传（文件类型不限，20MB限制）
+const uploadAttachment = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
 // S3 客户端
 const s3 = new S3Client({
-    endpoint: process.env.S3_ENDPOINT,
-    region: process.env.S3_REGION,
+    endpoint: s3Config.endpoint,
+    region: s3Config.region,
     credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_KEY,
+        accessKeyId: s3Config.accessKey,
+        secretAccessKey: s3Config.secretKey,
     },
     forcePathStyle: true,
+    requestHandler: new NodeHttpHandler({
+        connectionTimeout: 10_000,  // 连接超时 10 秒
+        requestTimeout: 15_000,     // 请求超时 15 秒
+    }),
 });
 
 // MySQL 连接配置
 const pool = mysql.createPool({
     ...dbConfig,
     connectionLimit: 10,
-    connectTimeout: 10000, // 连接超时 10秒
-    acquireTimeout: 10000 // 获取连接超时 10秒
+    connectTimeout: 10000,     // TCP 连接超时 10秒
+    waitForConnections: true,
+    queueLimit: 0,
+    enableKeepAlive: true,     // TCP keep-alive，防止防火墙断开
+    keepAliveInitialDelay: 0,
 });
 
 // 测试连接
@@ -66,12 +81,19 @@ pool.getConnection((err, connection) => {
 app.use(cors());
 app.use(bodyParser.json());
 
-// 封装查询函数
+// 封装查询函数（带超时保护）
 const query = (sql, values = []) => {
     return new Promise((resolve, reject) => {
-        pool.query(sql, values, (err, results) => {
-            if (err) reject(err);
-            else resolve(results);
+        pool.query({ sql, values, timeout: 30_000 }, (err, results) => {
+            if (err) {
+                if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+                    reject(new Error(`查询超时（30秒）：${sql.substring(0, 80)}...`));
+                } else {
+                    reject(err);
+                }
+            } else {
+                resolve(results);
+            }
         });
     });
 };
@@ -460,7 +482,7 @@ app.delete('/api/announcements/:id', async (req, res) => {
 // 公开配置（S3 URL 等，前端动态读取）
 app.get('/api/config', (req, res) => {
     res.json({
-        s3PublicUrl: process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`,
+        s3PublicUrl: s3Config.publicUrl || `${s3Config.endpoint}/${s3Config.bucket}`,
     });
 });
 
@@ -482,13 +504,13 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
         // 生成唯一文件名：时间戳_随机6位.原始扩展名
         const ext = path.extname(file.originalname).toLowerCase() || '.png';
         const filename = `${Date.now()}_${crypto.randomBytes(3).toString('hex')}${ext}`;
-        const s3Key = `images/${deviceId}/${filename}`;
+        const s3Key = `${s3Config.basePrefix}images/${deviceId}/${filename}`;
 
         console.log(`[S3上传] 开始上传: ${s3Key}, 大小: ${file.buffer.length} 字节, 类型: ${file.mimetype}`);
 
         // 上传到 S3
         const putResult = await s3.send(new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET,
+            Bucket: s3Config.bucket,
             Key: s3Key,
             Body: file.buffer,
             ContentType: file.mimetype,
@@ -499,7 +521,7 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
         // 立即验证文件是否成功写入（某些 S3 兼容服务可能静默失败）
         try {
             await s3.send(new GetObjectCommand({
-                Bucket: process.env.S3_BUCKET,
+                Bucket: s3Config.bucket,
                 Key: s3Key,
             }));
             console.log(`[S3上传] 验证通过: ${s3Key} 已确认存在`);
@@ -508,9 +530,8 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
             return res.status(500).json({ error: `图片上传后验证失败（文件可能未成功存储）: ${verifyErr.message}` });
         }
 
-        // Bucket 已开启公开读，直接返回 S3 URL
-        const s3BaseUrl = process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`;
-        const imageUrl = `${s3BaseUrl}/images/${deviceId}/${filename}`;
+        // bucket 未开公开读，返回代理路径而非 S3 直链
+        const imageUrl = `/api/images/${deviceId}/${filename}`;
 
         console.log(`[S3上传] 完成: ${s3Key}`);
         res.json({ success: true, url: imageUrl, key: s3Key });
@@ -526,12 +547,12 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
 app.get('/api/images/list/:deviceId', async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const prefix = `images/${deviceId}/`;
+        const prefix = `${s3Config.basePrefix}images/${deviceId}/`;
 
         console.log(`[S3列表] 查询目录: ${prefix}`);
 
         const command = new ListObjectsV2Command({
-            Bucket: process.env.S3_BUCKET,
+            Bucket: s3Config.bucket,
             Prefix: prefix,
             MaxKeys: 500,
         });
@@ -547,7 +568,7 @@ app.get('/api/images/list/:deviceId', async (req, res) => {
                     key: item.Key,
                     size: item.Size,
                     lastModified: item.LastModified,
-                    url: `${process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`}/images/${deviceId}/${filename}`,
+                    url: `/api/images/${deviceId}/${filename}`,
                 };
             });
 
@@ -563,12 +584,12 @@ app.get('/api/images/list/:deviceId', async (req, res) => {
 app.delete('/api/images/:deviceId/:filename', async (req, res) => {
     try {
         const { deviceId, filename } = req.params;
-        const s3Key = `images/${deviceId}/${filename}`;
+        const s3Key = `${s3Config.basePrefix}images/${deviceId}/${filename}`;
 
         console.log(`[S3删除] 删除: ${s3Key}`);
 
         await s3.send(new DeleteObjectCommand({
-            Bucket: process.env.S3_BUCKET,
+            Bucket: s3Config.bucket,
             Key: s3Key,
         }));
 
@@ -584,12 +605,12 @@ app.delete('/api/images/:deviceId/:filename', async (req, res) => {
 app.get('/api/images/:deviceId/:filename', async (req, res) => {
     try {
         const { deviceId, filename } = req.params;
-        const s3Key = `images/${deviceId}/${filename}`;
+        const s3Key = `${s3Config.basePrefix}images/${deviceId}/${filename}`;
 
         console.log(`[S3代理] 请求图片: ${s3Key}`);
 
         const getCommand = new GetObjectCommand({
-            Bucket: process.env.S3_BUCKET,
+            Bucket: s3Config.bucket,
             Key: s3Key,
         });
 
@@ -632,7 +653,7 @@ app.get('/api/images/:deviceId/:filename', async (req, res) => {
 app.get('/api/test/image-check/:deviceId/:filename', async (req, res) => {
     try {
         const { deviceId, filename } = req.params;
-        const s3Key = `images/${deviceId}/${filename}`;
+        const s3Key = `${s3Config.basePrefix}images/${deviceId}/${filename}`;
         const proxyUrl = `/api/images/${deviceId}/${filename}`;
 
         let info = {
@@ -646,7 +667,7 @@ app.get('/api/test/image-check/:deviceId/:filename', async (req, res) => {
 
         try {
             const s3Response = await s3.send(new GetObjectCommand({
-                Bucket: process.env.S3_BUCKET,
+                Bucket: s3Config.bucket,
                 Key: s3Key,
             }));
             const chunks = [];
@@ -663,6 +684,166 @@ app.get('/api/test/image-check/:deviceId/:filename', async (req, res) => {
 
         res.json(info);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============ 附件管理 API ============
+
+// 列出附件
+app.get('/api/attachments/:deviceId', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        if (!deviceId || deviceId === '0') {
+            return res.json({ success: true, attachments: [] });
+        }
+
+        const prefix = `${s3Config.basePrefix}attachments/${deviceId}/`;
+        console.log(`[S3附件列表] 查询: ${prefix}`);
+
+        const command = new ListObjectsV2Command({
+            Bucket: s3Config.bucket,
+            Prefix: prefix,
+            MaxKeys: 100,
+        });
+
+        const response = await s3.send(command);
+
+        const attachments = (response.Contents || [])
+            .filter(item => !item.Key.endsWith('/'))
+            .map(item => {
+                const key = item.Key;
+                const filename = key.replace(prefix, '');
+                // URL 中编码文件名，确保浏览器正确处理
+                const url = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
+                // 提取原始文件名（去掉前14位时间戳+下划线+6位随机+下划线前缀）
+                const match = filename.match(/^\d+_[a-f0-9]{6}_(.+)$/);
+                const displayName = match ? match[1] : filename;
+                return {
+                    filename,
+                    displayName,
+                    key,
+                    size: item.Size,
+                    lastModified: item.LastModified,
+                    url,
+                };
+            });
+
+        console.log(`[S3附件列表] 找到 ${attachments.length} 个文件`);
+        res.json({ success: true, attachments });
+    } catch (err) {
+        console.error('[S3附件列表] 失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 删除附件
+app.delete('/api/attachments/:deviceId/:filename', async (req, res) => {
+    try {
+        const { deviceId, filename } = req.params;
+        const s3Key = `${s3Config.basePrefix}attachments/${deviceId}/${filename}`;
+
+        console.log(`[S3附件删除] 删除: ${s3Key}`);
+
+        await s3.send(new DeleteObjectCommand({
+            Bucket: s3Config.bucket,
+            Key: s3Key,
+        }));
+
+        console.log(`[S3附件删除] 成功: ${s3Key}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[S3附件删除] 失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 修复 multer/busboy latin1 解析中文文件名 bug
+function fixOriginalName(name) {
+    // 1. 如果已含 CJK 字符，说明 busboy 已正确解码
+    if (/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(name)) return name;
+    // 2. 尝试 latin1→utf8 反转，仅在结果含 CJK 时才采用（避免破坏 café/æble 等非中文文件名）
+    try {
+        const decoded = Buffer.from(name, 'latin1').toString('utf8');
+        if (/[\u4e00-\u9fff]/.test(decoded)) return decoded;
+    } catch (_) {}
+    return name;
+}
+
+// 上传附件
+app.post('/api/upload/attachment', uploadAttachment.single('attachment'), async (req, res) => {
+    try {
+        const { deviceId } = req.body;
+        const file = req.file;
+
+        if (!file) return res.status(400).json({ error: '请选择附件文件' });
+        if (!deviceId) return res.status(400).json({ error: '缺少 deviceId 参数' });
+
+        const originalName = fixOriginalName(file.originalname).trim();
+        const ext = path.extname(originalName).toLowerCase();
+        const baseName = ext
+            ? originalName.slice(0, originalName.length - ext.length).replace(/[\/\\:*?"<>|#]/g, '_').substring(0, 200)
+            : originalName.replace(/[\/\\:*?"<>|#]/g, '_').substring(0, 200);
+        const filename = `${Date.now()}_${crypto.randomBytes(3).toString('hex')}_${baseName}${ext}`;
+        const s3Key = `${s3Config.basePrefix}attachments/${deviceId}/${filename}`;
+
+        console.log(`[S3附件上传] 原名: ${originalName}, S3Key: ${s3Key}, 大小: ${file.buffer.length} 字节`);
+
+        await s3.send(new PutObjectCommand({
+            Bucket: s3Config.bucket,
+            Key: s3Key,
+            Body: file.buffer,
+            ContentType: file.mimetype || 'application/octet-stream',
+        }));
+
+        const url = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
+
+        console.log(`[S3附件上传] 完成: ${s3Key}`);
+        res.json({
+            success: true,
+            url,
+            key: s3Key,
+            filename,
+            originalName,
+            size: file.size,
+        });
+    } catch (err) {
+        console.error('[S3附件上传] 失败:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 附件代理：通过服务器中转访问 S3
+app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
+    try {
+        const { deviceId, filename } = req.params;
+        const s3Key = `${s3Config.basePrefix}attachments/${deviceId}/${filename}`;
+
+        console.log(`[S3附件代理] 请求: ${s3Key}`);
+
+        const s3Response = await s3.send(new GetObjectCommand({
+            Bucket: s3Config.bucket,
+            Key: s3Key,
+        }));
+
+        const chunks = [];
+        for await (const chunk of s3Response.Body) {
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        res.set('Content-Type', s3Response.ContentType || 'application/octet-stream');
+        res.set('Content-Length', buffer.length.toString());
+        res.set('Cache-Control', 'public, max-age=86400');
+        // inline 优先预览（PDF/图片/文本等浏览器能直接渲染），不支持的格式浏览器会自动下载
+        res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
+        res.end(buffer);
+    } catch (err) {
+        console.error('[S3附件代理] 失败:', err.name, err.message);
+        if (err.name === 'NoSuchKey') {
+            return res.status(404).json({ error: '附件不存在' });
+        }
         res.status(500).json({ error: err.message });
     }
 });

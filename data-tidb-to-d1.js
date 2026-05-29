@@ -1,6 +1,6 @@
 /**
  * 同步脚本：从 TiDB 导出数据到 D1
- * 使用方法：node sync-tidb-to-d1.js
+ * 使用方法：node data-tidb-to-d1.js
  */
 
 const mysql = require('mysql2');

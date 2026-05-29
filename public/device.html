@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="css/index.css" rel="stylesheet">
     <style>
         /* Windows 11 风格配色 */
         :root {
@@ -192,7 +193,10 @@
             display: grid;
             grid-template-columns: 115px 1fr;
             padding: 10px 0;
+            border: none;
             border-bottom: 1px solid #f0f0f0;
+            border-radius: 0;
+            background: transparent;
             align-items: center;
             gap: 10px 20px;
         }
@@ -492,6 +496,86 @@
         .rich-text-content img:hover {
             transform: scale(1.01);
         }
+
+        /* ========== 编辑模式表单样式 ========== */
+        .edit-form-group {
+            margin-bottom: 0;
+        }
+        .edit-form-group label {
+            display: block;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .edit-form-group input,
+        .edit-form-group select,
+        .edit-form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            color: var(--text-primary);
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .edit-form-group input:focus,
+        .edit-form-group select:focus,
+        .edit-form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 103, 192, 0.12);
+        }
+        .edit-form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .edit-row {
+            display: grid;
+            grid-template-columns: 115px 1fr;
+            gap: 10px 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        .edit-row:last-child { border-bottom: none; }
+        .edit-row .edit-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 14px;
+            align-self: start;
+            padding-top: 8px;
+        }
+        .edit-actions {
+            padding: 16px 24px;
+            background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+        }
+        .edit-actions .btn {
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .edit-actions .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .edit-actions .btn:active { transform: translateY(0); }
+        .edit-actions .btn-success {
+            background: linear-gradient(135deg, #0f7b0f 0%, #1a8e1a 100%);
+            border-color: #0f7b0f;
+            color: #fff;
+        }
+        .edit-actions .btn-success:hover {
+            background: linear-gradient(135deg, #0c6b0c 0%, #167a16 100%);
+        }
+        @media (max-width: 768px) {
+            .edit-row { grid-template-columns: 1fr; gap: 4px; }
+            .edit-row .edit-label { padding-top: 0; }
+        }
     </style>
 </head>
 <body>
@@ -512,6 +596,9 @@
             <p class="mt-3">加载中...</p>
         </div>
     </div>
+
+    <!-- 隐藏的文件选择器，用于上传附件 -->
+    <input type="file" id="attachmentFileInput" style="display:none;" onchange="handleAttachmentUpload(this)">
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -582,11 +669,9 @@
             // 确保连续的换行被正确处理
             html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
 
-            // 将旧代理URL 替换为 S3 公开URL
-            if (window.S3_PUBLIC_URL) {
-                html = html.replace(/\/api\/images\/(\d+)\/([^"'>\s]+)/gi,
-                    window.S3_PUBLIC_URL + '/images/$1/$2');
-            }
+
+            // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
+
 
             // 为图片添加加载错误提示
             html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
@@ -635,6 +720,7 @@
 
         // 渲染设备详情
         function renderDeviceDetail(device) {
+            currentDevice = device; // 保存到全局，供编辑模式使用
             const container = document.getElementById('detailContainer');
 
             let locationText = device.storage_location || '在库';
@@ -709,13 +795,21 @@
                             <div class="detail-label">更新时间</div>
                             <div class="detail-value">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</div>
                         </div>
-                        <div class="detail-row">
+                        <div class="detail-row" style="align-items: start;">
                             <div class="detail-label">备注</div>
                             <div class="detail-value">${device.remark ? `<div class="rich-text-content">${decodeRichText(device.remark)}</div>` : '-'}</div>
                         </div>
+                        <div class="detail-row" style="align-items: start; flex-direction: column;">
+                            <div class="detail-label" style="margin-bottom: 8px;">附件</div>
+                            <div class="detail-value" style="width: 100%;">
+                                <div id="detailAttachmentsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; min-width:0; overflow-x:hidden;">
+                                    <div style="font-size:12px;color:#adb5bd;padding:4px 0;">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="detail-actions">
-                        <button class="btn btn-primary" onclick="editDevice(${device.id})">
+                        <button class="btn btn-primary" onclick="editDevice()">
                             <i class="bi bi-pencil"></i> 编辑设备
                         </button>
                         <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${device.name}')">
@@ -734,6 +828,9 @@
                     showImageFullscreen(e.target.src);
                 }
             });
+
+            // 加载附件
+            if (device.device_id) loadDeviceAttachments(device.device_id);
         }
 
         // 图片全屏查看
@@ -774,9 +871,400 @@
             `;
         }
 
-        // 编辑设备（跳转回首页并打开编辑模态框）
-        function editDevice(id) {
-            window.location.href = `index.html?edit=${id}`;
+        // 保存当前设备数据（供编辑模式使用）
+        let currentDevice = null;
+
+        // ========== 原地编辑模式 ==========
+
+        // 进入编辑模式
+        function editDevice() {
+            if (!currentDevice) return;
+            renderEditForm(currentDevice);
+        }
+
+        // 取消编辑，恢复查看模式
+        function cancelEdit() {
+            if (!currentDevice) return;
+            renderDeviceDetail(currentDevice);
+        }
+
+        // 渲染编辑表单
+        async function renderEditForm(device) {
+            const container = document.getElementById('detailContainer');
+            const card = container.querySelector('.detail-card');
+            if (!card) return;
+
+            // 获取仓库列表
+            let warehouseOptions = '';
+            try {
+                const res = await fetch(`${API_BASE}/warehouses`);
+                const warehouses = await res.json();
+                warehouseOptions = warehouses.map(w =>
+                    `<option value="${w.name}" ${w.name === device.warehouse_name ? 'selected' : ''}>${w.name}</option>`
+                ).join('');
+            } catch (e) {
+                warehouseOptions = device.warehouse_name
+                    ? `<option value="${device.warehouse_name}" selected>${device.warehouse_name}</option>`
+                    : '';
+            }
+
+            // 解析标签（支持 JSON 数组和逗号分隔）
+            let tagStr = '';
+            if (device.tag_names) {
+                const field = device.tag_names.trim();
+                if (field.startsWith('[')) {
+                    try { tagStr = JSON.parse(field).join(', '); } catch (e) {}
+                } else {
+                    tagStr = field;
+                }
+            } else if (device.tag_name) {
+                tagStr = device.tag_name;
+            }
+
+            const isCheckedOut = device.location_status === 'checked_out';
+
+            // 更新 header 中的名称（显示为可编辑的标题）
+            const header = card.querySelector('.detail-header h4');
+            if (header) {
+                header.innerHTML = `<input type="text" id="editDeviceName" value="${escapeHtml(device.name || '')}" 
+                    style="font-size:22px;font-weight:600;border:none;border-bottom:2px solid var(--primary);outline:none;background:transparent;width:100%;padding:4px 0;color:var(--text-primary);">`;
+            }
+
+            // 更新 detail-body
+            const body = card.querySelector('.detail-body');
+            body.innerHTML = `
+                <div class="edit-row">
+                    <div class="edit-label">设备ID</div>
+                    <div class="edit-form-group">
+                        <span class="device-id-badge">${device.device_id || '-'}</span>
+                        <small class="text-muted ms-2">（不可修改）</small>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">所属仓库</div>
+                    <div class="edit-form-group">
+                        <select id="editWarehouse">${warehouseOptions}</select>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备标签</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editTags" value="${escapeHtml(tagStr)}" placeholder="多个标签用逗号分隔">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备数量</div>
+                    <div class="edit-form-group">
+                        <input type="number" id="editQuantity" value="${device.quantity || 1}" min="1">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">负责人</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editResponsiblePerson" value="${escapeHtml(device.responsible_person || '')}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备状态</div>
+                    <div class="edit-form-group">
+                        <select id="editStatus">
+                            <option value="正常" ${device.status === '正常' ? 'selected' : ''}>正常</option>
+                            <option value="异常" ${device.status === '异常' ? 'selected' : ''}>异常</option>
+                            <option value="维修中" ${device.status === '维修中' ? 'selected' : ''}>维修中</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">存放位置</div>
+                    <div class="edit-form-group">
+                        <select id="editLocationStatus" onchange="toggleDestination()">
+                            <option value="in_stock" ${device.location_status === 'in_stock' ? 'selected' : ''}>库存</option>
+                            <option value="checked_out" ${device.location_status === 'checked_out' ? 'selected' : ''}>已出库</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="edit-row" id="editDestinationRow" style="${isCheckedOut ? '' : 'display:none;'}">
+                    <div class="edit-label">去向</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editDestination" value="${escapeHtml(device.destination || '')}" placeholder="出库去向">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">入库时间</div>
+                    <div class="edit-form-group">
+                        <input type="date" id="editCheckinTime" value="${device.checkin_time ? formatDateForInput(device.checkin_time) : ''}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">到期日期</div>
+                    <div class="edit-form-group">
+                        <input type="date" id="editExpiryDate" value="${device.expiry_date ? formatDateForInput(device.expiry_date) : ''}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">备注</div>
+                    <div class="edit-form-group">
+                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">创建时间</div>
+                    <div class="edit-form-group">
+                        <span class="text-muted">${device.created_at ? formatDateTime(device.created_at) : '-'}</span>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">更新时间</div>
+                    <div class="edit-form-group">
+                        <span class="text-muted">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</span>
+                    </div>
+                </div>
+                <div class="edit-row" style="align-items: start;">
+                    <div class="edit-label">附件</div>
+                    <div class="edit-form-group">
+                        <div id="detailAttachmentsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; min-width:0; overflow-x:hidden;">
+                            <div style="font-size:12px;color:#adb5bd;padding:4px 0;">加载中...</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="triggerUploadAttachment()" style="font-size:13px;">
+                            <i class="bi bi-plus-lg"></i> 上传附件
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 更新底部按钮（兼容重复调用：先尝试 .detail-actions，再尝试 .edit-actions）
+            let actions = card.querySelector('.detail-actions');
+            if (!actions) actions = card.querySelector('.edit-actions');
+            if (!actions) return;
+            actions.className = 'edit-actions';
+            actions.innerHTML = `
+                <button class="btn btn-success" onclick="saveDeviceInline()">
+                    <i class="bi bi-check-lg"></i> 保存
+                </button>
+                <button class="btn btn-outline-secondary" onclick="cancelEdit()">
+                    取消
+                </button>
+            `;
+
+            // 重新加载附件
+            if (device.device_id) loadDeviceAttachments(device.device_id);
+        }
+
+        // 切换去向字段显示
+        function toggleDestination() {
+            const status = document.getElementById('editLocationStatus');
+            const row = document.getElementById('editDestinationRow');
+            if (status && row) {
+                row.style.display = status.value === 'checked_out' ? '' : 'none';
+            }
+        }
+
+        // 格式化日期为 input[type=date] 格式
+        function formatDateForInput(timeStr) {
+            if (!timeStr) return '';
+            const d = new Date(timeStr);
+            if (isNaN(d.getTime())) return '';
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        // 保存编辑
+        async function saveDeviceInline() {
+            const id = currentDevice ? currentDevice.id : null;
+            if (!id) { alert('设备数据异常'); return; }
+
+            const locationStatus = document.getElementById('editLocationStatus')?.value || 'in_stock';
+            const destination = locationStatus === 'checked_out'
+                ? (document.getElementById('editDestination')?.value || '')
+                : '';
+            const checkinDate = document.getElementById('editCheckinTime')?.value || '';
+            const expiryDate = document.getElementById('editExpiryDate')?.value || '';
+
+            const data = {
+                device_id: currentDevice.device_id || '',
+                warehouseName: document.getElementById('editWarehouse')?.value || '',
+                name: document.getElementById('editDeviceName')?.value || '',
+                tag_names: document.getElementById('editTags')?.value || '',
+                quantity: parseInt(document.getElementById('editQuantity')?.value) || 1,
+                status: document.getElementById('editStatus')?.value || '正常',
+                storage_location: currentDevice.storage_location || '',
+                location_status: locationStatus,
+                destination: destination,
+                remark: document.getElementById('editRemark')?.value || '',
+                checkin_time: checkinDate ? checkinDate + ' 00:00:00' : null,
+                expiry_date: expiryDate || null,
+                responsible_person: document.getElementById('editResponsiblePerson')?.value || ''
+            };
+
+            if (!data.name) { alert('请输入设备名称'); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/devices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errText}`);
+                }
+                // 重新加载设备
+                await loadDeviceDetail();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        // ============ 附件功能 ============
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            let size = bytes;
+            while (size >= 1024 && i < units.length - 1) {
+                size /= 1024;
+                i++;
+            }
+            return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+        }
+
+        function getAttachmentIconClass(ext) {
+            if (ext === 'pdf') return 'pdf';
+            if (/^docx?$/.test(ext) || ext === 'doc') return 'doc';
+            if (/^xlsx?$/.test(ext) || /^csv$/.test(ext)) return 'xls';
+            if (/^(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(ext)) return 'img';
+            if (/^(zip|rar|7z|tar|gz)$/.test(ext)) return 'zip';
+            return 'other';
+        }
+
+        async function loadDeviceAttachments(deviceId) {
+            const container = document.getElementById('detailAttachmentsList');
+            if (!container || !deviceId) {
+                if (container) container.innerHTML = '';
+                return;
+            }
+
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 15_000);
+                const res = await fetch(`${API_BASE}/attachments/${deviceId}`, { signal: controller.signal });
+                clearTimeout(timeout);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                if (!data.attachments || data.attachments.length === 0) {
+                    container.innerHTML = '<div style="font-size:12px;color:#adb5bd;padding:4px 0;">暂无附件</div>';
+                    return;
+                }
+
+                container.innerHTML = data.attachments.map(a => {
+                    const ext = (a.displayName || a.filename).split('.').pop().toLowerCase();
+                    const iconClass = getAttachmentIconClass(ext);
+                    const abbr = ext.toUpperCase().slice(0, 3);
+                    return `
+                        <div class="attachment-item">
+                            <i class="bi bi-check-circle-fill" style="color:#10b981;font-size:18px;flex-shrink:0;"></i>
+                            <div class="attachment-icon ${iconClass}">${abbr}</div>
+                            <div class="attachment-info">
+                                <div class="attachment-name">
+                                    <a href="${a.url}" target="_blank" title="${a.displayName || a.filename}">${escapeHtml(a.displayName || a.filename)}</a>
+                                </div>
+                                <div class="attachment-meta">${formatFileSize(a.size)}</div>
+                            </div>
+                            <div class="attachment-actions">
+                                <button onclick="deleteAttachmentFile('${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('加载附件失败:', err);
+                const msg = err.name === 'AbortError' ? '加载超时，请检查网络后刷新重试' : '加载失败';
+                container.innerHTML = `<div style="font-size:12px;color:#dc3545;padding:4px 0;">${msg}</div>`;
+            }
+        }
+
+        // ============ 附件上传 ============
+
+        // 触发文件选择
+        function triggerUploadAttachment() {
+            const input = document.getElementById('attachmentFileInput');
+            if (input) input.click();
+        }
+
+        // 处理附件上传
+        async function handleAttachmentUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (!currentDevice || !currentDevice.device_id) {
+                alert('无法获取设备ID');
+                input.value = '';
+                return;
+            }
+
+            // 文件大小检查（50MB 限制）
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert(`文件过大：${formatFileSize(file.size)}，附件不能超过 ${formatFileSize(maxSize)}`);
+                input.value = '';
+                return;
+            }
+
+            // 显示上传中状态
+            const list = document.getElementById('detailAttachmentsList');
+            if (list) {
+                list.innerHTML = '<div style="font-size:12px;color:#0067c0;padding:4px 0;"><span class="spinner-border spinner-border-sm" role="status"></span> 上传中...</div>';
+            }
+
+            const formData = new FormData();
+            formData.append('attachment', file);
+            formData.append('deviceId', currentDevice.device_id);
+
+            try {
+                const res = await fetch(`${API_BASE}/upload/attachment`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || '上传失败');
+
+                // 刷新附件列表
+                if (currentDevice.device_id) {
+                    await loadDeviceAttachments(currentDevice.device_id);
+                }
+            } catch (err) {
+                console.error('附件上传失败:', err);
+                alert('上传失败: ' + err.message);
+                if (list) {
+                    list.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:4px 0;">上传失败</div>';
+                }
+            }
+
+            // 清空 input，允许重复上传同一文件
+            input.value = '';
+        }
+
+        // 删除附件
+        async function deleteAttachmentFile(deviceId, encodedFilename) {
+            const filename = decodeURIComponent(encodedFilename);
+            if (!confirm('确定要删除此附件吗？')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/attachments/${deviceId}/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE',
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                loadDeviceAttachments(deviceId);
+            } catch (err) {
+                console.error('删除附件失败:', err);
+                alert('删除失败: ' + err.message);
+            }
         }
 
         // 删除设备

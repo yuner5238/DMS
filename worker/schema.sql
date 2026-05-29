@@ -1,5 +1,5 @@
 -- DMS 仓库资产管理系统 - D1 建表 SQL (SQLite 语法)
--- 与 TiDB 结构保持一致，TiDB 侧对应关系见 align-tidb.js
+-- 与 TiDB 结构保持一致，TiDB 侧对应关系见 schema-d1-to-tidb.js
 
 -- 仓库表
 CREATE TABLE IF NOT EXISTS warehouses (

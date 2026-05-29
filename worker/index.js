@@ -108,6 +108,22 @@ export default {
                 return await proxyImage(env, imageDeleteMatch[1], imageDeleteMatch[2]);
             }
 
+            // ===== S3 附件 API =====
+            // 上传附件
+            if (path === '/api/upload/attachment' && method === 'POST') {
+                return await uploadAttachment(request, env);
+            }
+            // 列出设备附件
+            const attachListMatch = path.match(/^\/api\/attachments\/([^/]+)$/);
+            if (attachListMatch && method === 'GET') {
+                return await listAttachments(env, attachListMatch[1]);
+            }
+            // 删除附件
+            const attachDelMatch = path.match(/^\/api\/attachments\/([^/]+)\/([^/]+)$/);
+            if (attachDelMatch && method === 'DELETE') {
+                return await deleteAttachment(env, attachDelMatch[1], attachDelMatch[2]);
+            }
+
             return jsonResponse({ error: 'Not Found' }, 404);
         } catch (err) {
             console.error(err);
@@ -456,6 +472,107 @@ async function proxyImage(env, deviceId, filename) {
     return Response.redirect(imageUrl, 302);
 }
 
+// ============ 附件操作 ============
+
+async function listAttachments(env, deviceId) {
+    if (!deviceId || deviceId === '0') {
+        return jsonResponse({ success: true, attachments: [] });
+    }
+
+    const prefix = `attachments/${deviceId}/`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}`);
+    s3Url.searchParams.set('list-type', '2');
+    s3Url.searchParams.set('prefix', prefix);
+    s3Url.searchParams.set('max-keys', '100');
+
+    const signedRequest = await signS3Request(env, 'GET', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), { headers: signedRequest.headers });
+        if (!resp.ok) {
+            return jsonResponse({ error: 'S3 请求失败' }, 502);
+        }
+        const xml = await resp.text();
+        const attachments = parseS3ListAttachmentsXml(xml, prefix, env);
+        return jsonResponse({ success: true, attachments });
+    } catch (err) {
+        console.error('[S3附件列表] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
+async function uploadAttachment(request, env) {
+    try {
+        const formData = await request.formData();
+        const file = formData.get('attachment');
+        const deviceId = formData.get('deviceId');
+
+        if (!file || !file.name) return jsonResponse({ error: '请选择附件文件' }, 400);
+        if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId 参数' }, 400);
+        if (file.size > 20 * 1024 * 1024) return jsonResponse({ error: '附件大小不能超过20MB' }, 400);
+
+        const ext = file.name.includes('.') ? '.' + file.name.split('.').pop().toLowerCase() : '';
+        const baseName = ext
+            ? file.name.slice(0, file.name.length - ext.length).replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200)
+            : file.name.replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200);
+        const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}_${encodeURIComponent(baseName)}${ext}`;
+        const s3Key = `attachments/${deviceId}/${filename}`;
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+
+        const body = await file.arrayBuffer();
+        const contentType = file.type || 'application/octet-stream';
+
+        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType);
+
+        const resp = await fetch(s3Url.toString(), {
+            method: 'PUT',
+            headers: signedRequest.headers,
+            body: new Uint8Array(body),
+        });
+
+        if (!resp.ok && resp.status !== 200) {
+            return jsonResponse({ error: '上传到 S3 失败' }, 502);
+        }
+
+        const attachmentUrl = `${env.S3_PUBLIC_URL}/${s3Key}`;
+
+        return jsonResponse({
+            success: true,
+            url: attachmentUrl,
+            key: s3Key,
+            filename,
+            originalName: file.name,
+            size: file.size,
+        });
+    } catch (err) {
+        console.error('[S3附件上传] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
+async function deleteAttachment(env, deviceId, filename) {
+    if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
+
+    const s3Key = `attachments/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+
+    const signedRequest = await signS3Request(env, 'DELETE', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), {
+            method: 'DELETE',
+            headers: signedRequest.headers,
+        });
+        if (!resp.ok && resp.status !== 204) {
+            return jsonResponse({ error: 'S3 删除失败' }, 502);
+        }
+        return jsonResponse({ success: true });
+    } catch (err) {
+        console.error('[S3附件删除] 异常:', err.message);
+        return jsonResponse({ error: err.message }, 500);
+    }
+}
+
 // ============ S3 工具函数 ============
 
 // AWS Signature V4 签名
@@ -585,6 +702,33 @@ function parseS3ListXml(xml, prefix, env) {
         img.url = `${env.S3_PUBLIC_URL}/images/${deviceId}/${img.filename}`;
     });
     return images;
+}
+
+// 解析 S3 List 响应用于附件
+function parseS3ListAttachmentsXml(xml, prefix, env) {
+    const attachments = [];
+    const contents = xml.match(/<Contents>[\s\S]*?<\/Contents>/g) || [];
+    for (const content of contents) {
+        const keyMatch = content.match(/<Key>([^<]+)<\/Key>/);
+        const sizeMatch = content.match(/<Size>(\d+)<\/Size>/);
+        const timeMatch = content.match(/<LastModified>([^<]+)<\/LastModified>/);
+        if (keyMatch) {
+            const key = keyMatch[1];
+            if (key.endsWith('/')) continue;
+            const filename = key.replace(prefix, '');
+            const parts = filename.match(/^(\d+)_([0-9a-f]+)_(.+)$/);
+            const displayName = parts ? decodeURIComponent(parts[3]) : filename;
+            attachments.push({
+                filename,
+                displayName,
+                key,
+                size: sizeMatch ? parseInt(sizeMatch[1]) : 0,
+                lastModified: timeMatch ? timeMatch[1] : '',
+                url: `${env.S3_PUBLIC_URL}/${key}`,
+            });
+        }
+    }
+    return attachments;
 }
 
 // ============ 工具函数 ============

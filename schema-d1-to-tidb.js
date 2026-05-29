@@ -1,6 +1,6 @@
 /**
- * 对齐 TiDB 表结构，使其与 D1 保持兼容（默认值、类型一致）
- * 使用方法：node align-tidb.js
+ * 以 D1 表结构为准，对齐 TiDB（修改 TiDB 列类型/默认值，使其与 D1 兼容）
+ * 使用方法：node schema-d1-to-tidb.js
  */
 
 const mysql = require('mysql2');
@@ -33,7 +33,7 @@ function query(sql) {
 
 async function main() {
     console.log('='.repeat(60));
-    console.log('对齐 TiDB → D1 表结构');
+    console.log('对齐 TiDB 表结构 → D1 兼容');
     console.log('='.repeat(60));
 
     // ========== 1. announcements 表校验 ==========
@@ -97,8 +97,8 @@ async function main() {
 
     // 提示下一步
     console.log('\n💡 下一步:');
-    console.log('   1. node sync-d1-to-tidb.js     # 把 D1 数据同步到 TiDB');
-    console.log('   2. node sync-schema-tidb-to-d1.js  # (可选) 以 TiDB 为基准刷新 D1 表结构');
+    console.log('   1. node data-d1-to-tidb.js     # 把 D1 数据同步到 TiDB');
+    console.log('   2. node schema-tidb-to-d1.js     # (可选) 反向对齐 D1 表结构');
 }
 
 main().catch(e => {

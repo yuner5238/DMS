@@ -1138,6 +1138,10 @@ function showDeviceModal(id = null) {
     }
     modal.show();
     
+    // 加载附件列表
+    const currentDeviceId = document.getElementById('deviceIdCode').value;
+    loadAttachments(currentDeviceId);
+
     // 添加键盘事件监听
     setupDeviceModalKeyboardEvents();
 
@@ -1797,6 +1801,136 @@ function pasteAndUploadImage(blob, deviceId, editor) {
     xhr.send(formData);
 }
 
+// ========== 附件管理 ==========
+
+// 加载设备附件列表
+async function loadAttachments(deviceId) {
+    const container = document.getElementById('deviceAttachmentsList');
+    if (!container || !deviceId) {
+        if (container) container.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/attachments/${deviceId}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        if (!data.attachments || data.attachments.length === 0) {
+            container.innerHTML = '<div style="font-size:12px;color:#adb5bd;padding:4px 0;">暂无附件</div>';
+            return;
+        }
+
+        container.innerHTML = data.attachments.map(a => {
+            const ext = (a.displayName || a.filename).split('.').pop().toLowerCase();
+            const iconClass = getAttachmentIconClass(ext);
+            const abbr = ext.toUpperCase().slice(0, 3);
+            return `
+                <div class="attachment-item">
+                    <div class="attachment-icon ${iconClass}">${abbr}</div>
+                    <div class="attachment-info">
+                        <div class="attachment-name">
+                            <a href="${a.url}" target="_blank" title="${a.displayName || a.filename}">${escapeHtml(a.displayName || a.filename)}</a>
+                        </div>
+                        <div class="attachment-meta">${formatFileSize(a.size)}</div>
+                    </div>
+                    <div class="attachment-actions">
+                        <button onclick="deleteAttachmentFile('${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('加载附件失败:', err);
+        container.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:4px 0;">加载失败</div>';
+    }
+}
+
+function getAttachmentIconClass(ext) {
+    if (ext === 'pdf') return 'pdf';
+    if (/^docx?$/.test(ext) || ext === 'doc') return 'doc';
+    if (/^xlsx?$/.test(ext) || /^csv$/.test(ext)) return 'xls';
+    if (/^(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(ext)) return 'img';
+    if (/^(zip|rar|7z|tar|gz)$/.test(ext)) return 'zip';
+    return 'other';
+}
+
+// 上传附件
+function uploadAttachmentFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const deviceId = document.getElementById('deviceId').value
+        || document.getElementById('deviceIdCode').value;
+    if (!deviceId) {
+        alert('无法确定设备ID，请先保存设备后再添加附件');
+        event.target.value = '';
+        return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+        alert('附件大小不能超过20MB');
+        event.target.value = '';
+        return;
+    }
+
+    const container = document.getElementById('deviceAttachmentsList');
+    const tmpId = 'attachUpload_' + Date.now();
+    if (container) {
+        container.insertAdjacentHTML('beforeend',
+            `<div id="${tmpId}" class="img-upload-progress" style="margin:4px 0;">
+                <span class="img-upload-progress-text">${escapeHtml(file.name)} 上传中...</span>
+            </div>`);
+    }
+
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('attachment', file);
+    formData.append('deviceId', deviceId);
+
+    xhr.open('POST', `${API_BASE}/upload/attachment`);
+
+    xhr.onload = function () {
+        const progEl = document.getElementById(tmpId);
+        if (progEl) progEl.remove();
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                JSON.parse(xhr.responseText);
+                loadAttachments(deviceId);
+            } catch (_) {
+                alert('上传失败');
+            }
+        } else {
+            alert('上传失败');
+        }
+    };
+
+    xhr.onerror = function () {
+        const progEl = document.getElementById(tmpId);
+        if (progEl) { progEl.textContent = '网络错误'; progEl.style.color = '#dc3545'; }
+    };
+
+    xhr.send(formData);
+    event.target.value = '';
+}
+
+// 删除附件
+async function deleteAttachmentFile(deviceId, encodedFilename) {
+    const filename = decodeURIComponent(encodedFilename);
+    if (!confirm('确定要删除此附件吗？')) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/attachments/${deviceId}/${encodeURIComponent(filename)}`, {
+            method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        loadAttachments(deviceId);
+    } catch (err) {
+        console.error('删除附件失败:', err);
+        alert('删除失败: ' + err.message);
+    }
+}
+
 // 删除单个图片
 async function deleteSingleImage(filename) {
     if (!confirm(`确定要删除图片 "${filename}" 吗？此操作不可撤销。`)) return;
@@ -2203,11 +2337,9 @@ function decodeRichText(text) {
     // 确保连续的换行被正确处理
     html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
 
-    // 将旧代理URL 替换为 S3 公开URL
-    if (window.S3_PUBLIC_URL) {
-        html = html.replace(/\/api\/images\/(\d+)\/([^"'>\s]+)/gi,
-            window.S3_PUBLIC_URL + '/images/$1/$2');
-    }
+
+    // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
+
 
     // 为已有 <img> 标签添加加载错误提示（避免重复添加），并补默认 size 类
     html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
@@ -2750,13 +2882,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (editDeviceId) {
         console.log('准备打开编辑弹窗，设备ID:', editDeviceId);
         setTimeout(() => {
-            // 确保设备数据已加载
-            if (allDevices && allDevices.find(d => d.id === parseInt(editDeviceId))) {
-                editDevice(parseInt(editDeviceId));
+            // 兼容 device_id（6位码，如000007）和数据库id
+            let device = null;
+            if (/^\d{6}$/.test(editDeviceId)) {
+                device = allDevices && allDevices.find(d => d.device_id === editDeviceId);
             } else {
-                console.warn('设备未找到，延迟重试');
+                device = allDevices && allDevices.find(d => d.id === parseInt(editDeviceId));
+            }
+            if (device) {
+                editDevice(device.id);
+            } else {
+                console.warn('设备未找到，延迟重试，设备ID:', editDeviceId);
                 setTimeout(() => {
-                    editDevice(parseInt(editDeviceId));
+                    let device2 = null;
+                    if (/^\d{6}$/.test(editDeviceId)) {
+                        device2 = allDevices && allDevices.find(d => d.device_id === editDeviceId);
+                    } else {
+                        device2 = allDevices && allDevices.find(d => d.id === parseInt(editDeviceId));
+                    }
+                    if (device2) editDevice(device2.id);
                 }, 500);
             }
         }, 500);
