@@ -1827,6 +1827,7 @@ async function loadAttachments(deviceId) {
             const abbr = ext.toUpperCase().slice(0, 3);
             return `
                 <div class="attachment-item">
+                    <i class="bi bi-check-circle-fill" style="color:#10b981;font-size:18px;flex-shrink:0;"></i>
                     <div class="attachment-icon ${iconClass}">${abbr}</div>
                     <div class="attachment-info">
                         <div class="attachment-name">
@@ -1859,8 +1860,8 @@ function uploadAttachmentFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const deviceId = document.getElementById('deviceId').value
-        || document.getElementById('deviceIdCode').value;
+    // 使用设备码（deviceIdCode）而非数据库主键，与 loadAttachments/list API 保持一致
+    const deviceId = document.getElementById('deviceIdCode').value;
     if (!deviceId) {
         alert('无法确定设备ID，请先保存设备后再添加附件');
         event.target.value = '';
@@ -2339,6 +2340,9 @@ function decodeRichText(text) {
 
 
     // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
+
+    // 将旧 S3 直链替换为代理 URL（避免 401）
+    html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
 
 
     // 为已有 <img> 标签添加加载错误提示（避免重复添加），并补默认 size 类

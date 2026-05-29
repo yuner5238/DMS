@@ -9,6 +9,8 @@ const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, Dele
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
 const { s3Config } = require('./s3.config');
+const { marked } = require('marked');
+
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -831,6 +833,35 @@ app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
             chunks.push(chunk);
         }
         const buffer = Buffer.concat(chunks);
+
+        // Markdown 文件转 HTML 预览
+        if (/\.md$/i.test(filename)) {
+            const mdContent = buffer.toString('utf8');
+            const htmlContent = marked.parse(mdContent);
+            const page = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${filename.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</title>
+<style>
+    body { max-width: 860px; margin: 40px auto; padding: 0 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.7; color: #24292e; }
+    h1, h2 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; }
+    code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #dfe2e5; padding: 8px 12px; text-align: left; }
+    th { background: #f6f8fa; }
+    blockquote { border-left: 4px solid #dfe2e5; padding: 0 16px; color: #6a737d; margin: 0; }
+    img { max-width: 100%; }
+</style>
+</head>
+<body>${htmlContent}</body>
+</html>`;
+            res.set('Content-Type', 'text/html; charset=utf-8');
+            res.set('Content-Length', Buffer.byteLength(page).toString());
+            return res.end(page);
+        }
 
         res.set('Content-Type', s3Response.ContentType || 'application/octet-stream');
         res.set('Content-Length', buffer.length.toString());

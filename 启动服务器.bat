@@ -9,7 +9,7 @@ echo.
 cd /d "%~dp0"
 
 echo 检查端口占用情况...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3001" ^| findstr "LISTENING"') do (
     echo 发现端口3000被占用，PID: %%a，正在停止...
     taskkill /F /PID %%a >nul 2>&1
     echo 已停止进程

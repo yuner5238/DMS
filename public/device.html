@@ -672,6 +672,9 @@
 
             // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
 
+            // 将旧 S3 直链替换为代理 URL（避免 401）
+            html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
+
 
             // 为图片添加加载错误提示
             html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
