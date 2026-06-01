@@ -386,7 +386,7 @@ function renderDevicesTableView(devices) {
                     <td data-col="expiry">${expiryDateText}</td>
                     <td data-col="checkin">${device.checkin_time ? formatDate(device.checkin_time) : '<span class="text-muted">-</span>'}</td>
                     <td data-col="remark">${device.remark
-                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
+                        ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'")}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
                     <td data-col="actions">
@@ -733,7 +733,7 @@ function renderDevices(devices) {
                                 </div>
                             </div>
                             <div class="device-details">
-                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
+                                <span class="detail-item remark"><span class="detail-label">备注:</span><span class="detail-value remark-clickable" onclick="event.stopPropagation(); showRemarkPreview(${device.id}, '${device.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'")}')">${decodeRichTextToSingleLine(device.remark || '')}</span></span>
                                 <div class="detail-item location-checkin-row">
                                     <div class="detail-half location-half"><span class="detail-label">位置:</span><span class="detail-value location-value" title="${storageLocationValue}">${storageLocationValue}</span></div>
                                     <div class="detail-half checkin-half"><span class="detail-label">入库时间:</span><span class="detail-value checkin-time" title="${checkinTimeValue}">${checkinTimeValue}</span></div>
