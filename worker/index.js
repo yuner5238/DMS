@@ -466,10 +466,31 @@ async function deleteImage(env, deviceId, filename) {
     }
 }
 
-// 代理 S3 图片（直接重定向到公开 URL）
+// 代理 S3 图片（签名后读取二进制数据返回，不走公开读重定向）
 async function proxyImage(env, deviceId, filename) {
-    const imageUrl = `${env.S3_PUBLIC_URL}/images/${deviceId}/${filename}`;
-    return Response.redirect(imageUrl, 302);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/images/${deviceId}/${encodeURIComponent(filename)}`);
+    const signedRequest = await signS3Request(env, 'GET', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), {
+            method: 'GET',
+            headers: signedRequest.headers,
+        });
+        if (!resp.ok) {
+            return new Response('Image not found', { status: resp.status });
+        }
+        const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
+        const body = await resp.arrayBuffer();
+        return new Response(body, {
+            status: 200,
+            headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=86400',
+            },
+        });
+    } catch (err) {
+        return new Response('S3 fetch error: ' + err.message, { status: 500 });
+    }
 }
 
 // ============ 附件操作 ============

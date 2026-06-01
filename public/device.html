@@ -823,7 +823,7 @@
                         <button class="btn btn-primary" onclick="editDevice()">
                             <i class="bi bi-pencil"></i> 编辑设备
                         </button>
-                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${device.name}')">
+                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${device.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'")}')">
                             <i class="bi bi-trash"></i> 删除设备
                         </button>
                     </div>
