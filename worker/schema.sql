@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS devices (
     location_status TEXT DEFAULT 'in_stock',
     destination TEXT DEFAULT '',            -- TiDB: varchar(200)
     responsible_person TEXT DEFAULT '',     -- TiDB: varchar(100)
+    department_path TEXT DEFAULT '',       -- TiDB: varchar(200) 所属路径
+    serial_number TEXT DEFAULT '',         -- TiDB: varchar(200) 序列号
     remark TEXT DEFAULT '',                 -- TiDB: text (无DEFAULT，应用层补偿)
     expiry_date DATE DEFAULT NULL,
     checkin_time DATETIME,

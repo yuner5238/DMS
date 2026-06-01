@@ -36,21 +36,26 @@ let viewMode = 'table';  // 视图模式：'list' 列表模式 或 'table' 表�
 const COLUMN_DEFS = [
     { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
     { key: 'name',        label: '设备名称', dataCol: 'name' },
+    { key: 'serialNumber',label: '序列号',   dataCol: 'serial-number', defaultVisible: false },
     { key: 'quantity',    label: '数量',     dataCol: 'quantity' },
     { key: 'tags',        label: '标签',     dataCol: 'tags' },
-    { key: 'location',    label: '位置/去向', dataCol: 'location' },
-    { key: 'expiry',      label: '到期日期', dataCol: 'expiry' },
-    { key: 'remark',      label: '备注',     dataCol: 'remark' },
+    { key: 'department',  label: '所属路径', dataCol: 'department', defaultVisible: false },
     { key: 'responsible', label: '负责人',   dataCol: 'responsible', defaultVisible: false },
+    { key: 'location',    label: '位置/去向', dataCol: 'location' },
     { key: 'status',      label: '状态',     dataCol: 'status',      defaultVisible: false },
+    { key: 'expiry',      label: '到期日期', dataCol: 'expiry' },
     { key: 'checkin',     label: '入库时间', dataCol: 'checkin',      defaultVisible: false },
+    { key: 'remark',      label: '备注',     dataCol: 'remark' },
     { key: 'actions',     label: '操作',     dataCol: 'actions' },
 ];
 
+const COLUMN_VERSION = 2; // 变更列定义时递增此版本号，自动清除旧缓存
+
 let columnVisibility = (() => {
     try {
+        const savedVersion = localStorage.getItem('dms_column_version');
         const saved = localStorage.getItem('dms_column_visibility');
-        if (saved) {
+        if (saved && Number(savedVersion) === COLUMN_VERSION) {
             const parsed = JSON.parse(saved);
             COLUMN_DEFS.forEach(c => { if (!(c.key in parsed)) parsed[c.key] = c.defaultVisible !== false; });
             return parsed;
@@ -58,6 +63,7 @@ let columnVisibility = (() => {
     } catch (e) {}
     const defaults = {};
     COLUMN_DEFS.forEach(c => defaults[c.key] = c.defaultVisible !== false);
+    localStorage.setItem('dms_column_version', COLUMN_VERSION);
     return defaults;
 })();
 
@@ -264,8 +270,8 @@ function updateRemarkPreviewStatus() {
         // 右键图片显示尺寸菜单
         setupImageContextMenu(remarkContent);
 
-        // 粘贴截图自动上传
-        setupImagePaste(remarkContent, () => document.getElementById('remarkPreviewDeviceId').value);
+        // 粘贴截图自动上传（使用设备码，与文件选择器上传路径一致）
+        setupImagePaste(remarkContent, () => document.getElementById('remarkPreviewDeviceIdCode').value);
     }
 })();
 
@@ -370,17 +376,19 @@ function renderDevicesTableView(devices) {
                 <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')" style="cursor: pointer;">
                     <td data-col="device-id">${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td data-col="name" class="device-name-cell"><strong>${device.name}</strong></td>
+                    <td data-col="serial-number">${device.serial_number || '<span class="text-muted">-</span>'}</td>
                     <td data-col="quantity">${device.quantity || 1}</td>
                     <td data-col="tags">${renderTagBadges(device)}</td>
+                    <td data-col="department">${device.department_path || '<span class="text-muted">-</span>'}</td>
+                    <td data-col="responsible">${device.responsible_person || '<span class="text-muted">-</span>'}</td>
                     <td data-col="location">${locationText}</td>
+                    <td data-col="status"><span class="status-badge ${statusClass[device.status] || ''}">${device.status || '-'}</span></td>
                     <td data-col="expiry">${expiryDateText}</td>
+                    <td data-col="checkin">${device.checkin_time ? formatDate(device.checkin_time) : '<span class="text-muted">-</span>'}</td>
                     <td data-col="remark">${device.remark
                         ? `<span class="remark-tooltip-wrapper" onclick="event.stopPropagation();if(!window._remarkTouchFlag){showRemarkPreview(${device.id}, '${device.name.replace(/'/g, "\\'")}')}window._remarkTouchFlag=false"><i class="bi bi-file-text remark-icon" ontouchstart="window._remarkTouchFlag=true;event.stopPropagation()"></i></span>`
                         : '<span class="text-muted">-</span>'
                     }</td>
-                    <td data-col="responsible">${device.responsible_person || '<span class="text-muted">-</span>'}</td>
-                    <td data-col="status"><span class="status-badge ${statusClass[device.status] || ''}">${device.status || '-'}</span></td>
-                    <td data-col="checkin">${device.checkin_time ? formatDate(device.checkin_time) : '<span class="text-muted">-</span>'}</td>
                     <td data-col="actions">
                         <div class="d-flex gap-1">
                             ${isOut
@@ -401,14 +409,16 @@ function renderDevicesTableView(devices) {
                     <tr>
                         <th data-col="device-id">设备ID</th>
                         <th data-col="name">设备名称</th>
+                        <th data-col="serial-number">序列号</th>
                         <th data-col="quantity">数量</th>
                         <th data-col="tags">标签</th>
-                        <th data-col="location">位置/去向</th>
-                        <th data-col="expiry">到期日期</th>
-                        <th data-col="remark">备注</th>
+                        <th data-col="department">所属路径</th>
                         <th data-col="responsible">负责人</th>
+                        <th data-col="location">位置/去向</th>
                         <th data-col="status">状态</th>
+                        <th data-col="expiry">到期日期</th>
                         <th data-col="checkin">入库时间</th>
+                        <th data-col="remark">备注</th>
                         <th data-col="actions">操作</th>
                         <th class="col-settings-th">
                             <button class="btn btn-sm btn-outline-secondary col-settings-btn" onclick="event.stopPropagation();toggleColumnSettings(event)" title="列设置">
@@ -1105,6 +1115,8 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceStatus').value = d.status;
         document.getElementById('deviceRemark').value = d.remark || '';
         document.getElementById('deviceResponsiblePerson').value = d.responsible_person || '';
+        document.getElementById('deviceDepartmentPath').value = d.department_path || '';
+        document.getElementById('deviceSerialNumber').value = d.serial_number || '';
         // 到期日期
         if (d.expiry_date) {
             document.getElementById('deviceExpiryDate').value = formatDate(d.expiry_date);
@@ -1128,6 +1140,8 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceStatus').value = '正常';
         document.getElementById('deviceRemark').value = '';
         document.getElementById('deviceResponsiblePerson').value = '';
+        document.getElementById('deviceDepartmentPath').value = '';
+        document.getElementById('deviceSerialNumber').value = '';
         document.getElementById('deviceExpiryDate').value = '';
         document.getElementById('deviceRemarkEditor').innerHTML = '';
         document.getElementById('deleteDeviceBtn').style.display = 'none';
@@ -1175,8 +1189,8 @@ function showDeviceModal(id = null) {
         // 右键图片显示尺寸菜单
         setupImageContextMenu(remarkEditor);
 
-        // 粘贴截图自动上传
-        setupImagePaste(remarkEditor, () => document.getElementById('deviceId').value);
+        // 粘贴截图自动上传（使用设备码，与文件选择器上传路径一致）
+        setupImagePaste(remarkEditor, () => document.getElementById('deviceIdCode').value);
     }
 }
 
@@ -1257,7 +1271,9 @@ async function saveDevice() {
         remark: encodeRichText(remarkEditor ? remarkEditor.innerHTML : ''),
         checkin_time: checkinTime ? checkinTime + ' ' + new Date().toTimeString().slice(0,8) : null,
         expiry_date: expiryDate,
-        responsible_person: document.getElementById('deviceResponsiblePerson')?.value || ''
+        responsible_person: document.getElementById('deviceResponsiblePerson')?.value || '',
+        department_path: document.getElementById('deviceDepartmentPath')?.value || '',
+        serial_number: document.getElementById('deviceSerialNumber')?.value || ''
     };
 
     if (!data.name) { alert('请输入设备名称'); return; }
@@ -2085,8 +2101,8 @@ function openRichTextEditor() {
     // 右键图片显示尺寸菜单
     setupImageContextMenu(richTextEditor);
 
-    // 粘贴截图自动上传
-    setupImagePaste(richTextEditor, () => document.getElementById('deviceId').value);
+    // 粘贴截图自动上传（使用设备码，与文件选择器上传路径一致）
+    setupImagePaste(richTextEditor, () => document.getElementById('deviceIdCode').value);
 
     new bootstrap.Modal(document.getElementById('richTextEditorModal')).show();
 }

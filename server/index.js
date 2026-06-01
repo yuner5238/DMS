@@ -282,7 +282,7 @@ app.get('/api/devices/by-code/:code', async (req, res) => {
 // 添加设备
 app.post('/api/devices', async (req, res) => {
     try {
-        const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person } = req.body;
+        const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number } = req.body;
         
         if (!name) return res.status(400).json({ error: '设备名称不能为空' });
         if (!warehouseName) return res.status(400).json({ error: '请选择仓库' });
@@ -307,8 +307,8 @@ app.post('/api/devices', async (req, res) => {
         }
 
         const result = await query(
-            `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [finalDeviceId, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null]
+            `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [finalDeviceId, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null]
         );
         
         res.json({ id: result.insertId, warehouseName, name });
@@ -338,6 +338,8 @@ app.put('/api/devices/:id', async (req, res) => {
             { key: 'checkin_time',    col: 'checkin_time',      fn: v => v || null },
             { key: 'checkout_time',   col: 'checkout_time',     fn: v => v || null },
             { key: 'responsible_person', col: 'responsible_person', fn: v => v || null },
+            { key: 'department_path',   col: 'department_path',   fn: v => v || null },
+            { key: 'serial_number',     col: 'serial_number',     fn: v => v || null },
         ];
 
         // 只包含 req.body 中实际存在的字段（排除 undefined）

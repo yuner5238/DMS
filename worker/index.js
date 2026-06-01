@@ -210,7 +210,7 @@ async function getDevice(env, id) {
 
 async function createDevice(request, env) {
     const body = await request.json();
-    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person } = body;
+    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
     if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
@@ -220,9 +220,9 @@ async function createDevice(request, env) {
     const tags = tag_names || tag_name || '';
 
     const result = await env.DB.prepare(
-        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null
+        device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
@@ -230,14 +230,14 @@ async function createDevice(request, env) {
 
 async function updateDevice(request, env, id) {
     const body = await request.json();
-    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, expiry_date, responsible_person } = body;
+    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, expiry_date, responsible_person, department_path, serial_number } = body;
 
     const tags = tag_names || tag_name || '';
 
     await env.DB.prepare(
-        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).bind(
-        device_id || null, warehouseName || '', name || '', tags, status || '正常', quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', expiry_date || null, checkin_time || null, checkout_time || null, responsible_person || null, id
+        device_id || null, warehouseName || '', name || '', tags, status || '正常', quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', expiry_date || null, checkin_time || null, checkout_time || null, responsible_person || null, department_path || null, serial_number || null, id
     ).run();
 
     return jsonResponse({ id, warehouseName, name });

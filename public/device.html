@@ -775,6 +775,14 @@
                             <div class="detail-value">${device.quantity || '-'}</div>
                         </div>
                         <div class="detail-row">
+                            <div class="detail-label">所属路径</div>
+                            <div class="detail-value">${device.department_path || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">序列号</div>
+                            <div class="detail-value">${device.serial_number || '-'}</div>
+                        </div>
+                        <div class="detail-row">
                             <div class="detail-label">负责人</div>
                             <div class="detail-value">${device.responsible_person || '-'}</div>
                         </div>
@@ -962,6 +970,18 @@
                     </div>
                 </div>
                 <div class="edit-row">
+                    <div class="edit-label">所属路径</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editDepartmentPath" value="${escapeHtml(device.department_path || '')}" placeholder="公司或部门">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">序列号</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSerialNumber" value="${escapeHtml(device.serial_number || '')}" placeholder="设备序列号">
+                    </div>
+                </div>
+                <div class="edit-row">
                     <div class="edit-label">负责人</div>
                     <div class="edit-form-group">
                         <input type="text" id="editResponsiblePerson" value="${escapeHtml(device.responsible_person || '')}">
@@ -1095,7 +1115,9 @@
                 remark: document.getElementById('editRemark')?.value || '',
                 checkin_time: checkinDate ? checkinDate + ' 00:00:00' : null,
                 expiry_date: expiryDate || null,
-                responsible_person: document.getElementById('editResponsiblePerson')?.value || ''
+                responsible_person: document.getElementById('editResponsiblePerson')?.value || '',
+                department_path: document.getElementById('editDepartmentPath')?.value || '',
+                serial_number: document.getElementById('editSerialNumber')?.value || ''
             };
 
             if (!data.name) { alert('请输入设备名称'); return; }
