@@ -2,6 +2,9 @@
 // 使用 Cloudflare D1 数据库
 // 测试 GitHub Actions 自动部署 - 2025 第三次测试（Node.js v20）
 
+// S3 存储根目录前缀（与 server/s3.config.js 保持一致）
+const S3_BASE = 'DMS storage';
+
 // ============ 路由处理 ============
 export default {
     async fetch(request, env, ctx) {
@@ -371,7 +374,7 @@ async function listImages(env, deviceId) {
         return jsonResponse({ success: true, images: [] });
     }
 
-    const prefix = `images/${deviceId}/`;
+    const prefix = `${S3_BASE}/images/${deviceId}/`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}`);
     s3Url.searchParams.set('list-type', '2');
     s3Url.searchParams.set('prefix', prefix);
@@ -388,7 +391,7 @@ async function listImages(env, deviceId) {
         }
 
         const xml = await resp.text();
-        const images = parseS3ListXml(xml, prefix, env);
+        const images = parseS3ListXml(xml, prefix, deviceId, env);
 
         return jsonResponse({ success: true, images });
     } catch (err) {
@@ -411,8 +414,8 @@ async function uploadImage(request, env) {
         // 生成唯一文件名
         const ext = file.name.includes('.') ? '.' + file.name.split('.').pop().toLowerCase() : '.png';
         const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}${ext}`;
-        const s3Key = `images/${deviceId}/${filename}`;
-        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+        const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
@@ -444,8 +447,8 @@ async function uploadImage(request, env) {
 async function deleteImage(env, deviceId, filename) {
     if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
 
-    const s3Key = `images/${deviceId}/${filename}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+    const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url);
 
@@ -468,7 +471,7 @@ async function deleteImage(env, deviceId, filename) {
 
 // 代理 S3 图片（签名后读取二进制数据返回，不走公开读重定向）
 async function proxyImage(env, deviceId, filename) {
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/images/${deviceId}/${encodeURIComponent(filename)}`);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${S3_BASE}/images/${deviceId}/${encodeURIComponent(filename)}`);
     const signedRequest = await signS3Request(env, 'GET', s3Url);
 
     try {
@@ -500,7 +503,7 @@ async function listAttachments(env, deviceId) {
         return jsonResponse({ success: true, attachments: [] });
     }
 
-    const prefix = `attachments/${deviceId}/`;
+    const prefix = `${S3_BASE}/attachments/${deviceId}/`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}`);
     s3Url.searchParams.set('list-type', '2');
     s3Url.searchParams.set('prefix', prefix);
@@ -537,8 +540,8 @@ async function uploadAttachment(request, env) {
             ? file.name.slice(0, file.name.length - ext.length).replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200)
             : file.name.replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200);
         const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}_${encodeURIComponent(baseName)}${ext}`;
-        const s3Key = `attachments/${deviceId}/${filename}`;
-        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+        const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
@@ -574,8 +577,8 @@ async function uploadAttachment(request, env) {
 async function deleteAttachment(env, deviceId, filename) {
     if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
 
-    const s3Key = `attachments/${deviceId}/${filename}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${s3Key}`);
+    const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url);
 
@@ -713,14 +716,14 @@ function parseS3ListXml(xml, prefix, env) {
                 key,
                 size: sizeMatch ? parseInt(sizeMatch[1]) : 0,
                 lastModified: timeMatch ? timeMatch[1] : '',
-                url: `${env.S3_PUBLIC_URL}/images/${filename ? prefix.replace(/\/$/, '') + '/' + filename : key}`,
+                url: `${env.S3_PUBLIC_URL}/${key}`,
             });
         }
     }
     // 修正 URL：使用原始 deviceId
-    const deviceId = prefix.replace('images/', '').replace('/', '');
+    const deviceId = prefix.replace(`${S3_BASE}/images/`, '').replace('/', '');
     images.forEach(img => {
-        img.url = `${env.S3_PUBLIC_URL}/images/${deviceId}/${img.filename}`;
+        img.url = `${env.S3_PUBLIC_URL}/${S3_BASE}/images/${deviceId}/${img.filename}`;
     });
     return images;
 }
