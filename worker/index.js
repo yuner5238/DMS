@@ -610,7 +610,8 @@ async function signS3Request(env, method, s3Url, body, contentType) {
     const host = s3Url.host;
     const canonicalUri = s3Url.pathname;
     const canonicalQuery = s3Url.searchParams.toString()
-        .split('&').sort().join('&');
+        .split('&').sort().join('&')
+        .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
 
     const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
     const payloadHash = body ? await sha256Hash(body) : 'UNSIGNED-PAYLOAD';
