@@ -392,11 +392,11 @@ function renderDevicesTableView(devices) {
                     <td data-col="actions">
                         <div class="d-flex gap-1">
                             ${isOut
-                                ? `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
-                                : `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`
+                                ? `<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${escapeOnClick(device.name)}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
+                                : `<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${escapeOnClick(device.name)}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`
                             }
                             <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${escapeOnClick(device.name)}')" title="删除"><i class="bi bi-trash"></i></button>
                         </div>
                     </td>
                 </tr>
@@ -547,7 +547,7 @@ function renderWarehouseList() {
             </div>
         `;
         return `
-            <div class="nav-link warehouse-card${isAll ? ' all' : ''}${isActive ? ' active' : ''}" data-id="${w.id}" data-name="${w.name}" onclick="selectWarehouse(${w.id}, '${w.name}')">
+            <div class="nav-link warehouse-card${isAll ? ' all' : ''}${isActive ? ' active' : ''}" data-id="${w.id}" data-name="${escapeOnClick(w.name)}" onclick="selectWarehouse(${w.id}, '${escapeOnClick(w.name)}')">
                 ${actionsHtml}
                 <div class="warehouse-name">
                     <i class="bi ${icon}"></i> ${w.name}
@@ -566,7 +566,7 @@ function renderTagStats() {
     const list = document.getElementById('tagStatsList');
     if (tagStats.length === 0) { list.innerHTML = '<div class="text-muted small">暂无标签数据</div>'; return; }
     list.innerHTML = tagStats.map(tag => `
-        <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${tag.name}')" style="cursor:pointer;">
+        <div class="tag-list-item ${currentTagFilter === tag.name ? 'active' : ''}" onclick="filterByTag('${escapeOnClick(tag.name)}')" style="cursor:pointer;">
             <span><i class="bi bi-tag"></i> ${tag.name} <span class="count">${tag.total_count}</span></span>
         </div>
     `).join('');
@@ -708,8 +708,8 @@ function renderDevices(devices) {
     const renderDeviceItem = (device, isOut) => {
         const tagHtml = renderTagBadges(device);
         const actionBtn = isOut
-            ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${device.name}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
-            : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${device.name}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
+            ? `<button class="btn btn-sm btn-outline-success checkin-btn" onclick="event.stopPropagation(); showCheckinModal(${device.id}, '${escapeOnClick(device.name)}')" title="入库"><i class="bi bi-box-arrow-left"></i></button>`
+            : `<button class="btn btn-sm btn-outline-warning checkout-btn" onclick="event.stopPropagation(); showCheckoutModal(${device.id}, '${escapeOnClick(device.name)}')" title="出库"><i class="bi bi-box-arrow-right"></i></button>`;
         const destinationTag = isOut && device.destination ? `<span class="destination-tag"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
         const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
         const storageLocationValue = device.storage_location ? device.storage_location : '';
@@ -745,7 +745,7 @@ function renderDevices(devices) {
                         <div class="d-flex gap-2 device-actions">
                             ${actionBtn}
                             <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); editDevice(${device.id})" title="修改"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${device.name}')" title="删除"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteDeviceFromList(${device.id}, '${escapeOnClick(device.name)}')" title="删除"><i class="bi bi-trash"></i></button>
                         </div>
                     </div>
                 </div>
@@ -979,7 +979,7 @@ function renderModalTagBadges() {
         container.innerHTML = modalTags.map(tag => `
             <span class="tag-badge-editable">
                 ${tag}
-                <span class="tag-remove" onclick="removeTagFromDevice('${tag.replace(/'/g, "\\'")}')">&times;</span>
+                <span class="tag-remove" onclick="removeTagFromDevice('${escapeOnClick(tag)}')">&times;</span>
             </span>
         `).join('');
     }
@@ -2020,6 +2020,11 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+// 安全地转义 onclick 属性中的字符串参数（防止 & " ' 破坏 HTML 属性/JS 语法）
+function escapeOnClick(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
 }
 
 // 在 contenteditable 编辑器光标位置插入 HTML（无光标时追加到末尾）
