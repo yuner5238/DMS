@@ -736,7 +736,7 @@
             const html = `
                 <div class="detail-card">
                     <div class="detail-header">
-                        <h4>${device.name || '未命名设备'}</h4>
+                        <h4>${escapeHtml(device.name || '未命名设备')}</h4>
                         ${statusBadge}
                     </div>
                     <div class="detail-body">
@@ -823,7 +823,7 @@
                         <button class="btn btn-primary" onclick="editDevice()">
                             <i class="bi bi-pencil"></i> 编辑设备
                         </button>
-                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${device.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'")}')">
+                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${escapeOnClick(device.name)}')">
                             <i class="bi bi-trash"></i> 删除设备
                         </button>
                     </div>
@@ -1144,6 +1144,11 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // 安全地转义 onclick 属性中的字符串参数（防止 & \ " ' 破坏 HTML 属性/JS 语法）
+        function escapeOnClick(str) {
+            return String(str || '').replace(/\\/g, '\\\\').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
         }
 
         function formatFileSize(bytes) {
