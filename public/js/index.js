@@ -2404,6 +2404,10 @@ function decodeRichTextToSingleLine(text) {
     html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
     html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
 
+    // 列表模式不显示图片（去除 [图片:...] 标记和原始 <img> 标签，避免撑开容器高度）
+    html = html.replace(/\[图片:[^\]]+\]/g, '');
+    html = html.replace(/<img[^>]*>/gi, '');
+
     // 移除多余的空格
     html = html.replace(/\s+/g, ' ').trim();
 
@@ -2853,17 +2857,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadPublicConfig();
     initSidebarResize();
 
-    // 恢复视图模式
+    // 恢复视图模式：优先用户手动选择的，否则按设备类型默认
     const savedViewMode = localStorage.getItem('viewMode');
     if (savedViewMode) {
         viewMode = savedViewMode;
+    } else {
+        viewMode = window.innerWidth <= 768 ? 'list' : 'table';
     }
-    // 初始化按钮图标（默认表格视图）
+    // 初始化按钮图标
     const btn = document.getElementById('viewToggleBtn');
     const icon = btn?.querySelector('i');
-    if (viewMode === 'table' && icon && btn) {
-        icon.className = 'bi bi-grid-3x3-gap';
-        btn.classList.add('active');
+    if (icon && btn) {
+        if (viewMode === 'table') {
+            icon.className = 'bi bi-grid-3x3-gap';
+            btn.classList.add('active');
+            btn.title = '切换到列表视图';
+        } else {
+            icon.className = 'bi bi-layout-text-sidebar';
+            btn.classList.remove('active');
+            btn.title = '切换到表格视图';
+        }
     }
 
     // 恢复已关闭的公告状态
@@ -2929,5 +2942,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }, 500);
             }
         }, 500);
+    }
+
+    // 检查URL参数，如果有remark_edit参数，自动打开备注富文本编辑弹窗
+    const remarkEditDeviceIdCode = urlParams.get('remark_edit');
+    const remarkEditDeviceName = urlParams.get('remark_name');
+    if (remarkEditDeviceIdCode) {
+        const openRemarkEditor = () => {
+            const device = allDevices && allDevices.find(d => d.device_id === remarkEditDeviceIdCode);
+            if (device) {
+                showRemarkPreview(device.id, remarkEditDeviceName || device.name);
+            } else {
+                console.warn('备注编辑：设备未找到，延迟重试', remarkEditDeviceIdCode);
+                setTimeout(() => {
+                    const device2 = allDevices && allDevices.find(d => d.device_id === remarkEditDeviceIdCode);
+                    if (device2) showRemarkPreview(device2.id, remarkEditDeviceName || device2.name);
+                }, 800);
+            }
+        };
+        setTimeout(openRemarkEditor, 800);
     }
 });

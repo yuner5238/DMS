@@ -746,7 +746,7 @@
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">所属仓库</div>
-                            <div class="detail-value">${device.warehouse_name || '-'}</div>
+                            <div class="detail-value">${escapeHtml(device.warehouse_name) || '-'}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">设备标签</div>
@@ -765,7 +765,7 @@
                                         deviceTags = [device.tag_name];
                                     }
                                     return deviceTags.length > 0 
-                                        ? deviceTags.map(tag => `<span class="tag-badge">${tag}</span>`).join('')
+                                        ? deviceTags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('')
                                         : '-';
                                 })()}
                             </div>
@@ -776,19 +776,19 @@
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">所属路径</div>
-                            <div class="detail-value">${device.department_path || '-'}</div>
+                            <div class="detail-value">${escapeHtml(device.department_path) || '-'}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">序列号</div>
-                            <div class="detail-value">${device.serial_number || '-'}</div>
+                            <div class="detail-value">${escapeHtml(device.serial_number) || '-'}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">负责人</div>
-                            <div class="detail-value">${device.responsible_person || '-'}</div>
+                            <div class="detail-value">${escapeHtml(device.responsible_person) || '-'}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">存放位置</div>
-                            <div class="detail-value">${locationText}</div>
+                            <div class="detail-value">${escapeHtml(locationText)}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">入库时间</div>
@@ -874,7 +874,7 @@
             container.innerHTML = `
                 <div class="error">
                     <i class="bi bi-exclamation-triangle"></i>
-                    <p class="mt-3">${message}</p>
+                    <p class="mt-3">${escapeHtml(message)}</p>
                     <a href="index.html" class="btn btn-outline-primary mt-3">
                         <i class="bi bi-arrow-left"></i> 返回设备列表
                     </a>
@@ -1025,12 +1025,6 @@
                     </div>
                 </div>
                 <div class="edit-row">
-                    <div class="edit-label">备注</div>
-                    <div class="edit-form-group">
-                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
-                    </div>
-                </div>
-                <div class="edit-row">
                     <div class="edit-label">创建时间</div>
                     <div class="edit-form-group">
                         <span class="text-muted">${device.created_at ? formatDateTime(device.created_at) : '-'}</span>
@@ -1040,6 +1034,15 @@
                     <div class="edit-label">更新时间</div>
                     <div class="edit-form-group">
                         <span class="text-muted">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</span>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">备注</div>
+                    <div class="edit-form-group">
+                        <button type="button" class="btn btn-sm btn-outline-success mb-2" onclick="openRichTextEditorForDevice('${device.device_id}', '${escapeOnClick(device.name)}')" style="font-size:13px;">
+                            <i class="bi bi-pencil-square"></i> 富文本编辑
+                        </button>
+                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
                     </div>
                 </div>
                 <div class="edit-row" style="align-items: start;">
@@ -1144,6 +1147,15 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+
+        // 跳转到 index.html 的富文本编辑器（编辑当前设备的备注）
+        function openRichTextEditorForDevice(deviceIdCode, deviceName) {
+            const params = new URLSearchParams();
+            params.set('remark_edit', deviceIdCode);
+            params.set('remark_name', deviceName);
+            window.open('index.html?' + params.toString(), '_blank');
         }
 
         // 安全地转义 onclick 属性中的字符串参数（防止 & \ " ' 破坏 HTML 属性/JS 语法）

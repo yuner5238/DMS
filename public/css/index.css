@@ -112,11 +112,11 @@ body { background: var(--bg-main); min-height: 100%; }
 }
 
 .device-table tbody tr:hover {
-    background-color: #f5f5f5 !important;
+    background-color: #e8f4fd !important;
 }
 
 .device-table tbody tr.checked-out-row:hover {
-    background-color: #f8f8f8 !important;
+    background-color: #fef3e2 !important;
 }
 
 .device-table tbody tr.checked-out-row td {
@@ -132,6 +132,12 @@ body { background: var(--bg-main); min-height: 100%; }
     margin-left: 8px;
     letter-spacing: 0.2px;
     border-left: 3px solid var(--primary-color);
+}
+
+/* 标签列 - 加宽以容纳两个4字标签同行，多余显示 +x */
+.device-table [data-col="tags"] {
+    white-space: nowrap;
+    min-width: 130px;
 }
 
 .device-section-body.p-0 {
@@ -497,10 +503,36 @@ body { background: var(--bg-main); min-height: 100%; }
 .checked-out-section .device-section-header { border-top: 3px solid #eaa300; }
 .checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
 
-/* 设备项 */
-.device-item { background: var(--bg-card); border-radius: 6px; padding: 12px 16px; margin: 8px; transition: all 0.15s; border: 1px solid var(--border-color); border-left: 3px solid var(--success-border); overflow: hidden; cursor: pointer; caret-color: transparent; }
-.device-item:hover { background: #fafafa; border-color: #d0d0d0; }
-.device-item.checked-out { border-left-color: #eaa300; background: #fffef8; }
+/* 设备项列表 - 与表格模式统一 hover 色值 */
+.device-item {
+    background: var(--bg-card);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 8px;
+    transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--success-border);
+    overflow: hidden;
+    cursor: pointer;
+    caret-color: transparent;
+}
+.device-item:hover {
+    background: #e8f4fd;
+    border-color: #b8d4e8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.device-item:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+.device-item.checked-out {
+    border-left-color: #eaa300;
+    background: #fffef8;
+}
+.device-item.checked-out:hover {
+    background: #fef3e2;
+}
 .device-item strong { color: var(--text-primary); font-weight: 600; }
 
 /* 设备项内容布局 */
@@ -550,7 +582,7 @@ body { background: var(--bg-main); min-height: 100%; }
 .device-details .detail-item.remark { flex: 1; min-width: 150px; max-width: 300px; overflow: hidden; display: flex; align-items: center; width: 100%; }
 
 /* 备注值支持多行显示和换行 */
-.device-details .detail-item.remark .detail-value { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; overflow-wrap: break-word; }
+.device-details .detail-item.remark .detail-value { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; overflow-wrap: break-word; max-height: 1.7em; display: inline-block; }
 
 /* 设备名称标签行布局 */
 .device-name-section .name-tags-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 16px; min-width: 0; max-width: 100%; overflow: hidden; width: 100%; }
@@ -738,8 +770,8 @@ body { background: var(--bg-main); min-height: 100%; }
     .device-item .detail-value { color: var(--text-primary); font-weight: 500; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .device-item .detail-item.checkin { min-width: 95px; }
     .device-item .detail-item.checkin .detail-value { max-width: 95px; }
-    .device-item .detail-item.remark { width: 100%; background: transparent; padding: 2px 0; }
-    .device-item .detail-item.remark .detail-value { max-width: 100%; }
+    .device-item .detail-item.remark { width: 100%; background: transparent; padding: 2px 0; max-height: 1.7em; overflow: hidden; }
+    .device-item .detail-item.remark .detail-value { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .device-item .detail-item.remark .detail-value.remark-clickable { cursor: pointer; }
 
     .checkout-btn::after { content: "  出库"; }
