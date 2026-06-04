@@ -1546,9 +1546,25 @@ async function loadExistingImages(deviceId) {
     }
 }
 
+// 获取当前备注中已引用的图片文件名集合（用于判断已使用/未使用）
+function getUsedImageFilenames() {
+    const editor = document.getElementById(_imageTargetEditorId);
+    if (!editor) return new Set();
+    const html = editor.innerHTML || '';
+    const used = new Set();
+    // 匹配备注中的代理图片路径：/api/images/{deviceId}/{filename}
+    const regex = /<img[^>]+src=["']\/api\/images\/[^/]+\/([^"']+)["']/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+        used.add(decodeURIComponent(match[1]));
+    }
+    return used;
+}
+
 // 渲染图片网格
 function renderImageGrid(images) {
     _selectedImages = new Set();
+    const usedFilenames = getUsedImageFilenames();
     const container = document.getElementById('imageGridContainer');
     if (!container) return;
 
@@ -1564,8 +1580,11 @@ function renderImageGrid(images) {
 
     container.innerHTML = `
         <div class="image-grid">
-            ${images.map(img => `
-                <div class="image-grid-item" data-filename="${escapeHtml(img.filename)}" onclick="toggleImageSelection('${escapeHtml(img.filename)}')">
+            ${images.map(img => {
+                const isUsed = usedFilenames.has(img.filename);
+                return `
+                <div class="image-grid-item ${isUsed ? 'img-used' : ''}" data-filename="${escapeHtml(img.filename)}"
+                     title="${isUsed ? '已在备注中使用' : '未使用'}" onclick="toggleImageSelection('${escapeHtml(img.filename)}')">
                     <img src="${img.url}" alt="${escapeHtml(img.filename)}" loading="lazy"
                          onerror="this.parentElement.style.display='none'">
                     <button class="delete-btn" title="删除此图片"
@@ -1573,12 +1592,14 @@ function renderImageGrid(images) {
                         <i class="bi bi-x"></i>
                     </button>
                     <div class="select-check"><i class="bi bi-check-lg"></i></div>
+                    <span class="usage-badge">${isUsed ? '已用' : '未用'}</span>
                     <div class="file-info">
                         <span class="file-name">${truncateFilename(img.filename, 18)}</span>
                         <span class="file-size">${formatFileSize(img.size)}</span>
                     </div>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>`;
     updateImageSelectionUI();
 }
@@ -1594,6 +1615,21 @@ function toggleImageSelection(filename) {
         if (el.dataset.filename === filename) {
             el.classList.toggle('selected', _selectedImages.has(filename));
         }
+    });
+    updateImageSelectionUI();
+}
+
+// 一键选中所有未使用的图片
+function selectAllUnused() {
+    const used = getUsedImageFilenames();
+    _existingImages.forEach(img => {
+        if (!used.has(img.filename)) {
+            _selectedImages.add(img.filename);
+        }
+    });
+    // 刷新所有网格项的选中状态
+    document.querySelectorAll('#imageGridContainer .image-grid-item').forEach(el => {
+        el.classList.toggle('selected', _selectedImages.has(el.dataset.filename));
     });
     updateImageSelectionUI();
 }
@@ -2004,10 +2040,17 @@ async function deleteSelectedImages() {
 function updateImageSelectionUI() {
     const btnInsert = document.getElementById('btnInsertSelectedImages');
     const btnDelete = document.getElementById('btnDeleteSelectedImages');
+    const btnSelectUnused = document.getElementById('btnSelectUnusedImages');
     const countEl = document.getElementById('imageSelectionCount');
 
     if (btnInsert) btnInsert.disabled = _selectedImages.size === 0;
     if (btnDelete) btnDelete.disabled = _selectedImages.size === 0;
+    // 当已有未使用图片时才启用按钮（已有图片全部使用时禁用）
+    if (btnSelectUnused) {
+        const used = getUsedImageFilenames();
+        const hasUnused = _existingImages.some(img => !used.has(img.filename));
+        btnSelectUnused.disabled = !hasUnused;
+    }
     if (countEl) {
         countEl.textContent = _selectedImages.size > 0
             ? `已选 ${_selectedImages.size} 张`

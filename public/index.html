@@ -2682,11 +2682,19 @@
                         </div>
                     </div>
                     <div class="image-picker-footer" style="margin-top: 12px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelectUnusedImages" onclick="selectAllUnused()" disabled
+                                style="font-size: 13px; padding: 5px 14px;" title="一键选中所有未在备注中使用的图片">
+                            <i class="bi bi-boxes me-1"></i>选中未使用
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-danger" id="btnDeleteSelectedImages" onclick="deleteSelectedImages()" disabled
                                 style="font-size: 13px; padding: 5px 14px;">
                             <i class="bi bi-trash me-1"></i>删除选中
                         </button>
-                        <div style="font-size: 12px; color: #6c757d;" id="imageSelectionCount"></div>
+                        <div style="font-size: 12px; color: #6c757d; display: flex; align-items: center; gap: 10px;">
+                            <span id="imageSelectionCount"></span>
+                            <span class="usage-legend"><span class="usage-legend-dot used"></span>已使用</span>
+                            <span class="usage-legend"><span class="usage-legend-dot unused"></span>未使用</span>
+                        </div>
                         <button type="button" class="btn btn-sm btn-primary" id="btnInsertSelectedImages" onclick="insertSelectedImages()" disabled
                                 style="font-size: 13px; padding: 5px 18px;">
                             <i class="bi bi-check-lg me-1"></i>插入选中

@@ -1086,6 +1086,33 @@ body { background: var(--bg-main); min-height: 100%; }
     font-size: 14px;
 }
 
+/* ============ 图片使用状态标签 ============ */
+.image-grid-item.img-used { border-color: #28a74555; }
+.image-grid-item .usage-badge {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    background: #28a745;
+    pointer-events: none;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.image-grid-item:not(.img-used) .usage-badge {
+    background: #dc3545;
+}
+
+/* 底部图例 */
+.usage-legend { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: #6c757d; }
+.usage-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.usage-legend-dot.used { background: #28a745; }
+.usage-legend-dot.unused { background: #dc3545; }
+
 /* 底部工具栏 */
 .image-picker-footer {
     display: flex;
