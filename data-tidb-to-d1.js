@@ -194,6 +194,35 @@ function formatValue(v) {
     return v;
 }
 
+// 获取 D1 表的实际列名列表
+async function getD1Columns(tableName) {
+    const res = await d1Query(`PRAGMA table_info(${tableName})`);
+    const info = res[0]?.results || [];
+    return info.map(row => row.name);
+}
+
+// 确保 D1 表包含 TiDB 数据中的所有列（自动补齐缺失列）
+async function ensureD1Columns(tableName, tiDBColumns) {
+    const d1Cols = await getD1Columns(tableName);
+    const missing = tiDBColumns.filter(c => !d1Cols.includes(c));
+
+    if (missing.length > 0) {
+        log(`🔧 D1 表 ${tableName} 缺少 ${missing.length} 个列，正在补齐...`);
+        for (const col of missing) {
+            try {
+                await d1Query(`ALTER TABLE ${tableName} ADD COLUMN \`${col}\` TEXT DEFAULT NULL`);
+                log(`  ✅ 已添加列: ${col}`);
+            } catch (e) {
+                log(`  ⚠️ 添加列 ${col} 失败（可能已存在）: ${e.message}`);
+            }
+        }
+    }
+
+    // 返回最终可用的列名（取交集）
+    const finalD1Cols = await getD1Columns(tableName);
+    return tiDBColumns.filter(c => finalD1Cols.includes(c));
+}
+
 async function importToD1(tableName, rows) {
     if (rows.length === 0) {
         log(`⚠️ 表 ${tableName} 无数据，跳过导入`);
@@ -211,17 +240,21 @@ async function importToD1(tableName, rows) {
     }
 
     try {
+        // 确保 D1 表列完整（自动补齐 TiDB 有但 D1 缺少的列）
+        const tiDBColumns = Object.keys(rows[0]);
+        const validColumns = await ensureD1Columns(tableName, tiDBColumns);
+
         // 清空 D1 表
         await d1Query(`DELETE FROM ${tableName}`);
         log(`🗑️ 已清空 D1 表: ${tableName}`);
 
-        // 分批插入（避免单条 SQL 过大触发 D1 API 限制）
-        const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
+        // 分批插入（只包含 D1 实际存在的列，避免 "no column" 错误）
+        const columns = validColumns.map(c => `\`${c}\``).join(', ');
         const BATCH_SIZE = 50;
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
             const batch = rows.slice(i, i + BATCH_SIZE);
             const values = batch.map(row => {
-                return `(${Object.values(row).map(formatValue).join(', ')})`;
+                return `(${validColumns.map(col => formatValue(row[col])).join(', ')})`;
             }).join(', ');
             await d1Query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
             log(`  已导入 ${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length} 条...`);
@@ -234,9 +267,11 @@ async function importToD1(tableName, rows) {
         if (d1Backup && d1Backup.length > 0) {
             log(`🔄 尝试恢复 D1 备份数据 (${d1Backup.length} 条)...`);
             try {
-                const backupColumns = Object.keys(d1Backup[0]).map(c => `\`${c}\``).join(', ');
+                const backupCols = Object.keys(d1Backup[0]);
+                const backupValid = await ensureD1Columns(tableName, backupCols);
+                const backupColumns = backupValid.map(c => `\`${c}\``).join(', ');
                 const backupValues = d1Backup.map(row => {
-                    return `(${Object.values(row).map(formatValue).join(', ')})`;
+                    return `(${backupValid.map(col => formatValue(row[col])).join(', ')})`;
                 }).join(', ');
                 await d1Query(`INSERT INTO ${tableName} (${backupColumns}) VALUES ${backupValues}`);
                 log(`✅ D1 备份数据已恢复`);

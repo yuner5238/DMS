@@ -119,8 +119,14 @@ async function main() {
         checkin_time DATETIME,
         checkout_time DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        department_path TEXT DEFAULT NULL,
+        serial_number TEXT DEFAULT NULL
     )`);
+
+    // 为已有表补加列（SQLite 不支持 IF NOT EXISTS for ADD COLUMN，需忽略重复列错误）
+    await d1Execute(`ALTER TABLE devices ADD COLUMN department_path TEXT DEFAULT NULL`);
+    await d1Execute(`ALTER TABLE devices ADD COLUMN serial_number TEXT DEFAULT NULL`);
 
     await d1Execute(`CREATE TABLE IF NOT EXISTS announcements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
