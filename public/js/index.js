@@ -27,6 +27,7 @@ let warehouses = [];
 let tagStats = [];
 let currentTagFilter = null;
 let locationFilters = { in_stock: true, checked_out: true };  // 状态过滤，默认显示全部设备
+let expiringLocationFilter = { in_stock: true, checked_out: true };  // 临期列表过滤，默认显示全部
 let filterPanelVisible = true;  // 过滤面板默认显示
 let announcements = [];
 let dismissedAnnouncements = new Set();
@@ -572,6 +573,58 @@ function renderTagStats() {
     `).join('');
 }
 
+// ============ 临期设备列表 ============
+let expiringDevices = [];
+let expiringLastFetch = 0;
+
+async function loadExpiringDevices() {
+    const now = Date.now();
+    if (now - expiringLastFetch < 5000) return; // 5秒内不重复请求
+    expiringLastFetch = now;
+    try {
+        const res = await fetch(`${API_BASE}/devices/expiring`);
+        const data = await res.json();
+        expiringDevices = Array.isArray(data) ? data.slice(0, 10) : [];
+        renderExpiringList();
+    } catch (e) {
+        console.error('加载临期设备失败:', e);
+        expiringLastFetch = 0; // 失败后允许立即重试
+    }
+}
+
+function renderExpiringList() {
+    const list = document.getElementById('expiringList');
+    if (!list) return;
+
+    // 按位置状态过滤
+    const filtered = expiringDevices.filter(d => {
+        const status = d.location_status || 'in_stock';
+        if (status === 'in_stock' && expiringLocationFilter.in_stock) return true;
+        if (status === 'checked_out' && expiringLocationFilter.checked_out) return true;
+        return false;
+    });
+
+    updateExpiringFilterButtonStyles();
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="expiring-empty"><i class="bi bi-check-circle"></i> 暂无临期设备</div>';
+        return;
+    }
+    list.innerHTML = filtered.map(d => {
+        let level = 'normal';
+        if (d.remaining_days < 10) level = 'urgent';
+        else if (d.remaining_days <= 30) level = 'warning';
+        return `
+            <div class="expiring-item">
+                <span class="expiring-device-id">#${d.device_id || d.id}</span>
+                <span class="expiring-device-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</span>
+                <span class="expiring-date">${formatDate(d.expiry_date)}</span>
+                <span class="expiring-remaining ${level}">${d.remaining_days}天</span>
+            </div>
+        `;
+    }).join('');
+}
+
 // 按标签筛选
 function filterByTag(tagName) {
     if (currentTagFilter === tagName) {
@@ -618,6 +671,30 @@ function updateFilterButtonStyles() {
     }
 }
 
+// 临期列表状态过滤
+function toggleExpiringLocationFilter(location) {
+    expiringLocationFilter[location] = !expiringLocationFilter[location];
+    updateExpiringFilterButtonStyles();
+    renderExpiringList();
+}
+
+function updateExpiringFilterButtonStyles() {
+    const inStockBtn = document.getElementById('expiringFilterInStock');
+    const checkedOutBtn = document.getElementById('expiringFilterCheckedOut');
+
+    if (expiringLocationFilter.in_stock) {
+        inStockBtn?.classList.add('active-in-stock');
+    } else {
+        inStockBtn?.classList.remove('active-in-stock');
+    }
+
+    if (expiringLocationFilter.checked_out) {
+        checkedOutBtn?.classList.add('active-checked-out');
+    } else {
+        checkedOutBtn?.classList.remove('active-checked-out');
+    }
+}
+
 // 选择仓库
 async function selectWarehouse(id, name) {
     currentWarehouseId = id;
@@ -630,7 +707,7 @@ async function selectWarehouse(id, name) {
     document.getElementById('deviceWarehouse').value = name;
     await loadDevices();
     // 加载标签统计（总仓库时传 null，其他传仓库名）
-    await loadTagStats(currentWarehouseName);
+    await Promise.allSettled([loadTagStats(currentWarehouseName), loadExpiringDevices()]);
     // 移动端选择仓库后自动收起侧边栏（仅当侧边栏当前是打开状态时）
     if (window.innerWidth <= 768) {
         const sidebar = document.querySelector('.sidebar');
@@ -861,7 +938,7 @@ async function confirmCheckout() {
             })
         });
         bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
-        await loadDevices(); await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
     } catch (e) { alert('出库失败: ' + e.message); }
 }
 
@@ -889,7 +966,7 @@ async function confirmCheckin() {
             })
         });
         bootstrap.Modal.getInstance(document.getElementById('checkinModal')).hide();
-        await loadDevices(); await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
     } catch (e) { alert('入库失败: ' + e.message); }
 }
 
@@ -937,7 +1014,7 @@ async function deleteWarehouse() {
         currentWarehouseId = null; currentWarehouseName = null;
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('warehouseModal'));
         if (modalInstance) modalInstance.hide();
-        await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
         document.getElementById('deviceList').innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-inbox" style="font-size: 48px;"></i><p class="mt-2">请先选择或创建一个仓库</p></div>`;
     } catch (e) { alert('删除失败: ' + e.message); }
 }
@@ -1292,7 +1369,7 @@ async function saveDevice() {
         }
 
         bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
-        await loadDevices(); await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
 
         // 清除URL中的edit参数，避免重新加载时自动打开编辑弹窗
         if (window.location.search.includes('edit=')) {
@@ -1311,7 +1388,7 @@ async function deleteDevice() {
     try {
         await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
         bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
-        await loadDevices(); await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
 
         // 清除URL中的edit参数，避免重新加载时自动打开编辑弹窗
         if (window.location.search.includes('edit=')) {
@@ -1326,7 +1403,7 @@ async function deleteDeviceFromList(id, name) {
     if (!confirm(`确定要删除设备"${name}"吗？`)) return;
     try {
         await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
-        await loadDevices(); await loadWarehouses(); await loadTagStats();
+        await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
     } catch (e) { alert('删除失败: ' + e.message); }
 }
 
@@ -2823,6 +2900,32 @@ function toggleMobileSearch() {
     }
 }
 
+// 仓库列表折叠/展开
+function toggleWarehouseSection() {
+    const body = document.getElementById('warehouseSectionBody');
+    const chevron = document.getElementById('warehouseChevron');
+    body.classList.toggle('collapsed');
+    chevron.classList.toggle('collapsed');
+}
+
+// 标签统计折叠/展开
+function toggleTagSection() {
+    const body = document.getElementById('tagSectionBody');
+    const chevron = document.getElementById('tagChevron');
+    const section = body.closest('.tag-section');
+    body.classList.toggle('collapsed');
+    chevron.classList.toggle('collapsed');
+    if (section) section.classList.toggle('collapsed');
+}
+
+// 临期列表折叠/展开
+function toggleExpiringSection() {
+    const body = document.getElementById('expiringSectionBody');
+    const chevron = document.getElementById('expiringChevron');
+    body.classList.toggle('collapsed');
+    chevron.classList.toggle('collapsed');
+}
+
 // 侧边栏收纳/展开控制（PC端）
 function toggleSidebarPC() {
     // 检测是否为移动端
@@ -2942,7 +3045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (warehouses.length > 0) {
         await selectWarehouse(warehouses[0].id, warehouses[0].name);
     }
-    await loadTagStats();
+    await Promise.allSettled([loadTagStats(), loadExpiringDevices()]);
     await updateStats();
 
     // 监听设备编辑弹窗关闭事件，清除URL参数

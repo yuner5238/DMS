@@ -72,6 +72,11 @@ export default {
                 return await getTagStats(request, env);
             }
 
+            // ===== 临期设备 API =====
+            if (path === '/api/devices/expiring' && method === 'GET') {
+                return await getExpiringDevices(request, env);
+            }
+
             // ===== 公告 API =====
             if (path === '/api/announcements' && method === 'GET') {
                 return await getAnnouncements(env);
@@ -335,6 +340,21 @@ async function getTagStats(request, env) {
     const result = Object.values(tagCountMap).sort((a, b) => b.total_count - a.total_count);
 
     return jsonResponse(result);
+}
+
+// ============ 临期设备 ============
+
+async function getExpiringDevices(request, env) {
+    const result = await env.DB.prepare(
+        `SELECT id, device_id, name, expiry_date, location_status,
+            CAST(julianday(expiry_date) - julianday('now') AS INTEGER) AS remaining_days
+        FROM devices
+        WHERE expiry_date IS NOT NULL
+        AND expiry_date >= date('now')
+        ORDER BY remaining_days ASC
+        LIMIT 10`
+    ).all();
+    return jsonResponse(result.results);
 }
 
 // ============ 公告操作 ============

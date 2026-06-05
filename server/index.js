@@ -185,7 +185,7 @@ app.post('/api/devices/backfill-codes', async (req, res) => {
     try {
         // 查出所有 device_id 为 NULL 的设备，按 id 升序
         const nullDevices = await query(
-            `SELECT id FROM devices WHERE device_id IS NULL ORDER BY id ASC`
+            `SELECT id FROM devices WHERE device_id IS NULL OR device_id = '' ORDER BY id ASC`
         );
         if (nullDevices.length === 0) {
             return res.json({ message: '所有设备已有设备ID码，无需补全', updated: 0 });
@@ -243,6 +243,23 @@ app.get('/api/devices', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error('获取设备列表失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============ 临期设备 API（用于侧边栏临期列表）============
+app.get('/api/devices/expiring', async (req, res) => {
+    try {
+        const sql = `SELECT id, device_id, name, expiry_date, location_status, DATEDIFF(expiry_date, CURDATE()) AS remaining_days
+            FROM devices
+            WHERE expiry_date IS NOT NULL
+            AND expiry_date >= CURDATE()
+            ORDER BY remaining_days ASC
+            LIMIT 10`;
+        const result = await query(sql);
+        res.json(result);
+    } catch (err) {
+        console.error('获取临期设备失败:', err);
         res.status(500).json({ error: err.message });
     }
 });
