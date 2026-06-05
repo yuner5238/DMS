@@ -189,7 +189,10 @@ async function exportFromTiDB(tableName) {
 
 function formatValue(v) {
     if (v === null) return 'NULL';
-    if (typeof v === 'string') return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
+    if (typeof v === 'string') {
+        // 转义所有特殊字符：反斜杠、单引号、换行、回车、制表符
+        return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')}'`;
+    }
     if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
     return v;
 }

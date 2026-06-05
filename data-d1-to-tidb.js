@@ -118,17 +118,12 @@ function queryPool(sql) {
     });
 }
 
-// 在事务中执行多条 SQL：先 DELETE 旧数据，再 INSERT 新数据
+// 在事务中执行：先 DELETE 旧数据，再逐行 INSERT（参数化查询，自动转义特殊字符）
 // 如果 INSERT 失败则自动回滚，不会丢失 TiDB 原有数据
-function syncTableInTransaction(table, columns, valuesSql) {
+function syncTableInTransaction(table, columnsArr, rows) {
     return new Promise((resolve, reject) => {
         pool.getConnection((err, connection) => {
             if (err) return reject(err);
-
-            const sqls = [
-                `DELETE FROM ${table}`,
-                `INSERT INTO ${table} (${columns}) VALUES ${valuesSql}`
-            ];
 
             connection.beginTransaction(err => {
                 if (err) {
@@ -136,29 +131,43 @@ function syncTableInTransaction(table, columns, valuesSql) {
                     return reject(err);
                 }
 
-                let i = 0;
-                const next = () => {
-                    if (i >= sqls.length) {
-                        // 全部执行完毕，提交事务
-                        return connection.commit(err => {
+                // 1. 清空旧数据
+                connection.query(`DELETE FROM ${table}`, (err) => {
+                    if (err) {
+                        return connection.rollback(() => {
                             connection.release();
-                            if (err) return reject(err);
-                            resolve();
+                            reject(err);
                         });
                     }
-                    connection.query(sqls[i], (err) => {
-                        if (err) {
-                            // 出错回滚
-                            return connection.rollback(() => {
-                                connection.release();
-                                reject(err);
-                            });
-                        }
-                        i++;
-                        next();
-                    });
-                };
-                next();
+
+                    // 2. 逐行 INSERT（参数化查询，自动处理单引号、换行符等）
+                    let completed = 0;
+                    let hasError = false;
+
+                    for (const row of rows) {
+                        const placeholders = columnsArr.map(() => '?').join(', ');
+                        const values = columnsArr.map(col => row[col]);
+                        const sql = `INSERT INTO ${table} (\`${columnsArr.join('`, `')}\`) VALUES (${placeholders})`;
+
+                        connection.query(sql, values, (err) => {
+                            if (err && !hasError) {
+                                hasError = true;
+                                return connection.rollback(() => {
+                                    connection.release();
+                                    reject(err);
+                                });
+                            }
+                            completed++;
+                            if (completed === rows.length && !hasError) {
+                                connection.commit(err => {
+                                    connection.release();
+                                    if (err) return reject(err);
+                                    resolve();
+                                });
+                            }
+                        });
+                    }
+                });
             });
         });
     });
@@ -215,17 +224,8 @@ async function main() {
             }
 
             // 在事务中同步到 TiDB（DELETE + INSERT，失败自动回滚）
-            const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
-            const values = rows.map(row => {
-                return '(' + Object.values(row).map(v => {
-                    if (v === null) return 'NULL';
-                    if (typeof v === 'string') return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
-                    if (v instanceof Date) return `'${v.toISOString().slice(0, 19).replace('T', ' ')}'`;
-                    return v;
-                }).join(', ') + ')';
-            }).join(', ');
-
-            await syncTableInTransaction(table, columns, values);
+            const columnsArr = Object.keys(rows[0]);
+            await syncTableInTransaction(table, columnsArr, rows);
             console.log(`  TiDB 导入: ${rows.length} 条 (事务提交成功)`);
             successCount++;
 
