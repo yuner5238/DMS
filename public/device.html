@@ -673,11 +673,6 @@
             // 将旧 S3 直链替换为代理 URL（避免 401）
             html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
 
-            // 非本地环境：图片直连 Worker 代理（Worker 用签名认证从 S3 读取，无需 Pages 中间件）
-            if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                html = html.replace(/\/api\/images\//gi, 'https://dms-worker.171519019.workers.dev/api/images/');
-            }
-
             // 先移除所有已损坏的 onerror 属性（在匹配 <img> 之前处理，避免属性值中的 > 导致 <img> 标签匹配提前结束）
             html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
             // 为所有 <img> 标签注入干净的 onerror

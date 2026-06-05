@@ -30,9 +30,6 @@ jobs:
           git config user.name "GitHub Actions"
           git commit --amend -m "Deploy frontend" --no-verify --allow-empty
 
-      - name: Copy Functions into public for deployment
-        run: cp -r functions public/functions
-
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy public --project-name=dms --commit-dirty=true
         env:
