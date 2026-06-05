@@ -2489,10 +2489,11 @@ function decodeRichText(text) {
     // 将旧 S3 直链替换为代理 URL（避免 401）
     html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
 
-    // 清理并重新设置 <img> 标签的 onerror（移除可能已损坏的旧 onerror，统一注入新的）
+    // 先移除所有已损坏的 onerror 属性（在匹配 <img> 之前处理，避免属性值中的 > 导致 <img> 标签匹配提前结束）
+    html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
+    // 为所有 <img> 标签注入干净的 onerror
     html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-        let newAttrs = attrs.replace(/\s*onerror\s*=\s*(["'])(?:\\\"|[^\"])*?\1/gi, ''); // 先移除旧 onerror
-        newAttrs += " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');\"";
+        let newAttrs = attrs + " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');\"";
         // 补默认 size 类
         if (!attrs.includes('img-size-')) {
             if (newAttrs.includes('class="')) {
