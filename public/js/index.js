@@ -2480,18 +2480,25 @@ function decodeRichText(text) {
     html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
 
 
+
+
+
+
     // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
 
     // 将旧 S3 直链替换为代理 URL（避免 401）
     html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
 
+    // 非本地环境：/api/images/ 代理路径转为 S3 公开 URL（Pages 没有 Express 代理）
+    if (window.S3_PUBLIC_URL && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        html = html.replace(/\/api\/images\/(\d+)\/([^"'\s>]+)/gi, window.S3_PUBLIC_URL.replace(/\/$/, '') + '/images/$1/$2');
+    }
 
-    // 为已有 <img> 标签添加加载错误提示（避免重复添加），并补默认 size 类
+
+    // 清理并重新设置 <img> 标签的 onerror（移除可能已损坏的旧 onerror，统一注入新的）
     html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-        let newAttrs = attrs;
-        if (!attrs.includes('onerror')) {
-            newAttrs += " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');\"";
-        }
+        let newAttrs = attrs.replace(/\s*onerror\s*=\s*(["'])(?:\\\"|[^\"])*?\1/gi, ''); // 先移除旧 onerror
+        newAttrs += " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');\"";
         // 补默认 size 类
         if (!attrs.includes('img-size-')) {
             if (newAttrs.includes('class="')) {

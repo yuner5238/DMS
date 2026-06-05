@@ -675,11 +675,17 @@
             // 将旧 S3 直链替换为代理 URL（避免 401）
             html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
 
+            // 非本地环境：/api/images/ 代理路径转为 S3 公开 URL（Pages 没有 Express 代理）
+            if (window.S3_PUBLIC_URL && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                html = html.replace(/\/api\/images\/(\d+)\/([^"'\s>]+)/gi, window.S3_PUBLIC_URL.replace(/\/$/, '') + '/images/$1/$2');
+            }
 
-            // 为图片添加加载错误提示
+
+            // 清理并重新设置 <img> onerror（移除可能已损坏的旧 onerror，统一注入新的）
             html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-                if (attrs.includes('onerror')) return match;
-                return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=color:#dc3545;font-size:12px;>[图片加载失败: ' + this.src + ']</span>');">`;
+                let newAttrs = attrs.replace(/\s*onerror\s*=\s*(["'])(?:\\\"|[^\"])*?\1/gi, '');
+                newAttrs += " onerror=\"this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');\"";
+                return `<img${newAttrs}>`;
             });
 
             return html;
