@@ -215,13 +215,17 @@ async function importToD1(tableName, rows) {
         await d1Query(`DELETE FROM ${tableName}`);
         log(`🗑️ 已清空 D1 表: ${tableName}`);
 
-        // 批量插入
+        // 分批插入（避免单条 SQL 过大触发 D1 API 限制）
         const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(', ');
-        const values = rows.map(row => {
-            return `(${Object.values(row).map(formatValue).join(', ')})`;
-        }).join(', ');
-
-        await d1Query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+            const batch = rows.slice(i, i + BATCH_SIZE);
+            const values = batch.map(row => {
+                return `(${Object.values(row).map(formatValue).join(', ')})`;
+            }).join(', ');
+            await d1Query(`INSERT INTO ${tableName} (${columns}) VALUES ${values}`);
+            log(`  已导入 ${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length} 条...`);
+        }
         log(`✅ 已导入 ${rows.length} 条数据到 D1 表: ${tableName}`);
     } catch (err) {
         log(`❌ 导入数据到 D1 表 ${tableName} 失败: ${err.message}`, 'error');
