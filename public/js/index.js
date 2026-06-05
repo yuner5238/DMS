@@ -20,6 +20,29 @@ const API_BASE = location.hostname === 'localhost' || location.hostname === '127
     : '/api';  // 优先使用同域名的 Pages Functions
 // ===================
 
+// 将图片 URL 转为当前环境可用的地址
+// - 本地：local Express 代理 /api/images/...
+// - 云端：直连 Worker（Worker 有签名 S3 认证）
+const WORKER_IMAGE_PROXY = 'https://dms-worker.171519019.workers.dev/api/images/';
+const isLocalEnv = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+function convertImageUrl(url) {
+    if (!url) return '';
+    // 匹配 URL 末尾的 deviceId/filename（兼容 /api/images/、S3直链、Worker代理 三种格式）
+    // deviceId 为数字，filename 不包含空格、引号、>
+    const match = url.match(/\/(\d+)\/([^/\s"'>]+?)(?:\?|$)/);
+    if (match) {
+        const deviceId = match[1];
+        const filename = decodeURIComponent(match[2]);
+        if (isLocalEnv) {
+            return `/api/images/${deviceId}/${filename}`;
+        } else {
+            return WORKER_IMAGE_PROXY + deviceId + '/' + filename;
+        }
+    }
+    return url; // fallback: 无法识别则原样返回
+}
+
 let currentWarehouseId = null;
 let currentWarehouseName = null;
 let allDevices = [];
@@ -1609,7 +1632,10 @@ async function loadExistingImages(deviceId) {
         const res = await fetch(`${API_BASE}/images/list/${deviceId}`);
         const data = await res.json();
         if (data.success) {
-            _existingImages = data.images || [];
+            _existingImages = (data.images || []).map(img => ({
+                ...img,
+                url: convertImageUrl(img.url),
+            }));
             renderImageGrid(_existingImages);
         } else {
             throw new Error(data.error || '加载失败');
@@ -1800,7 +1826,7 @@ function handleImagePickerUpload(event) {
 
                 if (remarkEditor) {
                     const imgId = 'img_' + Date.now();
-                    const imgTag = `<img id="${imgId}" src="${data.url}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+                    const imgTag = `<img id="${imgId}" src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
                     insertHTMLAtCursor(remarkEditor, imgTag);
                 }
             } catch (e) {
@@ -1903,7 +1929,7 @@ function pasteAndUploadImage(blob, deviceId, editor) {
                 if (progEl) progEl.remove();
 
                 const imgId = 'img_' + Date.now();
-                const imgTag = `<img id="${imgId}" src="${data.url}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
+                const imgTag = `<img id="${imgId}" src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
                 insertHTMLAtCursor(editor, imgTag);
             } catch (_) {
                 if (progEl && progEl.querySelector) {
@@ -2484,10 +2510,13 @@ function decodeRichText(text) {
 
 
 
-    // 旧代理 URL 保持原样（bucket 未开公开读，统一走代理 /api/images/...）
-
     // 将旧 S3 直链替换为代理 URL（避免 401）
     html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
+
+    // 非本地环境：图片直连 Worker 代理（Worker 用签名认证从 S3 读取，无需 Pages 中间件）
+    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        html = html.replace(/\/api\/images\//gi, 'https://dms-worker.171519019.workers.dev/api/images/');
+    }
 
     // 先移除所有已损坏的 onerror 属性（在匹配 <img> 之前处理，避免属性值中的 > 导致 <img> 标签匹配提前结束）
     html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
