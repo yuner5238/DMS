@@ -238,17 +238,58 @@ async function createDevice(request, env) {
 
 async function updateDevice(request, env, id) {
     const body = await request.json();
-    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, checkout_time, expiry_date, responsible_person, department_path, serial_number } = body;
 
-    const tags = tag_names || tag_name || '';
+    // 先获取原设备数据（避免部分更新时清空未传入的字段）
+    const existing = await env.DB.prepare('SELECT * FROM devices WHERE id=?').bind(id).first();
+    if (!existing) return jsonResponse({ error: '设备不存在' }, 404);
+
+    // 合并：请求中的字段覆盖原值，未传入的保留原值
+    const merged = { ...existing };
+    const fields = ['device_id', 'warehouse_name', 'name', 'tag_names', 'status', 'quantity',
+        'storage_location', 'location_status', 'destination', 'remark', 'expiry_date',
+        'checkin_time', 'checkout_time', 'responsible_person', 'department_path', 'serial_number'];
+    const fieldMap = {
+        device_id: 'device_id',
+        warehouseName: 'warehouse_name',
+        name: 'name',
+        tag_names: 'tag_names',
+        tag_name: 'tag_names',
+        status: 'status',
+        quantity: 'quantity',
+        storage_location: 'storage_location',
+        location_status: 'location_status',
+        destination: 'destination',
+        remark: 'remark',
+        expiry_date: 'expiry_date',
+        checkin_time: 'checkin_time',
+        checkout_time: 'checkout_time',
+        responsible_person: 'responsible_person',
+        department_path: 'department_path',
+        serial_number: 'serial_number'
+    };
+
+    for (const [reqKey, dbKey] of Object.entries(fieldMap)) {
+        if (body[reqKey] !== undefined) {
+            merged[dbKey] = body[reqKey];
+        }
+    }
+
+    // 特殊处理 tag_names：tag_name 也映射到 tag_names
+    if (body.tag_names !== undefined || body.tag_name !== undefined) {
+        merged.tag_names = body.tag_names || body.tag_name || '';
+    }
 
     await env.DB.prepare(
         `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).bind(
-        device_id || null, warehouseName || '', name || '', tags, status || '正常', quantity || 1, storage_location || '', location_status || 'in_stock', destination || '', remark || '', expiry_date || null, checkin_time || null, checkout_time || null, responsible_person || null, department_path || null, serial_number || null, id
+        merged.device_id || null, merged.warehouse_name || '', merged.name || '', merged.tag_names || '',
+        merged.status || '正常', merged.quantity || 1, merged.storage_location || '',
+        merged.location_status || 'in_stock', merged.destination || '', merged.remark || '',
+        merged.expiry_date || null, merged.checkin_time || null, merged.checkout_time || null,
+        merged.responsible_person || null, merged.department_path || null, merged.serial_number || null, id
     ).run();
 
-    return jsonResponse({ id, warehouseName, name });
+    return jsonResponse({ id, warehouseName: merged.warehouse_name, name: merged.name });
 }
 
 async function deleteDevice(env, id) {
