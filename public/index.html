@@ -132,7 +132,7 @@
         }
 
         .sidebar-content{
-            flex: 0 0 auto; /* 内容自适应高度，所有列表顶部对齐 */
+            flex: 1 1 0; /* 弹性比例分配：填充侧边栏剩余空间 */
         }
 
         .sidebar-header h5 { font-weight: 600; font-size: 16px; margin: 0; color: var(--text-primary); }
@@ -456,7 +456,7 @@
         }
 
         /* 标签区域 */
-        .tag-section { flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .tag-section { flex: 1 1 0; min-height: 80px; display: flex; flex-direction: column; overflow: hidden; }
 
         .tag-list-item {
             display: flex;
@@ -2052,18 +2052,47 @@
                             </button>
                         </div>
                         <div class="sidebar-content">
-                        <div class="section-collapse-header" onclick="toggleWarehouseSection()">
-                            <span><i class="bi bi-box"></i> 仓库列表</span>
-                            <i class="bi bi-chevron-down chevron-icon" id="warehouseChevron"></i>
-                        </div>
-                        <div class="section-collapse-body" id="warehouseSectionBody">
-                            <div class="warehouse-container">
-                                <div class="p-3">
-                                    <button class="btn btn-light w-100 btn-sm" onclick="showWarehouseModal()">
+                        <div class="warehouse-section">
+                            <div class="section-collapse-header" onclick="toggleWarehouseSection()">
+                                <span><i class="bi bi-box"></i> 仓库列表</span>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button class="btn btn-light btn-sm" onclick="event.stopPropagation(); showWarehouseModal();" title="新建仓库" style="padding:2px 6px; font-size:12px;">
                                         <i class="bi bi-plus-circle"></i> 新建仓库
                                     </button>
+                                    <i class="bi bi-chevron-down chevron-icon" id="warehouseChevron"></i>
                                 </div>
-                                <div class="nav flex-column" id="warehouseList"></div>
+                            </div>
+                            <div class="section-collapse-body" id="warehouseSectionBody">
+                                <div class="warehouse-container">
+                                    <div class="nav flex-column" id="warehouseList"></div>
+                                    <div class="show-more-btn" id="warehouseShowMore" onclick="showMoreWarehouses()" style="display:none">
+                                        <i class="bi bi-chevron-down"></i> 显示更多
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="expiring-section">
+                            <div class="section-collapse-header" onclick="toggleExpiringSection()">
+                                <span><i class="bi bi-clock-history"></i> 临期列表</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="filter-buttons">
+                                        <button class="btn btn-sm filter-btn active-in-stock" id="expiringFilterInStock" onclick="toggleExpiringLocationFilter('in_stock'); event.stopPropagation();" title="在库设备">
+                                            <i class="bi bi-box-seam"></i>
+                                        </button>
+                                        <button class="btn btn-sm filter-btn active-checked-out" id="expiringFilterCheckedOut" onclick="toggleExpiringLocationFilter('checked_out'); event.stopPropagation();" title="出库设备">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                    <i class="bi bi-chevron-down chevron-icon" id="expiringChevron"></i>
+                                </div>
+                            </div>
+                            <div class="section-collapse-body" id="expiringSectionBody">
+                                <div class="expiring-container">
+                                    <div id="expiringList"></div>
+                                    <div class="show-more-btn" id="expiringShowMore" onclick="showMoreExpiring()" style="display:none">
+                                        <i class="bi bi-chevron-down"></i> 显示更多
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="tag-section">
@@ -2086,27 +2115,6 @@
                             <div class="section-collapse-body" id="tagSectionBody">
                                 <div class="tag-container">
                                     <div id="tagStatsList"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="expiring-section">
-                            <div class="section-collapse-header" onclick="toggleExpiringSection()">
-                                <span><i class="bi bi-clock-history"></i> 临期列表</span>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="filter-buttons">
-                                        <button class="btn btn-sm filter-btn active-in-stock" id="expiringFilterInStock" onclick="toggleExpiringLocationFilter('in_stock'); event.stopPropagation();" title="在库设备">
-                                            <i class="bi bi-box-seam"></i>
-                                        </button>
-                                        <button class="btn btn-sm filter-btn active-checked-out" id="expiringFilterCheckedOut" onclick="toggleExpiringLocationFilter('checked_out'); event.stopPropagation();" title="出库设备">
-                                            <i class="bi bi-box-arrow-right"></i>
-                                        </button>
-                                    </div>
-                                    <i class="bi bi-chevron-down chevron-icon" id="expiringChevron"></i>
-                                </div>
-                            </div>
-                            <div class="section-collapse-body" id="expiringSectionBody">
-                                <div class="expiring-container">
-                                    <div id="expiringList"></div>
                                 </div>
                             </div>
                         </div>

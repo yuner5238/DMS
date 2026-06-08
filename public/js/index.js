@@ -546,9 +546,12 @@ function updateWarehouseSelect() {
 }
 
 // 渲染仓库列表
+let warehouseShowAll = false; // 是否展开显示全部仓库
 function renderWarehouseList() {
     const list = document.getElementById('warehouseList');
-    list.innerHTML = warehouses.map(w => {
+    const btn = document.getElementById('warehouseShowMore');
+    const displayWarehouses = warehouseShowAll ? warehouses : warehouses.slice(0, 3);
+    list.innerHTML = displayWarehouses.map(w => {
         const inStock = w.inStockCount || 0;
         const checkedOut = w.checkedOutCount || 0;
         const isAll = w.id === 0;
@@ -573,6 +576,20 @@ function renderWarehouseList() {
             </div>
         `;
     }).join('');
+    // 显示/隐藏"显示更多"按钮
+    if (warehouses.length > 3) {
+        btn.style.display = '';
+        btn.innerHTML = warehouseShowAll
+            ? '<i class="bi bi-chevron-up"></i> 收起'
+            : '<i class="bi bi-chevron-down"></i> 显示更多 (' + (warehouses.length - 3) + ')';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function showMoreWarehouses() {
+    warehouseShowAll = !warehouseShowAll;
+    renderWarehouseList();
 }
 
 // 渲染标签统计
@@ -587,8 +604,10 @@ function renderTagStats() {
 }
 
 // ============ 临期设备列表 ============
-let expiringDevices = [];
+let expiringDevicesAll = [];  // 服务端返回的全部10条
+let expiringDevices = [];     // 当前显示的（5或10条）
 let expiringLastFetch = 0;
+let expiringShowAll = false;  // 是否显示全部10条
 
 async function loadExpiringDevices() {
     const now = Date.now();
@@ -597,7 +616,12 @@ async function loadExpiringDevices() {
     try {
         const res = await fetch(`${API_BASE}/devices/expiring`);
         const data = await res.json();
-        expiringDevices = Array.isArray(data) ? data.slice(0, 10) : [];
+        expiringDevicesAll = Array.isArray(data) ? data.slice(0, 10) : [];
+        if (!expiringShowAll) {
+            expiringDevices = expiringDevicesAll.slice(0, 5);
+        } else {
+            expiringDevices = expiringDevicesAll;
+        }
         renderExpiringList();
     } catch (e) {
         console.error('加载临期设备失败:', e);
@@ -607,6 +631,7 @@ async function loadExpiringDevices() {
 
 function renderExpiringList() {
     const list = document.getElementById('expiringList');
+    const btn = document.getElementById('expiringShowMore');
     if (!list) return;
 
     // 按位置状态过滤
@@ -618,6 +643,21 @@ function renderExpiringList() {
     });
 
     updateExpiringFilterButtonStyles();
+
+    // 更新"显示更多"按钮
+    const totalAvailable = expiringDevicesAll.length;
+    if (btn) {
+        if (totalAvailable > 5) {
+            btn.style.display = '';
+            if (expiringShowAll) {
+                btn.innerHTML = '<i class="bi bi-chevron-up"></i> 收起';
+            } else {
+                btn.innerHTML = `<i class="bi bi-chevron-down"></i> 显示更多 (${totalAvailable - 5})`;
+            }
+        } else {
+            btn.style.display = 'none';
+        }
+    }
 
     if (filtered.length === 0) {
         list.innerHTML = '<div class="expiring-empty"><i class="bi bi-check-circle"></i> 暂无临期设备</div>';
@@ -636,6 +676,13 @@ function renderExpiringList() {
             </div>
         `;
     }).join('');
+}
+
+function showMoreExpiring() {
+    expiringShowAll = !expiringShowAll;
+    // 切换后重新设置显示数据（不过滤位置状态，只控制数量）
+    expiringDevices = expiringShowAll ? expiringDevicesAll : expiringDevicesAll.slice(0, 5);
+    renderExpiringList();
 }
 
 // 按标签筛选
