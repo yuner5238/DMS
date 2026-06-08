@@ -644,24 +644,27 @@ function renderExpiringList() {
 
     updateExpiringFilterButtonStyles();
 
-    // 更新"显示更多"按钮
-    const totalAvailable = expiringDevicesAll.length;
-    if (btn) {
-        if (totalAvailable > 5) {
-            btn.style.display = '';
-            if (expiringShowAll) {
-                btn.innerHTML = '<i class="bi bi-chevron-up"></i> 收起';
-            } else {
-                btn.innerHTML = `<i class="bi bi-chevron-down"></i> 显示更多 (${totalAvailable - 5})`;
-            }
-        } else {
-            btn.style.display = 'none';
-        }
-    }
+    // 更新"显示更多"按钮：始终显示（有数据时），总数 ≤5 时显示"共X条"
+    const totalAll = expiringDevicesAll.length;
+    const hasMore = totalAll > 5;
 
     if (filtered.length === 0) {
         list.innerHTML = '<div class="expiring-empty"><i class="bi bi-check-circle"></i> 暂无临期设备</div>';
+        if (btn) btn.style.display = 'none';
         return;
+    }
+
+    if (btn) {
+        btn.style.display = '';
+        if (hasMore) {
+            if (expiringShowAll) {
+                btn.innerHTML = '<i class="bi bi-chevron-up"></i> 收起';
+            } else {
+                btn.innerHTML = `<i class="bi bi-chevron-down"></i> 更多(${totalAll - 5})`;
+            }
+        } else {
+            btn.innerHTML = `<i class="bi bi-list"></i> 共${totalAll}条`;
+        }
     }
     list.innerHTML = filtered.map(d => {
         let level = 'normal';
@@ -679,8 +682,8 @@ function renderExpiringList() {
 }
 
 function showMoreExpiring() {
+    if (expiringDevicesAll.length <= 5) return; // 无更多数据，点击无效
     expiringShowAll = !expiringShowAll;
-    // 切换后重新设置显示数据（不过滤位置状态，只控制数量）
     expiringDevices = expiringShowAll ? expiringDevicesAll : expiringDevicesAll.slice(0, 5);
     renderExpiringList();
 }

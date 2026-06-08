@@ -358,15 +358,6 @@ body { background: var(--bg-main); min-height: 100%; }
     flex-shrink: 0;
 }
 .show-more-btn:hover { color: #0056b3; }
-.expiring-container .show-more-btn {
-    margin: 2px 8px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    text-align: left;
-    color: var(--primary);
-    transition: background 0.15s;
-}
-.expiring-container .show-more-btn:hover { background: rgba(0,0,0,.03); color: #0056b3; }
 
 /* 侧边栏拖拽调整宽度 */
 .sidebar-resize-handle { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; background: transparent; z-index: 10; }

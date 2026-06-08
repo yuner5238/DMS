@@ -2073,7 +2073,12 @@
                         </div>
                         <div class="expiring-section">
                             <div class="section-collapse-header" onclick="toggleExpiringSection()">
-                                <span><i class="bi bi-clock-history"></i> 临期列表</span>
+                                <span style="display:flex; align-items:center; gap:6px;">
+                                    <span><i class="bi bi-clock-history"></i> 临期列表</span>
+                                    <span class="show-more-btn" id="expiringShowMore" onclick="event.stopPropagation(); showMoreExpiring();" style="display:none; padding:2px 8px; font-size:11px;">
+                                        <i class="bi bi-chevron-down"></i> 更多
+                                    </span>
+                                </span>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="filter-buttons">
                                         <button class="btn btn-sm filter-btn active-in-stock" id="expiringFilterInStock" onclick="toggleExpiringLocationFilter('in_stock'); event.stopPropagation();" title="在库设备">
@@ -2089,9 +2094,6 @@
                             <div class="section-collapse-body" id="expiringSectionBody">
                                 <div class="expiring-container">
                                     <div id="expiringList"></div>
-                                    <div class="show-more-btn" id="expiringShowMore" onclick="showMoreExpiring()" style="display:none">
-                                        <i class="bi bi-chevron-down"></i> 显示更多
-                                    </div>
                                 </div>
                             </div>
                         </div>
