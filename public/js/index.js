@@ -258,8 +258,10 @@ function showRemarkPreview(deviceId, deviceName, remark, source = 'table') {
 
 // 更新备注预览窗口的状态指示器
 function updateRemarkPreviewStatus() {
-    const current = document.getElementById('remarkContent').innerHTML;
+    const remarkContent = document.getElementById('remarkContent');
     const dot = document.getElementById('remarkPreviewStatus');
+    if (!remarkContent || !dot) return;
+    const current = remarkContent.innerHTML;
     if (current !== _remarkOriginalContent) {
         dot.style.backgroundColor = '#dc3545';
         dot.title = '有未保存的修改';
@@ -1862,12 +1864,21 @@ function handleImagePickerUpload(event) {
         if (xhr.status >= 200 && xhr.status < 300) {
             try {
                 const data = JSON.parse(xhr.responseText);
-                if (progEl) progEl.remove();
 
                 if (remarkEditor) {
                     const imgId = 'img_' + Date.now();
                     const imgTag = `<img id="${imgId}" src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
-                    insertHTMLAtCursor(remarkEditor, imgTag);
+                    // 原地替换进度条为图片（避免光标丢失导致图片插入错误位置）
+                    if (progEl && progEl.parentNode) {
+                        const frag = document.createRange().createContextualFragment(imgTag);
+                        progEl.replaceWith(frag);
+                    } else {
+                        insertHTMLAtCursor(remarkEditor, imgTag);
+                    }
+                    // DOM 直接操作不触发 input 事件，需显式更新状态指示器
+                    updateRemarkPreviewStatus();
+                } else if (progEl) {
+                    progEl.remove();
                 }
             } catch (e) {
                 if (progEl && progEl.querySelector) {
@@ -1966,11 +1977,16 @@ function pasteAndUploadImage(blob, deviceId, editor) {
         if (xhr.status >= 200 && xhr.status < 300) {
             try {
                 const data = JSON.parse(xhr.responseText);
-                if (progEl) progEl.remove();
 
                 const imgId = 'img_' + Date.now();
                 const imgTag = `<img id="${imgId}" src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width: 100%; height: auto; margin: 8px 0; border-radius: 4px; border: 1px solid #dee2e6;" onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<span style=\\'color:#dc3545;font-size:12px;\\'>[图片加载失败: ' + this.src + ']</span>');" />`;
-                insertHTMLAtCursor(editor, imgTag);
+                // 原地替换进度条为图片
+                if (progEl && progEl.parentNode) {
+                    const frag = document.createRange().createContextualFragment(imgTag);
+                    progEl.replaceWith(frag);
+                } else {
+                    insertHTMLAtCursor(editor, imgTag);
+                }
             } catch (_) {
                 if (progEl && progEl.querySelector) {
                     const textEl = progEl.querySelector('.img-upload-progress-text');
@@ -1995,6 +2011,7 @@ function pasteAndUploadImage(blob, deviceId, editor) {
 
     xhr.send(formData);
 }
+
 
 // ========== 附件管理 ==========
 

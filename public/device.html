@@ -803,10 +803,6 @@
                             <div class="detail-label">更新时间</div>
                             <div class="detail-value">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</div>
                         </div>
-                        <div class="detail-row" style="align-items: start;">
-                            <div class="detail-label">备注</div>
-                            <div class="detail-value">${device.remark ? `<div class="rich-text-content">${decodeRichText(device.remark)}</div>` : '-'}</div>
-                        </div>
                         <div class="detail-row" style="align-items: start; flex-direction: column;">
                             <div class="detail-label" style="margin-bottom: 8px;">附件</div>
                             <div class="detail-value" style="width: 100%;">
@@ -814,6 +810,10 @@
                                     <div style="font-size:12px;color:#adb5bd;padding:4px 0;">加载中...</div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="detail-row" style="align-items: start;">
+                            <div class="detail-label">备注</div>
+                            <div class="detail-value">${device.remark ? `<div class="rich-text-content">${decodeRichText(device.remark)}</div>` : '-'}</div>
                         </div>
                     </div>
                     <div class="detail-actions">
@@ -1033,15 +1033,6 @@
                         <span class="text-muted">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</span>
                     </div>
                 </div>
-                <div class="edit-row">
-                    <div class="edit-label">备注</div>
-                    <div class="edit-form-group">
-                        <button type="button" class="btn btn-sm btn-outline-success mb-2" onclick="openRichTextEditorForDevice('${device.device_id}', '${escapeOnClick(device.name)}')" style="font-size:13px;">
-                            <i class="bi bi-pencil-square"></i> 富文本编辑
-                        </button>
-                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
-                    </div>
-                </div>
                 <div class="edit-row" style="align-items: start;">
                     <div class="edit-label">附件</div>
                     <div class="edit-form-group">
@@ -1051,6 +1042,15 @@
                         <button class="btn btn-sm btn-outline-primary mt-2" onclick="triggerUploadAttachment()" style="font-size:13px;">
                             <i class="bi bi-plus-lg"></i> 上传附件
                         </button>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">备注</div>
+                    <div class="edit-form-group">
+                        <button type="button" class="btn btn-sm btn-outline-success mb-2" onclick="openRichTextEditorForDevice('${device.device_id}', '${escapeOnClick(device.name)}')" style="font-size:13px;">
+                            <i class="bi bi-pencil-square"></i> 富文本编辑
+                        </button>
+                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
                     </div>
                 </div>
             `;

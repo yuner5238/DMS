@@ -539,18 +539,6 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
 
         console.log(`[S3上传] PutObject 响应: HTTP ${putResult.$metadata.httpStatusCode}`);
 
-        // 立即验证文件是否成功写入（某些 S3 兼容服务可能静默失败）
-        try {
-            await s3.send(new GetObjectCommand({
-                Bucket: s3Config.bucket,
-                Key: s3Key,
-            }));
-            console.log(`[S3上传] 验证通过: ${s3Key} 已确认存在`);
-        } catch (verifyErr) {
-            console.error(`[S3上传] 验证失败: ${s3Key}`, verifyErr.name, verifyErr.message);
-            return res.status(500).json({ error: `图片上传后验证失败（文件可能未成功存储）: ${verifyErr.message}` });
-        }
-
         // bucket 未开公开读，返回代理路径而非 S3 直链
         const imageUrl = `/api/images/${deviceId}/${filename}`;
 
@@ -623,6 +611,7 @@ app.delete('/api/images/:deviceId/:filename', async (req, res) => {
 });
 
 // 图片代理：通过服务器中转访问 S3（解决 bucket 私有问题）
+// ★ 使用流式传输：边从 S3 下载边发给浏览器，大图片不再需要等整个文件缓冲完才开始传输
 app.get('/api/images/:deviceId/:filename', async (req, res) => {
     try {
         const { deviceId, filename } = req.params;
@@ -637,18 +626,10 @@ app.get('/api/images/:deviceId/:filename', async (req, res) => {
 
         const s3Response = await s3.send(getCommand);
 
-        // 将 S3 流读取为 Buffer（比 pipe 更可靠，兼容各种 S3 兼容服务）
-        const chunks = [];
-        for await (const chunk of s3Response.Body) {
-            chunks.push(chunk);
-        }
-        const buffer = Buffer.concat(chunks);
-
-        // 设置响应头
+        // 设置响应头（必须在流式传输前设置）
         if (s3Response.ContentType) {
             res.set('Content-Type', s3Response.ContentType);
         } else {
-            // 根据扩展名推断
             const ext = path.extname(filename).toLowerCase();
             const mimeMap = {
                 '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -656,17 +637,37 @@ app.get('/api/images/:deviceId/:filename', async (req, res) => {
             };
             res.set('Content-Type', mimeMap[ext] || 'application/octet-stream');
         }
-        res.set('Content-Length', buffer.length.toString());
-        res.set('Cache-Control', 'public, max-age=86400');
+        if (s3Response.ContentLength) {
+            res.set('Content-Length', s3Response.ContentLength.toString());
+        }
+        // 文件名含时间戳，内容永不变化，可大胆缓存 + immutable 避免 revalidation
+        res.set('Cache-Control', 'public, max-age=86400, immutable');
 
-        console.log(`[S3代理] 返回图片: ${s3Key}, 大小: ${buffer.length} 字节`);
-        res.end(buffer);
+        console.log(`[S3代理] 流式返回图片: ${s3Key}${s3Response.ContentLength ? ', 大小: ' + s3Response.ContentLength + ' 字节' : ''}`);
+
+        // 逐块写入：兼容 Node.js Readable 和 Web Stream，边下边发（不缓冲整个文件）
+        const stream = s3Response.Body;
+        try {
+            for await (const chunk of stream) {
+                res.write(chunk);
+            }
+            res.end();
+        } catch (streamErr) {
+            console.error(`[S3代理] 流读取错误: ${s3Key}`, streamErr.message);
+            if (!res.headersSent) {
+                res.status(500).json({ error: '图片读取失败' });
+            } else {
+                res.end();
+            }
+        }
     } catch (err) {
         console.error('[S3] 代理读取失败:', err.name, err.message, err.$metadata);
-        if (err.name === 'NoSuchKey') {
-            return res.status(404).json({ error: '图片不存在' });
+        if (!res.headersSent) {
+            if (err.name === 'NoSuchKey') {
+                return res.status(404).json({ error: '图片不存在' });
+            }
+            res.status(500).json({ error: err.message });
         }
-        res.status(500).json({ error: err.message });
     }
 });
 

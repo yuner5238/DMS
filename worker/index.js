@@ -548,12 +548,12 @@ async function proxyImage(env, deviceId, filename) {
             return new Response('Image not found', { status: resp.status });
         }
         const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
-        const body = await resp.arrayBuffer();
-        return new Response(body, {
+        // 流式传输：直接传递 body 流，边下边发（不缓冲整个文件）
+        return new Response(resp.body, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=86400',
+                'Cache-Control': 'public, max-age=86400, immutable',
             },
         });
     } catch (err) {
@@ -575,12 +575,12 @@ async function proxyAttachment(env, deviceId, filename) {
             return new Response('Attachment not found', { status: resp.status });
         }
         const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
-        const body = await resp.arrayBuffer();
-        return new Response(body, {
+        // 流式传输：直接传递 body 流，边下边发（不缓冲整个文件）
+        return new Response(resp.body, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=86400',
+                'Cache-Control': 'public, max-age=86400, immutable',
                 'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
             },
         });
