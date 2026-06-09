@@ -131,6 +131,10 @@ export default {
             if (attachDelMatch && method === 'DELETE') {
                 return await deleteAttachment(env, attachDelMatch[1], attachDelMatch[2]);
             }
+            // 代理附件（GET 附件）
+            if (attachDelMatch && method === 'GET') {
+                return await proxyAttachment(env, attachDelMatch[1], attachDelMatch[2]);
+            }
 
             return jsonResponse({ error: 'Not Found' }, 404);
         } catch (err) {
@@ -495,7 +499,7 @@ async function uploadImage(request, env) {
             return jsonResponse({ error: '上传到 S3 失败' }, 502);
         }
 
-        const imageUrl = `${env.S3_PUBLIC_URL}/${s3Key}`;
+        const imageUrl = `/api/images/${deviceId}/${filename}`;
 
         return jsonResponse({ success: true, url: imageUrl, key: s3Key });
     } catch (err) {
@@ -550,6 +554,34 @@ async function proxyImage(env, deviceId, filename) {
             headers: {
                 'Content-Type': contentType,
                 'Cache-Control': 'public, max-age=86400',
+            },
+        });
+    } catch (err) {
+        return new Response('S3 fetch error: ' + err.message, { status: 500 });
+    }
+}
+
+// 代理 S3 附件（签名后读取二进制数据返回）
+async function proxyAttachment(env, deviceId, filename) {
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${S3_BASE}/attachments/${deviceId}/${encodeURIComponent(filename)}`);
+    const signedRequest = await signS3Request(env, 'GET', s3Url);
+
+    try {
+        const resp = await fetch(s3Url.toString(), {
+            method: 'GET',
+            headers: signedRequest.headers,
+        });
+        if (!resp.ok) {
+            return new Response('Attachment not found', { status: resp.status });
+        }
+        const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
+        const body = await resp.arrayBuffer();
+        return new Response(body, {
+            status: 200,
+            headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=86400',
+                'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
             },
         });
     } catch (err) {
@@ -619,7 +651,7 @@ async function uploadAttachment(request, env) {
             return jsonResponse({ error: '上传到 S3 失败' }, 502);
         }
 
-        const attachmentUrl = `${env.S3_PUBLIC_URL}/${s3Key}`;
+        const attachmentUrl = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
 
         return jsonResponse({
             success: true,
@@ -782,10 +814,10 @@ function parseS3ListXml(xml, prefix, env) {
             });
         }
     }
-    // 修正 URL：使用原始 deviceId
+    // 修正 URL：使用代理路径
     const deviceId = prefix.replace(`${S3_BASE}/images/`, '').replace('/', '');
     images.forEach(img => {
-        img.url = `${env.S3_PUBLIC_URL}/${S3_BASE}/images/${deviceId}/${img.filename}`;
+        img.url = `/api/images/${deviceId}/${img.filename}`;
     });
     return images;
 }
@@ -810,10 +842,15 @@ function parseS3ListAttachmentsXml(xml, prefix, env) {
                 key,
                 size: sizeMatch ? parseInt(sizeMatch[1]) : 0,
                 lastModified: timeMatch ? timeMatch[1] : '',
-                url: `${env.S3_PUBLIC_URL}/${key}`,
+                url: `/api/attachments/${key.replace(`${S3_BASE}/attachments/`, '').split('/').slice(0, 1)[0]}/${encodeURIComponent(filename)}`,
             });
         }
     }
+    // 修正 URL：使用代理路径和 deviceId
+    const attDeviceId = prefix.replace(`${S3_BASE}/attachments/`, '').replace('/', '');
+    attachments.forEach(att => {
+        att.url = `/api/attachments/${attDeviceId}/${encodeURIComponent(att.filename)}`;
+    });
     return attachments;
 }
 

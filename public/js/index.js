@@ -658,12 +658,12 @@ function renderExpiringList() {
         btn.style.display = '';
         if (hasMore) {
             if (expiringShowAll) {
-                btn.innerHTML = '<i class="bi bi-chevron-up"></i> 收起';
+                btn.innerHTML = '<i class="bi bi-chevron-up" style="font-size:9px;"></i> 收起';
             } else {
-                btn.innerHTML = `<i class="bi bi-chevron-down"></i> 更多(${totalAll - 5})`;
+                btn.innerHTML = `<i class="bi bi-chevron-down" style="font-size:9px;"></i> 更多(${totalAll - 5})`;
             }
         } else {
-            btn.innerHTML = `<i class="bi bi-list"></i> 共${totalAll}条`;
+            btn.innerHTML = `<i class="bi bi-list" style="font-size:9px;"></i> 共${totalAll}条`;
         }
     }
     list.innerHTML = filtered.map(d => {

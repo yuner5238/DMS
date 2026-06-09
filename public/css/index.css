@@ -359,6 +359,79 @@ body { background: var(--bg-main); min-height: 100%; }
 }
 .show-more-btn:hover { color: #0056b3; }
 
+/* 临期列表 header 内按钮——小胶囊样式，融入标题行 */
+.expiring-more-btn {
+    padding: 1px 8px !important;
+    font-size: 11px !important;
+    line-height: 1.6;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.04);
+    color: var(--text-secondary);
+    text-align: center;
+}
+.expiring-more-btn:hover {
+    background: rgba(0,0,0,0.08);
+    color: var(--primary);
+}
+
+/* 添加设备按钮组 — 分割按钮 + 下拉菜单 */
+.add-device-group .dropdown-toggle-split {
+    border-left: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 6px !important;
+}
+/* 按钮组 hover 时两端一起变色 */
+.add-device-group:hover .btn {
+    background: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}
+/* 去掉按钮组内所有多余动效，融为一体 */
+.add-device-group .btn:hover {
+    transform: none !important;
+}
+.add-device-group .btn:active,
+.add-device-group .btn.show {
+    transform: none !important;
+    background: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}
+.add-device-group .btn:focus,
+.add-device-group .btn:focus-visible {
+    box-shadow: none !important;
+    outline: none !important;
+}
+/* 箭头图标放大并居中 */
+.add-device-group .dropdown-toggle-split::after {
+    font-size: 10px;
+    vertical-align: middle;
+    margin: 0 !important;
+    line-height: 1;
+}
+.add-device-group .dropdown-menu {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 4px 0;
+    min-width: 140px;
+    font-size: 13px;
+}
+.add-device-group .dropdown-item {
+    padding: 6px 14px;
+}
+.add-device-group .dropdown-item:hover,
+.add-device-group .dropdown-item:active,
+.add-device-group .dropdown-item:focus {
+    background: transparent !important;
+    color: inherit;
+}
+.add-device-group .dropdown-header {
+    font-size: 11px;
+    padding: 4px 14px 6px;
+    color: var(--text-muted);
+}
+
 /* 侧边栏拖拽调整宽度 */
 .sidebar-resize-handle { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; background: transparent; z-index: 10; }
 
