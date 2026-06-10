@@ -222,7 +222,7 @@ async function getDevice(env, id) {
 
 async function createDevice(request, env) {
     const body = await request.json();
-    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number } = body;
+    const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number, spec_model, source } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
     if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
@@ -232,9 +232,9 @@ async function createDevice(request, env) {
     const tags = tag_names || tag_name || '';
 
     const result = await env.DB.prepare(
-        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null
+        device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
@@ -251,7 +251,7 @@ async function updateDevice(request, env, id) {
     const merged = { ...existing };
     const fields = ['device_id', 'warehouse_name', 'name', 'tag_names', 'status', 'quantity',
         'storage_location', 'location_status', 'destination', 'remark', 'expiry_date',
-        'checkin_time', 'checkout_time', 'responsible_person', 'department_path', 'serial_number'];
+        'checkin_time', 'checkout_time', 'responsible_person', 'department_path', 'serial_number', 'spec_model', 'source'];
     const fieldMap = {
         device_id: 'device_id',
         warehouseName: 'warehouse_name',
@@ -269,7 +269,9 @@ async function updateDevice(request, env, id) {
         checkout_time: 'checkout_time',
         responsible_person: 'responsible_person',
         department_path: 'department_path',
-        serial_number: 'serial_number'
+        serial_number: 'serial_number',
+        spec_model: 'spec_model',
+        source: 'source'
     };
 
     for (const [reqKey, dbKey] of Object.entries(fieldMap)) {
@@ -284,13 +286,14 @@ async function updateDevice(request, env, id) {
     }
 
     await env.DB.prepare(
-        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, spec_model=?, source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).bind(
         merged.device_id || null, merged.warehouse_name || '', merged.name || '', merged.tag_names || '',
         merged.status || '正常', merged.quantity || 1, merged.storage_location || '',
         merged.location_status || 'in_stock', merged.destination || '', merged.remark || '',
         merged.expiry_date || null, merged.checkin_time || null, merged.checkout_time || null,
-        merged.responsible_person || null, merged.department_path || null, merged.serial_number || null, id
+        merged.responsible_person || null, merged.department_path || null, merged.serial_number || null,
+        merged.spec_model || null, merged.source || null, id
     ).run();
 
     return jsonResponse({ id, warehouseName: merged.warehouse_name, name: merged.name });

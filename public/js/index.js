@@ -51,6 +51,8 @@ const COLUMN_DEFS = [
     { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
     { key: 'name',        label: '设备名称', dataCol: 'name' },
     { key: 'serialNumber',label: '序列号',   dataCol: 'serial-number', defaultVisible: false },
+    { key: 'specModel',   label: '规格型号', dataCol: 'spec-model' },
+    { key: 'source',      label: '来源',     dataCol: 'source' },
     { key: 'quantity',    label: '数量',     dataCol: 'quantity' },
     { key: 'tags',        label: '标签',     dataCol: 'tags' },
     { key: 'department',  label: '所属路径', dataCol: 'department', defaultVisible: false },
@@ -63,7 +65,7 @@ const COLUMN_DEFS = [
     { key: 'actions',     label: '操作',     dataCol: 'actions' },
 ];
 
-const COLUMN_VERSION = 2; // 变更列定义时递增此版本号，自动清除旧缓存
+const COLUMN_VERSION = 3; // 变更列定义时递增此版本号，自动清除旧缓存
 
 let columnVisibility = (() => {
     try {
@@ -393,6 +395,8 @@ function renderDevicesTableView(devices) {
                     <td data-col="device-id">${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td data-col="name" class="device-name-cell"><strong>${device.name}</strong></td>
                     <td data-col="serial-number">${device.serial_number || '<span class="text-muted">-</span>'}</td>
+                    <td data-col="spec-model">${device.spec_model || '<span class="text-muted">-</span>'}</td>
+                    <td data-col="source">${device.source || '<span class="text-muted">-</span>'}</td>
                     <td data-col="quantity">${device.quantity || 1}</td>
                     <td data-col="tags">${renderTagBadges(device)}</td>
                     <td data-col="department">${device.department_path || '<span class="text-muted">-</span>'}</td>
@@ -426,6 +430,8 @@ function renderDevicesTableView(devices) {
                         <th data-col="device-id">设备ID</th>
                         <th data-col="name">设备名称</th>
                         <th data-col="serial-number">序列号</th>
+                        <th data-col="spec-model">规格型号</th>
+                        <th data-col="source">来源</th>
                         <th data-col="quantity">数量</th>
                         <th data-col="tags">标签</th>
                         <th data-col="department">所属路径</th>
@@ -1259,6 +1265,8 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceResponsiblePerson').value = d.responsible_person || '';
         document.getElementById('deviceDepartmentPath').value = d.department_path || '';
         document.getElementById('deviceSerialNumber').value = d.serial_number || '';
+        document.getElementById('deviceSpecModel').value = d.spec_model || '';
+        document.getElementById('deviceSource').value = d.source || '';
         // 到期日期
         if (d.expiry_date) {
             document.getElementById('deviceExpiryDate').value = formatDate(d.expiry_date);
@@ -1284,6 +1292,8 @@ function showDeviceModal(id = null) {
         document.getElementById('deviceResponsiblePerson').value = '';
         document.getElementById('deviceDepartmentPath').value = '';
         document.getElementById('deviceSerialNumber').value = '';
+        document.getElementById('deviceSpecModel').value = '';
+        document.getElementById('deviceSource').value = '';
         document.getElementById('deviceExpiryDate').value = '';
         document.getElementById('deviceRemarkEditor').innerHTML = '';
         document.getElementById('deleteDeviceBtn').style.display = 'none';
@@ -1415,7 +1425,9 @@ async function saveDevice() {
         expiry_date: expiryDate,
         responsible_person: document.getElementById('deviceResponsiblePerson')?.value || '',
         department_path: document.getElementById('deviceDepartmentPath')?.value || '',
-        serial_number: document.getElementById('deviceSerialNumber')?.value || ''
+        serial_number: document.getElementById('deviceSerialNumber')?.value || '',
+        spec_model: document.getElementById('deviceSpecModel')?.value || '',
+        source: document.getElementById('deviceSource')?.value || ''
     };
 
     if (!data.name) { alert('请输入设备名称'); return; }

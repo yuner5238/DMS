@@ -776,6 +776,14 @@
                             <div class="detail-value">${escapeHtml(device.department_path) || '-'}</div>
                         </div>
                         <div class="detail-row">
+                            <div class="detail-label">规格型号</div>
+                            <div class="detail-value">${escapeHtml(device.spec_model) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">来源</div>
+                            <div class="detail-value">${escapeHtml(device.source) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
                             <div class="detail-label">序列号</div>
                             <div class="detail-value">${escapeHtml(device.serial_number) || '-'}</div>
                         </div>
@@ -973,6 +981,18 @@
                     </div>
                 </div>
                 <div class="edit-row">
+                    <div class="edit-label">规格型号</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSpecModel" value="${escapeHtml(device.spec_model || '')}" placeholder="设备规格型号">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">来源</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSource" value="${escapeHtml(device.source || '')}" placeholder="购买来源">
+                    </div>
+                </div>
+                <div class="edit-row">
                     <div class="edit-label">序列号</div>
                     <div class="edit-form-group">
                         <input type="text" id="editSerialNumber" value="${escapeHtml(device.serial_number || '')}" placeholder="设备序列号">
@@ -1117,7 +1137,9 @@
                 expiry_date: expiryDate || null,
                 responsible_person: document.getElementById('editResponsiblePerson')?.value || '',
                 department_path: document.getElementById('editDepartmentPath')?.value || '',
-                serial_number: document.getElementById('editSerialNumber')?.value || ''
+                serial_number: document.getElementById('editSerialNumber')?.value || '',
+                spec_model: document.getElementById('editSpecModel')?.value || '',
+                source: document.getElementById('editSource')?.value || ''
             };
 
             if (!data.name) { alert('请输入设备名称'); return; }
