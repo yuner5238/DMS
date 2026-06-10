@@ -5,7 +5,7 @@ const mysql = require('mysql2');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
-const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
 const { s3Config } = require('./s3.config');
@@ -539,6 +539,18 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
 
         console.log(`[S3上传] PutObject 响应: HTTP ${putResult.$metadata.httpStatusCode}`);
 
+        // ★ 上传后验证：用 HeadObject 确认文件已落盘，防止假成功
+        try {
+            await s3.send(new HeadObjectCommand({
+                Bucket: s3Config.bucket,
+                Key: s3Key,
+            }));
+            console.log(`[S3上传] HeadObject 验证通过: ${s3Key}`);
+        } catch (headErr) {
+            console.error(`[S3上传] HeadObject 验证失败: ${s3Key}, 可能未成功落盘:`, headErr.message);
+            return res.status(500).json({ error: '图片上传后验证失败，请重试' });
+        }
+
         // bucket 未开公开读，返回代理路径而非 S3 直链
         const imageUrl = `/api/images/${deviceId}/${filename}`;
 
@@ -817,6 +829,18 @@ app.post('/api/upload/attachment', uploadAttachment.single('attachment'), async 
             Body: file.buffer,
             ContentType: file.mimetype || 'application/octet-stream',
         }));
+
+        // ★ 上传后验证：用 HeadObject 确认文件已落盘，防止假成功
+        try {
+            await s3.send(new HeadObjectCommand({
+                Bucket: s3Config.bucket,
+                Key: s3Key,
+            }));
+            console.log(`[S3附件上传] HeadObject 验证通过: ${s3Key}`);
+        } catch (headErr) {
+            console.error(`[S3附件上传] HeadObject 验证失败: ${s3Key}, 可能未成功落盘:`, headErr.message);
+            return res.status(500).json({ error: '附件上传后验证失败，请重试' });
+        }
 
         const url = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
 

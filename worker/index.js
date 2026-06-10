@@ -499,6 +499,19 @@ async function uploadImage(request, env) {
             return jsonResponse({ error: '上传到 S3 失败' }, 502);
         }
 
+        // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
+        try {
+            const headSigned = await signS3Request(env, 'HEAD', s3Url);
+            const headResp = await fetch(s3Url.toString(), { method: 'HEAD', headers: headSigned.headers });
+            if (!headResp.ok) {
+                console.error('[S3上传] HEAD 验证失败: HTTP', headResp.status, s3Key);
+                return jsonResponse({ error: '图片上传后验证失败，请重试' }, 500);
+            }
+        } catch (headErr) {
+            console.error('[S3上传] HEAD 验证异常:', headErr.message, s3Key);
+            return jsonResponse({ error: '图片上传后验证失败，请重试' }, 500);
+        }
+
         const imageUrl = `/api/images/${deviceId}/${filename}`;
 
         return jsonResponse({ success: true, url: imageUrl, key: s3Key });
@@ -649,6 +662,19 @@ async function uploadAttachment(request, env) {
 
         if (!resp.ok && resp.status !== 200) {
             return jsonResponse({ error: '上传到 S3 失败' }, 502);
+        }
+
+        // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
+        try {
+            const headSigned = await signS3Request(env, 'HEAD', s3Url);
+            const headResp = await fetch(s3Url.toString(), { method: 'HEAD', headers: headSigned.headers });
+            if (!headResp.ok) {
+                console.error('[S3附件上传] HEAD 验证失败: HTTP', headResp.status, s3Key);
+                return jsonResponse({ error: '附件上传后验证失败，请重试' }, 500);
+            }
+        } catch (headErr) {
+            console.error('[S3附件上传] HEAD 验证异常:', headErr.message, s3Key);
+            return jsonResponse({ error: '附件上传后验证失败，请重试' }, 500);
         }
 
         const attachmentUrl = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
