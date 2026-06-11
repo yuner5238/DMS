@@ -225,7 +225,6 @@ async function createDevice(request, env) {
     const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number, spec_model, source } = body;
 
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
-    if (!warehouseName) return jsonResponse({ error: '请选择仓库' }, 400);
 
     const locStatus = location_status || 'in_stock';
     const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
@@ -234,7 +233,7 @@ async function createDevice(request, env) {
     const result = await env.DB.prepare(
         `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        device_id || null, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null
+        device_id || null, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });

@@ -2152,8 +2152,8 @@
                                 </button>
                                 <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-arrow-up me-1"></i>导入设备</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-arrow-down me-1"></i>导出设备</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-1"></i>导入设备</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-1"></i>导出设备</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -2194,8 +2194,8 @@
                                 <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><h6 class="dropdown-header"><i class="bi bi-gear"></i> 数据操作</h6></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-arrow-up me-2"></i>导入设备</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-arrow-down me-2"></i>导出当前仓库</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-2"></i>导入设备</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-2"></i>导出当前仓库</a></li>
                                 </ul>
                             </div>
                             <button class="btn btn-sm btn-outline-warning" onclick="backfillDeviceCodes()" id="btnBackfillCodes" style="display: none;" title="为旧设备补全设备ID码">
@@ -2274,7 +2274,7 @@
 
     <!-- 设备Modal -->
     <div class="modal fade" id="deviceModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 920px;">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: min(920px, 96vw); margin-left: auto; margin-right: auto;">
             <div class="modal-content" style="border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
                     <h5 class="modal-title" id="deviceModalTitle" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
@@ -2282,7 +2282,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" style="padding: 20px; max-height: 85vh; overflow-y: auto;">
+                <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
                     <input type="hidden" id="deviceId">
                     <div class="mb-3">
                         <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备ID <span style="font-size: 11px; color: #adb5bd;">(6位码，自动生成)</span></label>
@@ -2294,7 +2294,7 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库 *</label>
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库</label>
                         <select class="form-select" id="deviceWarehouse" style="font-size: 14px;"></select>
                     </div>
                     <div class="mb-3">
@@ -2304,11 +2304,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6 mb-3 mb-md-0">
                             <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">规格型号</label>
-                            <input type="text" class="form-control" id="deviceSpecModel" placeholder="例如：FKBN87MRL/ECW2" style="font-size: 14px;">
+                            <input type="text" class="form-control" id="deviceSpecModel" placeholder="例如：联想 E14" style="font-size: 14px;">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">来源</label>
-                            <input type="text" class="form-control" id="deviceSource" placeholder="例如：京东自营 / 公司采购" style="font-size: 14px;">
+                            <input type="text" class="form-control" id="deviceSource" placeholder="例如：淘宝采购" style="font-size: 14px;">
                         </div>
                     </div>
                     <div class="mb-3">
@@ -2793,6 +2793,98 @@
         <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('3')">中</div>
         <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('5')">大</div>
         <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('7')">特大</div>
+    </div>
+
+    <!-- 导入设备 Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529;">
+                        <i class="bi bi-file-earmark-arrow-up me-2" style="color: #495057;"></i>导入设备
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <!-- 目标仓库选择（全部仓库视图时需要） -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size: 13px; margin-bottom: 6px;">
+                            <i class="bi bi-geo-alt me-1"></i>目标仓库
+                        </label>
+                        <select class="form-select form-select-sm" id="importWarehouseSelect" style="max-width: 280px; font-size: 13px;">
+                            <option value="">不指定（需在每行填写「仓库名称」）</option>
+                        </select>
+                        <small class="text-muted d-block mt-1" style="font-size: 11px;">
+                            选择后，文件/粘贴中未指定「仓库名称」的行都将导入到该仓库
+                        </small>
+                    </div>
+
+                    <!-- Tab 切换 -->
+                    <ul class="nav nav-tabs mb-3" id="importTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="file-tab" data-bs-toggle="tab" data-bs-target="#importFile" type="button" role="tab">
+                                <i class="bi bi-file-earmark-excel me-1"></i> 文件导入
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="paste-tab" data-bs-toggle="tab" data-bs-target="#importPaste" type="button" role="tab">
+                                <i class="bi bi-clipboard me-1"></i> 批量粘贴
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- 标签一：文件导入 -->
+                        <div class="tab-pane fade show active" id="importFile" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted" style="font-size: 13px;">请使用模板填写数据，再上传文件</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="downloadImportTemplate()">
+                                    <i class="bi bi-download me-1"></i>下载模板
+                                </button>
+                            </div>
+                            <div class="upload-area" id="importDropZone"
+                                 style="border: 2px dashed #dee2e6; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s;"
+                                 onclick="document.getElementById('importFileInput').click()"
+                                 ondragover="event.preventDefault();this.style.borderColor='#0d6efd';this.style.background='#f0f7ff'"
+                                 ondragleave="this.style.borderColor='#dee2e6';this.style.background='transparent'"
+                                 ondrop="event.preventDefault();this.style.borderColor='#dee2e6';this.style.background='transparent';handleImportFileDrop(event)">
+                                <i class="bi bi-cloud-upload" style="font-size: 36px; color: #adb5bd;"></i>
+                                <p class="mt-2 mb-1" style="font-size: 14px; color: #6c757d;">点击选择或拖拽文件到此处</p>
+                                <p style="font-size: 12px; color: #adb5bd; margin: 0;">支持 .csv .xlsx .xls 格式</p>
+                            </div>
+                            <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleImportFile(this.files[0])">
+                            <div id="importFileInfo" class="mt-2" style="display:none; font-size: 13px;"></div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-primary btn-sm" id="btnStartImport" style="display:none;" onclick="startFileImport()">
+                                    <i class="bi bi-upload me-1"></i>开始导入
+                                </button>
+                            </div>
+                            <div id="importFileResult" class="mt-3" style="display:none;"></div>
+                        </div>
+
+                        <!-- 标签二：批量粘贴 -->
+                        <div class="tab-pane fade" id="importPaste" role="tabpanel">
+                            <p class="text-muted" style="font-size: 13px;">粘贴 JSON 数组格式的设备数据，每行一个设备对象</p>
+                            <button class="btn btn-sm btn-outline-secondary mb-2" onclick="insertJsonExample()">
+                                <i class="bi bi-lightbulb me-1"></i>插入示例
+                            </button>
+                            <textarea class="form-control" id="batchPasteText" rows="10"
+                                      style="font-family: 'Consolas','Monaco',monospace; font-size: 13px; resize: vertical;"
+                                      placeholder='[
+  { "name": "机械键盘", "spec_model": "MX87", "quantity": 5, "tags": "键盘,外设" },
+  { "name": "显示器", "serial_number": "SN789", "source": "采购" }
+]'></textarea>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-primary btn-sm" onclick="startBatchImport()">
+                                    <i class="bi bi-upload me-1"></i>导入
+                                </button>
+                            </div>
+                            <div id="importBatchResult" class="mt-3" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

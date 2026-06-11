@@ -10,6 +10,7 @@ const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
 const { s3Config } = require('./s3.config');
 const { marked } = require('marked');
+const XLSX = require('xlsx');
 
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -35,6 +36,25 @@ const upload = multer({
 const uploadAttachment = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
+// Multer：导入文件（CSV/XLSX）
+const uploadImport = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+        const allowedExts = /\.(csv|xlsx|xls)$/i;
+        if (allowedMimes.includes(file.mimetype) || allowedExts.test(file.originalname)) {
+            cb(null, true);
+        } else {
+            cb(new Error('仅支持 CSV / Excel (.csv, .xlsx, .xls) 文件'));
+        }
+    },
 });
 
 // S3 客户端
@@ -63,6 +83,11 @@ const pool = mysql.createPool({
     keepAliveInitialDelay: 0,
 });
 
+// 连接池错误处理（防止连接断开导致进程崩溃）
+pool.on('error', (err) => {
+    console.error('[MySQL Pool Error]', err.code, err.message);
+});
+
 // 测试连接
 pool.getConnection((err, connection) => {
     if (err) {
@@ -83,6 +108,27 @@ pool.getConnection((err, connection) => {
 app.use(cors());
 app.use(bodyParser.json());
 
+// ★ 导入导出列映射：模板表头 → 数据库列 → 类型
+const IMPORT_COLUMNS = [
+    { header: '仓库名称',      dbCol: 'warehouse_name',      type: 'string' },
+    { header: '设备ID',       dbCol: 'device_id',          type: 'string' },
+    { header: '设备名称',      dbCol: 'name',               type: 'string',  required: true },
+    { header: '序列号',       dbCol: 'serial_number',       type: 'string' },
+    { header: '规格型号',      dbCol: 'spec_model',          type: 'string' },
+    { header: '来源',         dbCol: 'source',              type: 'string' },
+    { header: '数量',         dbCol: 'quantity',            type: 'number',  defaults: 1 },
+    { header: '标签',         dbCol: 'tag_names',           type: 'tags' },
+    { header: '所属路径',      dbCol: 'department_path',     type: 'string' },
+    { header: '负责人',       dbCol: 'responsible_person',   type: 'string' },
+    { header: '位置',         dbCol: 'storage_location',     type: 'string' },
+    { header: '状态',         dbCol: 'status',              type: 'string',  defaults: '正常' },
+    { header: '到期日期',      dbCol: 'expiry_date',         type: 'date' },
+    { header: '入库时间',      dbCol: 'checkin_time',        type: 'datetime' },
+    { header: '出库时间',      dbCol: 'checkout_time',       type: 'datetime' },
+    { header: '去向',         dbCol: 'destination',          type: 'string' },
+    { header: '备注',         dbCol: 'remark',              type: 'string' },
+];
+
 // 封装查询函数（带超时保护）
 const query = (sql, values = []) => {
     return new Promise((resolve, reject) => {
@@ -98,6 +144,40 @@ const query = (sql, values = []) => {
             }
         });
     });
+};
+
+// 大数据量查询（长超时 + ECONNRESET 自动重试）
+const queryLarge = async (sql, values = [], maxRetries = 3) => {
+    let lastErr;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await new Promise((resolve, reject) => {
+                pool.query({ sql, values, timeout: 120_000 }, (err, results) => {
+                    if (err) {
+                        if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+                            reject(new Error(`查询超时（120秒）：${sql.substring(0, 80)}...`));
+                        } else {
+                            reject(err);
+                        }
+                    } else {
+                        resolve(results);
+                    }
+                });
+            });
+        } catch (err) {
+            lastErr = err;
+            // ECONNRESET / ETIMEDOUT / PROTOCOL_CONNECTION_LOST → 可重试
+            const isRetryable = ['ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ECONNREFUSED']
+                .some(code => err.message?.includes(code) || err.code === code);
+            if (isRetryable && attempt < maxRetries) {
+                console.warn(`[导出] 连接异常（${err.message}），${attempt}/${maxRetries} 次重试，等待 ${attempt * 2}s...`);
+                await new Promise(r => setTimeout(r, attempt * 2000));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastErr;
 };
 
 // ============ 仓库 API ============
@@ -264,6 +344,498 @@ app.get('/api/devices/expiring', async (req, res) => {
     }
 });
 
+// ============ 导入导出 API ============
+
+// 1. 导出设备（Excel 或 CSV）
+app.get('/api/devices/export', async (req, res) => {
+    try {
+        const { warehouseId, warehouseName, format } = req.query;
+
+        let sql = 'SELECT * FROM devices';
+        let params = [];
+
+        if (warehouseId && warehouseId !== '0') {
+            const wh = await queryLarge('SELECT name FROM warehouses WHERE id=?', [warehouseId]);
+            if (wh.length > 0) {
+                sql += ' WHERE warehouse_name=?';
+                params = [wh[0].name];
+            }
+        } else if (warehouseName) {
+            sql += ' WHERE warehouse_name=?';
+            params = [warehouseName];
+        }
+
+        sql += ' ORDER BY id';
+        const rows = params.length > 0 ? await queryLarge(sql, params) : await queryLarge(sql);
+
+        if (!rows.length) {
+            return res.status(200).send(''); // 空数据返回空内容
+        }
+
+        // 构建导出数据行
+        const exportRows = rows.map(row => {
+            const r = {};
+            for (const col of IMPORT_COLUMNS) {
+                let val = row[col.dbCol];
+                if (val === null || val === undefined) {
+                    r[col.header] = '';
+                } else if (col.type === 'tags' && val) {
+                    // tag_names 在库中是 JSON 数组，导出为逗号分隔
+                    try {
+                        const arr = JSON.parse(val);
+                        r[col.header] = Array.isArray(arr) ? arr.join(',') : String(val);
+                    } catch (e) {
+                        r[col.header] = String(val);
+                    }
+                } else {
+                    r[col.header] = String(val);
+                }
+            }
+            return r;
+        });
+
+        const outputFormat = format || 'xlsx';
+
+        if (outputFormat === 'csv') {
+            // CSV 格式（带 BOM 防止 Excel 打开中文乱码）
+            const headers = IMPORT_COLUMNS.map(c => c.header);
+            const csvRows = [headers.join(',')];
+            for (const row of exportRows) {
+                const vals = headers.map(h => {
+                    const v = String(row[h] || '');
+                    // 含逗号/引号/换行的字段用引号包裹
+                    if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+                        return `"${v.replace(/"/g, '""')}"`;
+                    }
+                    return v;
+                });
+                csvRows.push(vals.join(','));
+            }
+            const csv = '\uFEFF' + csvRows.join('\n'); // BOM
+            res.set('Content-Type', 'text/csv; charset=utf-8');
+            res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('设备表.csv')}`);
+            res.send(csv);
+        } else {
+            // Excel 格式（默认）
+            const ws = XLSX.utils.json_to_sheet(exportRows, { header: IMPORT_COLUMNS.map(c => c.header) });
+            // 设置列宽
+            ws['!cols'] = IMPORT_COLUMNS.map(c => ({ wch: Math.max(c.header.length * 2, 15) }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '设备表');
+            const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+            res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('设备表.xlsx')}`);
+            res.send(buf);
+        }
+    } catch (err) {
+        console.error('导出设备失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. 下载导入模板（空 Excel）
+app.get('/api/devices/template', (req, res) => {
+    try {
+        const headers = IMPORT_COLUMNS.map(c => c.header);
+        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        ws['!cols'] = IMPORT_COLUMNS.map(c => ({ wch: Math.max(c.header.length * 2, 15) }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '设备导入模板');
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('设备导入模板.xlsx')}`);
+        res.send(buf);
+    } catch (err) {
+        console.error('生成模板失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. 解析导入文件（CSV/XLSX），返回校验结果
+function parseImportFile(fileBuffer, originalName) {
+    const ext = path.extname(originalName).toLowerCase();
+    let rawRows = [];
+
+    if (ext === '.csv') {
+        // CSV 解析（手动，避免引入 csv-parse 依赖）
+        const text = fileBuffer.toString('utf-8').replace(/^\uFEFF/, ''); // 去 BOM
+        const lines = text.split(/\n|\r\n/).filter(line => line.trim());
+        if (lines.length < 2) return { error: '文件为空或只有表头' };
+
+        const headers = parseCSVLine(lines[0]);
+        for (let i = 1; i < lines.length; i++) {
+            const vals = parseCSVLine(lines[i]);
+            const row = {};
+            headers.forEach((h, idx) => { row[h] = (vals[idx] || '').trim(); });
+            rawRows.push(row);
+        }
+    } else {
+        // XLSX/XLS 解析
+        const wb = XLSX.read(fileBuffer, { type: 'buffer' });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        if (!rawRows.length) return { error: '文件中没有数据行' };
+    }
+
+    return { rawRows };
+}
+
+// 解析一行 CSV（处理引号包裹的字段）
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (const ch of line) {
+        if (inQuotes) {
+            if (ch === '"') {
+                inQuotes = false;
+            } else {
+                current += ch;
+            }
+        } else {
+            if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ',') {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+    }
+    result.push(current.trim());
+    return result;
+}
+
+// 解析日期字符串
+function parseDate(val) {
+    if (!val || !String(val).trim()) return null;
+    const v = String(val).trim();
+    // 尝试多种格式
+    const d1 = new Date(v);
+    if (!isNaN(d1.getTime())) return d1.toISOString().split('T')[0];
+    // 尝试处理数字（Excel序列号）
+    const num = parseFloat(v);
+    if (!isNaN(num) && num > 30000 && num < 100000) {
+        // Excel 日期序列号 (1900-01-01 + days)
+        const d = new Date((num - 25569) * 86400 * 1000);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    }
+    return null;
+}
+
+function parseDateTime(val) {
+    if (!val || !String(val).trim()) return null;
+    const v = String(val).trim();
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 19).replace('T', ' ');
+    return null;
+}
+
+// 4. 导入设备（文件上传）
+app.post('/api/devices/import', uploadImport.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: '请选择导入文件' });
+
+        const { warehouseName, warehouseId } = req.body;
+
+        // 确定默认仓库（可选，行内仓库名称优先）
+        let defaultWhName = warehouseName || '';
+        if (!defaultWhName && warehouseId && warehouseId !== '0') {
+            const wh = await query('SELECT name FROM warehouses WHERE id=?', [warehouseId]);
+            if (wh.length > 0) defaultWhName = wh[0].name;
+        }
+
+        // 解析文件
+        const parsed = parseImportFile(req.file.buffer, req.file.originalname);
+        if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+        const rawRows = parsed.rawRows;
+        const errors = [];
+        const devices = [];
+
+        // ★ 预取最大 device_id，用于批次内自增（避免同批设备 ID 重复）
+        const maxRows = await query(
+            `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+        );
+        let batchNextId = (maxRows[0]?.max_code || 0) + 1;
+
+        // 校验每一行
+        for (let i = 0; i < rawRows.length; i++) {
+            const row = rawRows[i];
+            const rowNum = i + 2; // Excel行号（第1行是表头）
+            const device = {};
+            let rowHasError = false;
+
+            for (const col of IMPORT_COLUMNS) {
+                const rawVal = row[col.header];
+                let val = rawVal !== undefined && rawVal !== null ? String(rawVal).trim() : '';
+
+                // 必填校验（仓库名称可选，后续用默认值兜底）
+                if (col.required && !val) {
+                    errors.push(`第${rowNum}行: 「${col.header}」不能为空`);
+                    rowHasError = true;
+                    continue;
+                }
+
+                // 类型转换
+                if (col.type === 'number') {
+                    if (val) {
+                        const n = parseInt(val, 10);
+                        if (isNaN(n) || n < 0) {
+                            errors.push(`第${rowNum}行: 「${col.header}」格式错误，应为数字`);
+                            rowHasError = true;
+                            continue;
+                        }
+                        device[col.dbCol] = n;
+                    } else {
+                        device[col.dbCol] = col.defaults !== undefined ? col.defaults : 1;
+                    }
+                } else if (col.type === 'tags') {
+                    if (val) {
+                        // 逗号分隔的标签 → JSON 数组
+                        const tags = val.split(/[,，]/).map(t => t.trim()).filter(t => t);
+                        device[col.dbCol] = JSON.stringify(tags);
+                    } else {
+                        device[col.dbCol] = '';
+                    }
+                } else if (col.type === 'date') {
+                    device[col.dbCol] = parseDate(val);
+                } else if (col.type === 'datetime') {
+                    device[col.dbCol] = parseDateTime(val);
+                } else {
+                    // string 类型
+                    device[col.dbCol] = val || null;
+                }
+            }
+
+            if (rowHasError) continue;
+
+            // 仓库名称兜底：行内为空则用页面选择的仓库
+            if (!device.warehouse_name) {
+                device.warehouse_name = defaultWhName || null;
+            }
+
+            // 校验 device_id 唯一性
+            if (device.device_id) {
+                const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
+                if (existing.length > 0) {
+                    errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在，请修改或留空自动生成`);
+                    continue;
+                }
+            }
+
+            // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
+            if (!device.device_id) {
+                if (batchNextId > 999999) {
+                    errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                    continue;
+                }
+                device.device_id = String(batchNextId++).padStart(6, '0');
+            }
+
+            devices.push(device);
+        }
+
+        // 校验后没有可入库的行
+        if (!devices.length) {
+            return res.json({ success: 0, total: rawRows.length, errors });
+        }
+
+        // 批量插入（每条独立 INSERT，失败跳过）
+        let inserted = 0;
+        const insertErrors = [];
+
+        for (const device of devices) {
+            try {
+                await query(
+                    `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        device.device_id, device.warehouse_name, device.name,
+                        device.tag_names || '', device.status || '正常', device.quantity || 1,
+                        device.storage_location || '', device.destination || '', device.remark || '',
+                        device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
+                        device.responsible_person || null, device.department_path || null,
+                        device.serial_number || null, device.spec_model || null, device.source || null
+                    ]
+                );
+                inserted++;
+            } catch (err) {
+                insertErrors.push(`设备「${device.name}」入库失败: ${err.message}`);
+            }
+        }
+
+        if (insertErrors.length) errors.push(...insertErrors);
+
+        console.log(`[导入] 文件: ${req.file.originalname}, 共${rawRows.length}行, 成功${inserted}条, 失败${errors.length}项`);
+        res.json({
+            success: inserted,
+            total: rawRows.length,
+            errors: errors.length ? errors : undefined
+        });
+    } catch (err) {
+        console.error('导入设备失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. 批量粘贴导入（JSON）
+app.post('/api/devices/import-batch', async (req, res) => {
+    try {
+        const { warehouseName, warehouseId, data } = req.body;
+
+        if (!data || !Array.isArray(data) || !data.length) {
+            return res.status(400).json({ error: '请提供有效的设备数据数组' });
+        }
+
+        // 确定默认仓库（可选，行内仓库名称优先）
+        let defaultWhName = warehouseName || '';
+        if (!defaultWhName && warehouseId && warehouseId !== '0') {
+            const wh = await query('SELECT name FROM warehouses WHERE id=?', [warehouseId]);
+            if (wh.length > 0) defaultWhName = wh[0].name;
+        }
+
+        const errors = [];
+        const devices = [];
+
+        // ★ 预取最大 device_id，用于批次内自增（避免同批设备 ID 重复）
+        const maxRows = await query(
+            `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+        );
+        let batchNextId = (maxRows[0]?.max_code || 0) + 1;
+
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            const rowNum = i + 1;
+            const device = {};
+
+            // 设备名称必填
+            if (!row.name && !row.device_name) {
+                errors.push(`第${rowNum}行: 设备名称不能为空`);
+                continue;
+            }
+
+            device.name = row.name || row.device_name;
+
+            // 直接映射字段
+            const fieldMappings = {
+                warehouse_name: 'warehouse_name',
+                device_id: 'device_id',
+                serial_number: 'serial_number',
+                spec_model: 'spec_model',
+                source: 'source',
+                department_path: 'department_path',
+                responsible_person: 'responsible_person',
+                storage_location: 'storage_location',
+                status: 'status',
+                destination: 'destination',
+                remark: 'remark',
+            };
+
+            for (const [jsonKey, dbCol] of Object.entries(fieldMappings)) {
+                if (jsonKey in row && row[jsonKey] !== undefined && row[jsonKey] !== null) {
+                    device[dbCol] = String(row[jsonKey]).trim() || null;
+                }
+            }
+
+            // 数量
+            if ('quantity' in row) {
+                device.quantity = parseInt(row.quantity, 10) || 1;
+            } else {
+                device.quantity = 1;
+            }
+
+            // 标签（JSON数组或逗号分隔字符串）
+            if (row.tags || row.tag_names) {
+                const tagsVal = row.tags || row.tag_names;
+                if (Array.isArray(tagsVal)) {
+                    device.tag_names = JSON.stringify(tagsVal);
+                } else {
+                    const tags = String(tagsVal).split(/[,，]/).map(t => t.trim()).filter(t => t);
+                    device.tag_names = JSON.stringify(tags);
+                }
+            } else {
+                device.tag_names = '';
+            }
+
+            // 日期/时间
+            device.expiry_date = parseDate(row.expiry_date || row.expiryDate);
+            device.checkin_time = parseDateTime(row.checkin_time || row.checkinTime);
+            device.checkout_time = parseDateTime(row.checkout_time || row.checkoutTime);
+
+            // 仓库名称兜底：行内为空则用页面选择的仓库
+            if (!device.warehouse_name) {
+                device.warehouse_name = defaultWhName || null;
+            }
+
+            // 默认值
+            device.status = device.status || '正常';
+            device.quantity = device.quantity || 1;
+
+            // device_id 唯一性校验
+            if (device.device_id) {
+                const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
+                if (existing.length > 0) {
+                    errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在`);
+                    continue;
+                }
+            }
+
+            // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
+            if (!device.device_id) {
+                if (batchNextId > 999999) {
+                    errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                    continue;
+                }
+                device.device_id = String(batchNextId++).padStart(6, '0');
+            }
+
+            devices.push(device);
+        }
+
+        if (!devices.length) {
+            return res.json({ success: 0, total: data.length, errors });
+        }
+
+        let inserted = 0;
+        const insertErrors = [];
+
+        for (const device of devices) {
+            try {
+                await query(
+                    `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        device.device_id, device.warehouse_name, device.name,
+                        device.tag_names || '', device.status || '正常', device.quantity || 1,
+                        device.storage_location || '', device.destination || '', device.remark || '',
+                        device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
+                        device.responsible_person || null, device.department_path || null,
+                        device.serial_number || null, device.spec_model || null, device.source || null
+                    ]
+                );
+                inserted++;
+            } catch (err) {
+                insertErrors.push(`设备「${device.name}」入库失败: ${err.message}`);
+            }
+        }
+
+        if (insertErrors.length) errors.push(...insertErrors);
+
+        console.log(`[批量导入] 共${data.length}行, 成功${inserted}条, 失败${errors.length}项`);
+        res.json({
+            success: inserted,
+            total: data.length,
+            errors: errors.length ? errors : undefined
+        });
+    } catch (err) {
+        console.error('批量导入失败:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 获取单个设备详情
 app.get('/api/devices/:id', async (req, res) => {
     try {
@@ -302,7 +874,6 @@ app.post('/api/devices', async (req, res) => {
         const { device_id, warehouseName, name, tag_names, tag_name, status, quantity, storage_location, remark, location_status, destination, checkin_time, expiry_date, responsible_person, department_path, serial_number, spec_model, source } = req.body;
         
         if (!name) return res.status(400).json({ error: '设备名称不能为空' });
-        if (!warehouseName) return res.status(400).json({ error: '请选择仓库' });
         
         const locStatus = location_status || 'in_stock';
         const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
@@ -325,7 +896,7 @@ app.post('/api/devices', async (req, res) => {
 
         const result = await query(
             `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [finalDeviceId, warehouseName, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null]
+            [finalDeviceId, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null]
         );
         
         res.json({ id: result.insertId, warehouseName, name });
@@ -359,6 +930,7 @@ app.put('/api/devices/:id', async (req, res) => {
             { key: 'serial_number',     col: 'serial_number',     fn: v => v || null },
             { key: 'spec_model',        col: 'spec_model',        fn: v => v || null },
             { key: 'source',            col: 'source',            fn: v => v || null },
+        ];
 
         // 只包含 req.body 中实际存在的字段（排除 undefined）
         const setClauses = [];

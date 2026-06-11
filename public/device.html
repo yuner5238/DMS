@@ -911,15 +911,15 @@
             if (!card) return;
 
             // 获取仓库列表
-            let warehouseOptions = '';
+            let warehouseOptions = '<option value="">无仓库</option>';
             try {
                 const res = await fetch(`${API_BASE}/warehouses`);
                 const warehouses = await res.json();
-                warehouseOptions = warehouses.map(w =>
+                warehouseOptions += warehouses.map(w =>
                     `<option value="${w.name}" ${w.name === device.warehouse_name ? 'selected' : ''}>${w.name}</option>`
                 ).join('');
             } catch (e) {
-                warehouseOptions = device.warehouse_name
+                warehouseOptions += device.warehouse_name
                     ? `<option value="${device.warehouse_name}" selected>${device.warehouse_name}</option>`
                     : '';
             }
@@ -983,13 +983,13 @@
                 <div class="edit-row">
                     <div class="edit-label">规格型号</div>
                     <div class="edit-form-group">
-                        <input type="text" id="editSpecModel" value="${escapeHtml(device.spec_model || '')}" placeholder="设备规格型号">
+                        <input type="text" id="editSpecModel" value="${escapeHtml(device.spec_model || '')}" placeholder="例如：联想 E14">
                     </div>
                 </div>
                 <div class="edit-row">
                     <div class="edit-label">来源</div>
                     <div class="edit-form-group">
-                        <input type="text" id="editSource" value="${escapeHtml(device.source || '')}" placeholder="购买来源">
+                        <input type="text" id="editSource" value="${escapeHtml(device.source || '')}" placeholder="例如：淘宝采购">
                     </div>
                 </div>
                 <div class="edit-row">

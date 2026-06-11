@@ -43,7 +43,6 @@ let locationFilters = { in_stock: true, checked_out: true };  // 状态过滤，
 let expiringLocationFilter = { in_stock: true, checked_out: true };  // 临期列表过滤，默认显示全部
 let filterPanelVisible = true;  // 过滤面板默认显示
 let announcements = [];
-let dismissedAnnouncements = new Set();
 let viewMode = 'table';  // 视图模式：'list' 列表模式 或 'table' 表格模式
 
 // ===== 表格列显示控制 =====
@@ -441,8 +440,8 @@ function renderDevicesTableView(devices) {
                         <th data-col="expiry">到期日期</th>
                         <th data-col="checkin">入库时间</th>
                         <th data-col="remark">备注</th>
-                        <th data-col="actions">操作</th>
-                        <th class="col-settings-th">
+                        <th data-col="actions" class="actions-th">
+                            <span>操作</span>
                             <button class="btn btn-sm btn-outline-secondary col-settings-btn" onclick="event.stopPropagation();toggleColumnSettings(event)" title="列设置">
                                 <i class="bi bi-gear"></i>
                             </button>
@@ -549,7 +548,8 @@ async function loadTagStats(warehouseName = null) {
 // 更新仓库下拉框
 function updateWarehouseSelect() {
     const select = document.getElementById('deviceWarehouse');
-    select.innerHTML = warehouses.map(w => `<option value="${w.name}">${w.name}</option>`).join('');
+    select.innerHTML = '<option value="">无仓库</option>' +
+        warehouses.map(w => `<option value="${w.name}">${w.name}</option>`).join('');
     if (currentWarehouseName) select.value = currentWarehouseName;
 }
 
@@ -2439,16 +2439,13 @@ async function loadAnnouncements() {
     }
 }
 
-// 渲染公告列表
+// 渲染公告列表（数据来自数据库加载，不做前端过滤）
 function renderAnnouncements() {
     const announcementList = document.getElementById('announcementList');
     const announcementBar = document.getElementById('announcementBar');
 
-    // 过滤未被关闭的公告
-    const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.has(a.id));
-
     // 没有公告
-    if (visibleAnnouncements.length === 0) {
+    if (announcements.length === 0) {
         announcementList.innerHTML = '<div class="text-center py-3 text-muted" style="font-size: 13px;">暂无公告</div>';
         if (window.innerWidth <= 768) {
             announcementBar.classList.remove('collapsed');
@@ -2457,10 +2454,10 @@ function renderAnnouncements() {
     }
 
     // 按时间排序，最新的在前面
-    visibleAnnouncements.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    announcements.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // 渲染公告列表
-    announcementList.innerHTML = visibleAnnouncements.map(announcement => `
+    announcementList.innerHTML = announcements.map(announcement => `
         <div class="announcement-item" data-id="${announcement.id}">
             <div class="announcement-content">
                 <span class="announcement-time">${formatTime(announcement.created_at)}</span>
@@ -2473,24 +2470,25 @@ function renderAnnouncements() {
     `).join('');
 }
 
-// 关闭公告
-function dismissAnnouncement(announcementId) {
-    dismissedAnnouncements.add(announcementId);
-    localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedAnnouncements]));
-    renderAnnouncements();
-    updateAnnouncementBadge();
+// 删除公告（直接从数据库删除后重新加载）
+async function dismissAnnouncement(announcementId) {
+    try {
+        await fetch(`${API_BASE}/announcements/${announcementId}`, { method: 'DELETE' });
+        await loadAnnouncements();
+    } catch (error) {
+        console.error('删除公告失败:', error);
+    }
 }
 
 // 更新公告按钮角标
 function updateAnnouncementBadge() {
     const badge = document.getElementById('announcementBtnBadge');
     const mobileBadge = document.getElementById('mobileAnnouncementBadge');
-    const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.has(a.id));
 
-    if (visibleAnnouncements.length > 0) {
-        badge.textContent = visibleAnnouncements.length;
+    if (announcements.length > 0) {
+        badge.textContent = announcements.length;
         badge.style.display = 'inline-flex';
-        mobileBadge.textContent = visibleAnnouncements.length;
+        mobileBadge.textContent = announcements.length;
         mobileBadge.style.display = 'flex';
     } else {
         badge.style.display = 'none';
@@ -3120,13 +3118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // 恢复已关闭的公告状态
-    const dismissed = localStorage.getItem('dismissedAnnouncements');
-    if (dismissed) {
-        dismissedAnnouncements = new Set(JSON.parse(dismissed));
-    }
 
-    // 加载公告
+    // 加载公告（直接从数据库获取实际数据）
     await loadAnnouncements();
 
     // 移动端：确保侧边栏初始状态是关闭的
@@ -3204,3 +3197,185 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(openRemarkEditor, 800);
     }
 });
+
+// ============ 导入导出 ============
+
+// 导出设备
+function exportDevices() {
+    if (!currentWarehouseId && currentWarehouseId !== 0) {
+        alert('请先选择仓库');
+        return;
+    }
+    const params = new URLSearchParams();
+    if (currentWarehouseId > 0) params.set('warehouseId', currentWarehouseId);
+    params.set('format', 'xlsx');
+    const url = `${API_BASE}/devices/export?${params.toString()}`;
+    // 直接触发下载
+    window.open(url, '_blank');
+}
+
+// 下载导入模板
+function downloadImportTemplate() {
+    window.open(`${API_BASE}/devices/template`, '_blank');
+}
+
+// 显示导入弹窗
+function showImportModal() {
+    if (!currentWarehouseId && currentWarehouseId !== 0) {
+        alert('请先选择仓库');
+        return;
+    }
+    // 重置状态
+    document.getElementById('importFileInput').value = '';
+    document.getElementById('importFileInfo').style.display = 'none';
+    document.getElementById('btnStartImport').style.display = 'none';
+    document.getElementById('importFileResult').style.display = 'none';
+    document.getElementById('batchPasteText').value = '';
+    document.getElementById('importBatchResult').style.display = 'none';
+    // 切到第一个 tab
+    const fileTab = document.getElementById('file-tab');
+    if (fileTab) new bootstrap.Tab(fileTab).show();
+    _pendingImportFile = null;
+
+    // 填充仓库下拉（排除"总仓库"选项）
+    const sel = document.getElementById('importWarehouseSelect');
+    sel.innerHTML = '<option value="">不指定（需在每行填写「仓库名称」）</option>';
+    warehouses.forEach(wh => {
+        if (wh.id === 0) return; // 跳过"总仓库"
+        sel.innerHTML += `<option value="${wh.id}" data-name="${wh.name}">${wh.name}</option>`;
+    });
+    // 若当前在具体仓库，预选；若在"全部仓库"，保持"不指定"
+    if (currentWarehouseId > 0) {
+        sel.value = currentWarehouseId;
+    }
+
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('importModal'));
+    modal.show();
+}
+
+let _pendingImportFile = null;
+
+// 文件选择/拖拽处理
+function handleImportFile(file) {
+    if (!file) return;
+    _pendingImportFile = file;
+    const info = document.getElementById('importFileInfo');
+    info.style.display = 'block';
+    info.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>已选择: ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>`;
+    document.getElementById('btnStartImport').style.display = '';
+}
+
+function handleImportFileDrop(e) {
+    const file = e.dataTransfer.files[0];
+    if (file) handleImportFile(file);
+}
+
+// 开始文件导入
+async function startFileImport() {
+    if (!_pendingImportFile) return;
+
+    const btn = document.getElementById('btnStartImport');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>导入中...';
+
+    try {
+        const formData = new FormData();
+        formData.append('file', _pendingImportFile);
+
+        // 从导入弹窗的仓库下拉读取目标仓库
+        const sel = document.getElementById('importWarehouseSelect');
+        const whId = sel.value;
+        const whName = sel.options[sel.selectedIndex]?.dataset?.name || '';
+        if (whId) formData.append('warehouseId', whId);
+        formData.append('warehouseName', whName);
+
+        const res = await fetch(`${API_BASE}/devices/import`, {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await res.json();
+
+        showImportResult('importFileResult', result);
+
+        if (result.success > 0) loadDevices(); // 刷新列表
+    } catch (e) {
+        showImportResult('importFileResult', { success: 0, total: 0, errors: ['网络错误: ' + e.message] });
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-upload me-1"></i>开始导入';
+    }
+}
+
+// 插入 JSON 示例
+function insertJsonExample() {
+    document.getElementById('batchPasteText').value = `[
+  { "warehouse_name": "工作仓库", "name": "机械键盘", "spec_model": "MX87", "quantity": 5, "tags": "键盘,外设", "source": "采购" },
+  { "warehouse_name": "工作仓库", "name": "27寸显示器", "serial_number": "SN-DELL-001", "department_path": "技术部", "responsible_person": "张三" },
+  { "warehouse_name": "家居仓库", "name": "U盘64G", "quantity": 10, "storage_location": "货架A-3", "remark": "金士顿" }
+]`;
+}
+
+// 开始批量粘贴导入
+async function startBatchImport() {
+    const text = document.getElementById('batchPasteText').value.trim();
+    if (!text) return alert('请粘贴设备数据');
+
+    let data;
+    try {
+        data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error('数据必须是 JSON 数组');
+    } catch (e) {
+        return alert('JSON 格式错误: ' + e.message + '\n\n请检查括号和引号是否匹配。');
+    }
+
+    const resultEl = document.getElementById('importBatchResult');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span>导入中...</div>';
+
+    try {
+        // 从导入弹窗的仓库下拉读取目标仓库
+        const sel = document.getElementById('importWarehouseSelect');
+        const whId = sel.value;
+        const whName = sel.options[sel.selectedIndex]?.dataset?.name || '';
+
+        const res = await fetch(`${API_BASE}/devices/import-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                data,
+                warehouseId: whId || undefined,
+                warehouseName: whName,
+            }),
+        });
+        const result = await res.json();
+        showImportResult('importBatchResult', result);
+
+        if (result.success > 0) loadDevices(); // 刷新列表
+    } catch (e) {
+        showImportResult('importBatchResult', { success: 0, total: data.length, errors: ['网络错误: ' + e.message] });
+    }
+}
+
+// 渲染导入结果
+function showImportResult(containerId, result) {
+    const el = document.getElementById(containerId);
+    el.style.display = 'block';
+
+    let html = '';
+    html += `<div class="alert ${result.success > 0 ? 'alert-success' : 'alert-danger'} py-2 mb-2" style="font-size:13px;">
+        <i class="bi bi-${result.success > 0 ? 'check-circle' : 'exclamation-triangle'} me-1"></i>
+        共 ${result.total} 条，成功导入 <strong>${result.success}</strong> 条`;
+
+    if (result.errors && result.errors.length) {
+        html += `，失败 <strong>${result.errors.length}</strong> 项`;
+        html += '</div>';
+        html += '<div style="max-height:200px;overflow-y:auto;font-size:12px;">';
+        html += result.errors.map(e => `<div class="text-danger mb-1"><i class="bi bi-x-circle me-1"></i>${e}</div>`).join('');
+        html += '</div>';
+    } else {
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
+}
