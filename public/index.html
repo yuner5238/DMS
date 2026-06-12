@@ -620,6 +620,20 @@
         .btn-light { background: #f5f5f5; border-color: var(--border-color); border-radius: 4px; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
         .btn-light:hover { background: #e5e5e5; transform: translateY(-1px); }
 
+        /* 导入辅助按钮 - hover时白字有色底 */
+        .import-helper-btn {
+            border: 1px solid var(--btn-c);
+            color: var(--btn-c);
+            background: transparent;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .import-helper-btn:hover {
+            background: var(--btn-c);
+            color: #fff !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+        }
+
         /* 设备分区 */
         .device-section { margin-bottom: 20px; }
 
@@ -2865,8 +2879,11 @@
                         <!-- 标签二：批量粘贴 -->
                         <div class="tab-pane fade" id="importPaste" role="tabpanel">
                             <p class="text-muted" style="font-size: 13px;">粘贴 JSON 数组格式的设备数据，每行一个设备对象</p>
-                            <button class="btn btn-sm btn-outline-secondary mb-2" onclick="insertJsonExample()">
+                            <button class="btn btn-sm mb-2 import-helper-btn" onclick="insertJsonExample()" style="--btn-c:#0067c0;">
                                 <i class="bi bi-lightbulb me-1"></i>插入示例
+                            </button>
+                            <button class="btn btn-sm mb-2 ms-1 import-helper-btn" onclick="copyAIPrompt()" style="--btn-c:#0f7b0f;">
+                                <i class="bi bi-clipboard me-1"></i>复制AI提示语
                             </button>
                             <textarea class="form-control" id="batchPasteText" rows="10"
                                       style="font-family: 'Consolas','Monaco',monospace; font-size: 13px; resize: vertical;"
