@@ -527,6 +527,9 @@
         .filter-btn:active {
             transform: scale(0.95);
         }
+        .filter-btn.active {
+            border-color: var(--border-color);
+        }
         .filter-btn.active-in-stock {
             background: var(--success-bg);
             border-color: var(--success-border);
@@ -590,7 +593,7 @@
 
         .page-header h5 { margin: 0; font-weight: 600; color: var(--text-primary); font-size: 16px; }
 
-        /* 内容卡片：工具栏 + 设备列表 */
+        /* 内容卡片：工具栏 + 设备列表（邮箱风格） */
         .content-card {
             display: flex;
             flex-direction: column;
@@ -598,13 +601,13 @@
             min-height: 0;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
             overflow: hidden;
         }
 
-        /* 操作工具栏 */
+        /* 操作工具栏（邮箱式顶栏） */
         .action-toolbar-wrapper {
             flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
         }
         .action-toolbar {
             display: flex;
@@ -631,7 +634,7 @@
         .action-toolbar-wrapper .batch-toolbar {
             border: none;
             border-top: 1px solid #c2d5ff;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid #d9e2f0;
         }
 
         /* 搜索框 - Win11风格 + 流畅动画 */
@@ -680,31 +683,29 @@
             box-shadow: 0 2px 8px rgba(0,0,0,.12);
         }
 
-        /* 设备分区 */
+        /* 设备分区 - 邮箱风格分组头 */
         .device-section { margin-bottom: 0; }
 
         .device-section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
-            background: var(--bg-card);
-            border: none;
-            border-top: 1px solid var(--border-color);
+            padding: 8px 16px;
+            background: #f7f8fa;
+            border-bottom: 1px solid var(--border-color);
             cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: background 0.15s ease;
             caret-color: transparent;
         }
 
-        .device-section-header:hover { background: #f2f3f5; }
-        .device-section-header:active { background: #e8e9eb; }
-        .device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px; }
+        .device-section-header:hover { background: #eef0f4; }
+        .device-section-header:active { background: #e5e7ec; }
+        .device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; color: #374151; font-size: 13px; }
         .device-section-header .badge {
             font-size: 11px;
-            padding: 4px 10px;
+            padding: 2px 8px;
             font-weight: 500;
-            border-radius: 4px;
-            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            border-radius: 10px;
         }
 
         .device-section-body {
@@ -730,12 +731,11 @@
             overflow-y: auto;
             padding-right: 4px;
             min-height: 0;
-            background: var(--bg-card);
         }
 
-        .in-stock-section .device-section-header { border-top: 3px solid #107c10; }
+        .in-stock-section .device-section-header { border-left: 3px solid #107c10; background: #f0faf0; }
         .in-stock-section .device-section-header .badge { background: #107c10; color: #ffffff; }
-        .checked-out-section .device-section-header { border-top: 3px solid #eaa300; }
+        .checked-out-section .device-section-header { border-left: 3px solid #eaa300; background: #fffbf0; }
         .checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
 
         /* 设备项样式已统一定义在 css/index.css */
@@ -1358,8 +1358,8 @@
 
             .device-section { margin-bottom: 0; }
             .device-item {
-                padding: 10px 12px;
-                margin: 6px;
+            padding: 10px 12px;
+            margin: 0;
             }
 
             /* 移动端设备项布局优化 */
@@ -1447,15 +1447,8 @@
             }
 
             .device-item {
-            background: var(--bg-card);
-            border-radius: 6px;
-            padding: 12px 16px;
-            margin: 8px;
-            transition: all 0.15s;
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--success-border);
-            overflow: hidden;
-            cursor: pointer;
+            padding: 10px 16px;
+            margin: 0;
         }
 
             .device-item {
@@ -1597,7 +1590,7 @@
         @media (min-width: 1025px) {
             .device-item {
                 padding: 12px 16px;
-                margin: 8px;
+                margin: 0;
             }
 
         /* 桌面端详情列完整显示 */
@@ -1702,8 +1695,8 @@
         }
 
             .device-item {
-                padding: 8px 10px;
-                margin: 4px;
+            padding: 8px 14px;
+            margin: 0;
             }
 
             .device-item strong {
