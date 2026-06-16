@@ -536,7 +536,7 @@ async function uploadImage(request, env) {
 
         return jsonResponse({ success: true, url: imageUrl, key: s3Key });
     } catch (err) {
-        console.error('[S3上传] 异常:', err.message);
+        console.error('[S3上传] 异常:', err.message, err.stack || '');
         return jsonResponse({ error: err.message }, 500);
     }
 }
@@ -747,7 +747,9 @@ async function signS3Request(env, method, s3Url, body, contentType) {
     const region = env.S3_REGION || 'us-east-1';
     const service = 's3';
     const host = s3Url.host;
-    const canonicalUri = s3Url.pathname;
+    // URL.pathname 会解码 %20 → 空格，但 S3 实际接收编码后的 URL
+    // 需要重新编码每个路径段，确保签名与实际请求一致
+    const canonicalUri = s3Url.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
     const canonicalQuery = s3Url.searchParams.toString()
         .split('&').sort().join('&')
         .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
