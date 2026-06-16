@@ -751,7 +751,7 @@ async function signS3Request(env, method, s3Url, body, contentType) {
     const host = s3Url.host;
     // URL.pathname 会解码 %20 → 空格，但 S3 实际接收编码后的 URL
     // 需要重新编码每个路径段，确保签名与实际请求一致
-    const canonicalUri = s3Url.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
+    const canonicalUri = s3Url.pathname.split('/').map(seg => encodeURIComponent(decodeURIComponent(seg))).join('/');
     const canonicalQuery = s3Url.searchParams.toString()
         .split('&').sort().join('&')
         .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
