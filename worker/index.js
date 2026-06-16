@@ -66,6 +66,10 @@ export default {
             if (path === '/api/devices/backfill-codes' && method === 'POST') {
                 return await backfillDeviceCodes(env);
             }
+            // 批量删除设备
+            if (path === '/api/devices/batch-delete' && method === 'POST') {
+                return await batchDeleteDevices(request, env);
+            }
 
             // ===== 标签统计 API =====
             if (path === '/api/tag-stats' && method === 'GET') {
@@ -340,6 +344,20 @@ async function backfillDeviceCodes(env) {
     }
 
     return jsonResponse({ message: `已为 ${count} 个设备补全设备ID码` });
+}
+
+// 批量删除设备
+async function batchDeleteDevices(request, env) {
+    const { ids } = await request.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return jsonResponse({ error: '请提供要删除的设备ID列表' }, 400);
+    }
+    // D1 需要逐个绑定参数，构建 IN (?, ?, ...) 语句
+    const placeholders = ids.map(() => '?').join(',');
+    const result = await env.DB.prepare(
+        `DELETE FROM devices WHERE id IN (${placeholders})`
+    ).bind(...ids).run();
+    return jsonResponse({ success: true, deleted: result.meta?.changes || ids.length });
 }
 
 // ============ 标签统计 ============
