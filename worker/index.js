@@ -516,7 +516,7 @@ async function uploadImage(request, env) {
         if (!resp.ok && resp.status !== 200) {
             const text = await resp.text();
             console.error('[S3上传] HTTP', resp.status, text);
-            return jsonResponse({ error: '上传到 S3 失败' }, 502);
+            return jsonResponse({ error: `S3 上传失败 (HTTP ${resp.status}): ${text}` }, 502);
         }
 
         // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
@@ -681,7 +681,9 @@ async function uploadAttachment(request, env) {
         });
 
         if (!resp.ok && resp.status !== 200) {
-            return jsonResponse({ error: '上传到 S3 失败' }, 502);
+            const text = await resp.text();
+            console.error('[S3附件上传] HTTP', resp.status, text);
+            return jsonResponse({ error: `S3 上传失败 (HTTP ${resp.status}): ${text}` }, 502);
         }
 
         // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
