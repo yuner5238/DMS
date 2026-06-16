@@ -45,6 +45,283 @@ let filterPanelVisible = true;  // 过滤面板默认显示
 let announcements = [];
 let viewMode = 'table';  // 视图模式：'list' 列表模式 或 'table' 表格模式
 
+// ===== 批量选择 =====
+let batchSelectMode = false;
+const selectedDeviceIds = new Set();
+
+// 拖拽多选状态
+let dragSelectActive = false;
+let dragSelectStartX = 0;
+let dragSelectStartY = 0;
+let dragSelectMoved = false;
+let dragSelectLastId = null;
+const DRAG_SELECT_THRESHOLD = 5;
+
+function initDragSelect() {
+    const deviceList = document.getElementById('deviceList');
+    if (!deviceList) return;
+
+    deviceList.addEventListener('pointerdown', (e) => {
+        if (!batchSelectMode) return;
+        // 忽略按钮、复选框、特殊图标上的操作
+        if (e.target.closest('button, input[type="checkbox"], .remark-icon, .remark-clickable, .device-id-badge')) return;
+        const row = e.target.closest('[data-device-id]');
+        if (!row) return;
+
+        dragSelectActive = true;
+        dragSelectMoved = false;
+        dragSelectStartX = e.clientX;
+        dragSelectStartY = e.clientY;
+        const deviceId = parseInt(row.dataset.deviceId);
+        dragSelectLastId = deviceId;
+        toggleDeviceSelectDirect(deviceId);
+        e.preventDefault();
+    });
+
+    document.addEventListener('pointermove', (e) => {
+        if (!dragSelectActive || !batchSelectMode) return;
+        const dx = e.clientX - dragSelectStartX;
+        const dy = e.clientY - dragSelectStartY;
+        if (Math.abs(dx) < DRAG_SELECT_THRESHOLD && Math.abs(dy) < DRAG_SELECT_THRESHOLD) return;
+        dragSelectMoved = true;
+
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        if (!el || !el.closest('#deviceList')) return;
+        const row = el.closest('[data-device-id]');
+        if (!row) return;
+        const deviceId = parseInt(row.dataset.deviceId);
+        if (deviceId === dragSelectLastId) return;
+        dragSelectLastId = deviceId;
+        if (!selectedDeviceIds.has(deviceId)) {
+            selectedDeviceIds.add(deviceId);
+            row.classList.add('batch-selected');
+            const cb = row.querySelector('.batch-checkbox');
+            if (cb) cb.checked = true;
+        }
+    });
+
+    document.addEventListener('pointerup', () => {
+        if (!dragSelectActive) return;
+        dragSelectActive = false;
+        dragSelectLastId = null;
+        // 拖拽后取消后续 click 事件，防止误触详情页
+        if (dragSelectMoved) {
+            document.addEventListener('click', function suppressClick(e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }, { once: true, capture: true });
+        }
+        updateBatchSelectUI();
+    });
+
+    document.addEventListener('pointercancel', () => {
+        dragSelectActive = false;
+        dragSelectLastId = null;
+        updateBatchSelectUI();
+    });
+
+    // 指针离开窗口时重置
+    document.addEventListener('pointerleave', () => {
+        if (dragSelectActive) {
+            dragSelectActive = false;
+            dragSelectLastId = null;
+            updateBatchSelectUI();
+        }
+    });
+}
+
+// 直接操作选中态 DOM，避免拖拽中频繁全量渲染
+function toggleDeviceSelectDirect(deviceId) {
+    if (selectedDeviceIds.has(deviceId)) {
+        selectedDeviceIds.delete(deviceId);
+    } else {
+        selectedDeviceIds.add(deviceId);
+    }
+    document.querySelectorAll(`[data-device-id="${deviceId}"]`).forEach(row => {
+        const selected = selectedDeviceIds.has(deviceId);
+        row.classList.toggle('batch-selected', selected);
+        const cb = row.querySelector('.batch-checkbox');
+        if (cb) cb.checked = selected;
+    });
+}
+
+function toggleBatchSelectMode(e) {
+    if (e) e.stopPropagation();
+    batchSelectMode = !batchSelectMode;
+    if (!batchSelectMode) selectedDeviceIds.clear();
+    // 重新渲染设备列表
+    const searchInput = document.getElementById('searchInput');
+    const keyword = searchInput ? searchInput.value.toLowerCase() : '';
+    const filtered = keyword
+        ? allDevices.filter(d =>
+            d.name.toLowerCase().includes(keyword) ||
+            ((d.tag_names || d.tag_name || '') && parseTags(d.tag_names || d.tag_name || '').some(t => t.toLowerCase().includes(keyword))) ||
+            (d.destination && d.destination.toLowerCase().includes(keyword))
+        )
+        : allDevices;
+    renderDevices(filtered);
+    // 更新按钮样式
+    updateBatchBtnUI();
+}
+
+function updateBatchBtnUI() {
+    const btn = document.getElementById('batchToggleBtn');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    const span = btn.querySelector('span');
+    if (batchSelectMode) {
+        btn.classList.add('active');
+        if (icon) icon.className = 'bi bi-check2-square';
+        if (span) span.textContent = '退出批量';
+    } else {
+        btn.classList.remove('active');
+        if (icon) icon.className = 'bi bi-square';
+        if (span) span.textContent = '批量操作';
+    }
+}
+
+function toggleDeviceSelect(deviceId) {
+    if (selectedDeviceIds.has(deviceId)) {
+        selectedDeviceIds.delete(deviceId);
+    } else {
+        selectedDeviceIds.add(deviceId);
+    }
+    updateBatchSelectUI();
+}
+
+function toggleSelectAll() {
+    const searchInput = document.getElementById('searchInput');
+    const keyword = searchInput ? searchInput.value.toLowerCase() : '';
+    const filtered = keyword
+        ? allDevices.filter(d =>
+            d.name.toLowerCase().includes(keyword) ||
+            ((d.tag_names || d.tag_name || '') && parseTags(d.tag_names || d.tag_name || '').some(t => t.toLowerCase().includes(keyword))) ||
+            (d.destination && d.destination.toLowerCase().includes(keyword))
+        )
+        : allDevices;
+
+    const inStockDevices = filtered.filter(d => d.location_status === 'in_stock' || !d.location_status);
+    const checkedOutDevices = filtered.filter(d => d.location_status === 'checked_out');
+
+    const allVisible = [...inStockDevices, ...checkedOutDevices];
+    const allIds = allVisible.map(d => d.id);
+
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
+
+    if (allSelected) {
+        allIds.forEach(id => selectedDeviceIds.delete(id));
+    } else {
+        allIds.forEach(id => selectedDeviceIds.add(id));
+    }
+    // 重新渲染以更新复选框状态
+    const searchInput2 = document.getElementById('searchInput');
+    const keyword2 = searchInput2 ? searchInput2.value.toLowerCase() : '';
+    const filtered2 = keyword2
+        ? allDevices.filter(d =>
+            d.name.toLowerCase().includes(keyword2) ||
+            ((d.tag_names || d.tag_name || '') && parseTags(d.tag_names || d.tag_name || '').some(t => t.toLowerCase().includes(keyword2))) ||
+            (d.destination && d.destination.toLowerCase().includes(keyword2))
+        )
+        : allDevices;
+    renderDevices(filtered2);
+}
+
+function updateBatchSelectUI() {
+    // 更新全选按钮状态
+    const selectAllBox = document.getElementById('batchSelectAll');
+    if (!selectAllBox) return;
+
+    const searchInput = document.getElementById('searchInput');
+    const keyword = searchInput ? searchInput.value.toLowerCase() : '';
+    const filtered = keyword
+        ? allDevices.filter(d =>
+            d.name.toLowerCase().includes(keyword) ||
+            ((d.tag_names || d.tag_name || '') && parseTags(d.tag_names || d.tag_name || '').some(t => t.toLowerCase().includes(keyword))) ||
+            (d.destination && d.destination.toLowerCase().includes(keyword))
+        )
+        : allDevices;
+
+    const inStockDevices = filtered.filter(d => d.location_status === 'in_stock' || !d.location_status);
+    const checkedOutDevices = filtered.filter(d => d.location_status === 'checked_out');
+    const allVisible = [...inStockDevices, ...checkedOutDevices];
+    const allIds = allVisible.map(d => d.id);
+
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
+    const someSelected = allIds.some(id => selectedDeviceIds.has(id));
+
+    selectAllBox.checked = allSelected;
+    selectAllBox.indeterminate = someSelected && !allSelected;
+    selectAllBox.parentElement.querySelector('.batch-count').textContent = `已选 ${selectedDeviceIds.size} 项`;
+
+    const deleteBtn = document.getElementById('batchDeleteBtn');
+    if (deleteBtn) {
+        deleteBtn.disabled = selectedDeviceIds.size === 0;
+    }
+}
+
+function renderBatchToolbarHTML() {
+    const controlsBar = document.getElementById('batchControlsBar');
+    const list = document.getElementById('deviceList');
+    if (!controlsBar) return;
+
+    if (!batchSelectMode) {
+        controlsBar.style.display = 'none';
+        controlsBar.innerHTML = '';
+        if (list) list.classList.remove('batch-mode');
+        return;
+    }
+    if (list) list.classList.add('batch-mode');
+
+    const searchInput = document.getElementById('searchInput');
+    const keyword = searchInput ? searchInput.value.toLowerCase() : '';
+    const filtered = keyword
+        ? allDevices.filter(d =>
+            d.name.toLowerCase().includes(keyword) ||
+            ((d.tag_names || d.tag_name || '') && parseTags(d.tag_names || d.tag_name || '').some(t => t.toLowerCase().includes(keyword))) ||
+            (d.destination && d.destination.toLowerCase().includes(keyword))
+        )
+        : allDevices;
+
+    const allVisible = filtered;
+    const allIds = allVisible.map(d => d.id);
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
+
+    controlsBar.style.display = 'flex';
+    controlsBar.innerHTML = `
+        <label class="batch-select-all">
+            <input type="checkbox" id="batchSelectAll" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll()">
+            <span>全选</span>
+            <span class="batch-count">已选 ${selectedDeviceIds.size} 项</span>
+        </label>
+        <button id="batchDeleteBtn" class="btn btn-sm btn-danger" onclick="executeBatchDelete()" ${selectedDeviceIds.size === 0 ? 'disabled' : ''}>
+            <i class="bi bi-trash"></i> 批量删除
+        </button>
+    `;
+}
+
+async function executeBatchDelete() {
+    if (selectedDeviceIds.size === 0) return;
+    if (!confirm(`确定要删除选中的 ${selectedDeviceIds.size} 个设备吗？此操作不可撤销。`)) return;
+
+    const ids = Array.from(selectedDeviceIds);
+    try {
+        const res = await fetch(`${API_BASE}/devices/batch-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+        });
+        const result = await res.json();
+        if (result.success) {
+            selectedDeviceIds.clear();
+            await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
+        } else {
+            alert('批量删除失败: ' + (result.error || '未知错误'));
+        }
+    } catch (e) {
+        alert('批量删除失败: ' + e.message);
+    }
+}
+
 // ===== 表格列显示控制 =====
 const COLUMN_DEFS = [
     { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
@@ -92,6 +369,7 @@ function applyColumnVisibility() {
     }
     document.querySelectorAll('[data-col]').forEach(el => {
         const col = el.getAttribute('data-col');
+        if (col === 'batch-check') return;  // 批量勾选框不受列可见性控制
         el.classList.toggle('d-none', !visibleCols.has(col));
     });
     localStorage.setItem('dms_column_visibility', JSON.stringify(columnVisibility));
@@ -384,13 +662,23 @@ function renderDevicesTableView(devices) {
         if (deviceArr.length === 0) {
             return `<div class="text-center text-muted py-3">暂无${isOut ? '已出库' : '在库'}设备</div>`;
         }
-        
-            const rows = deviceArr.map(device => {
+
+        const rows = deviceArr.map(device => {
             const locationText = isOut ? (device.destination || '已出库') : (device.storage_location || '在库');
             const expiryDateText = device.expiry_date ? formatDate(device.expiry_date) : '-';
+            const isChecked = selectedDeviceIds.has(device.id);
+
+            const checkboxTd = batchSelectMode
+                ? `<td data-col="batch-check" class="batch-check-col">
+                    <input type="checkbox" class="batch-checkbox" data-device-id="${device.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation();toggleDeviceSelect(${device.id})">
+                   </td>`
+                : '';
+            const rowClass = `${isOut ? 'checked-out-row' : ''} ${batchSelectMode && isChecked ? 'batch-selected' : ''}`;
+            const rowClick = `showDeviceDetail('${device.device_id || device.id}')`;
 
             return `
-                <tr class="${isOut ? 'checked-out-row' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')" style="cursor: pointer;">
+                <tr class="${rowClass}" data-device-id="${device.id}" onclick="${rowClick}" style="cursor: pointer;">
+                    ${checkboxTd}
                     <td data-col="device-id">${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td data-col="name" class="device-name-cell"><strong>${device.name}</strong></td>
                     <td data-col="serial-number">${device.serial_number || '<span class="text-muted">-</span>'}</td>
@@ -422,10 +710,13 @@ function renderDevicesTableView(devices) {
             `;
         }).join('');
 
+        const checkboxHeader = batchSelectMode ? `<th data-col="batch-check" class="batch-check-col"></th>` : '';
+
         return `
             <table class="table table-hover table-sm device-table">
                 <thead>
                     <tr>
+                        ${checkboxHeader}
                         <th data-col="device-id">设备ID</th>
                         <th data-col="name">设备名称</th>
                         <th data-col="serial-number">序列号</th>
@@ -479,6 +770,7 @@ function renderDevicesTableView(devices) {
     `;
 
     list.innerHTML = inStockHtml + checkedOutHtml;
+    renderBatchToolbarHTML();
     setTimeout(applyColumnVisibility, 0);
 }
 
@@ -861,10 +1153,19 @@ function renderDevices(devices) {
         const destinationTag = isOut && device.destination ? `<span class="destination-tag"><i class="bi bi-geo-alt"></i> ${device.destination}</span>` : '';
         const checkinTimeValue = device.checkin_time ? formatDate(device.checkin_time) : '';
         const storageLocationValue = device.storage_location ? device.storage_location : '';
+        const isChecked = selectedDeviceIds.has(device.id);
+
+        // 仅在批量模式下显示复选框
+        const batchCheckbox = batchSelectMode
+            ? `<input type="checkbox" class="batch-checkbox batch-checkbox-list" data-device-id="${device.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation();toggleDeviceSelect(${device.id})">`
+            : '';
+        const itemClass = `device-item ${isOut ? 'checked-out' : ''} ${batchSelectMode && isChecked ? 'batch-selected' : ''}`;
+        const itemClick = `showDeviceDetail('${device.device_id || device.id}')`;
 
         return `
-            <div class="device-item ${isOut ? 'checked-out' : ''}" onclick="showDeviceDetail('${device.device_id || device.id}')">
+            <div class="${itemClass}" data-device-id="${device.id}" onclick="${itemClick}">
                 <div class="d-flex justify-content-between align-items-start">
+                    ${batchCheckbox}
                     <div class="flex-grow-1">
                         <div class="device-header-row">
                             <div class="device-name-section">
@@ -901,8 +1202,8 @@ function renderDevices(devices) {
         `;
     };
 
-    const inStockHtml = inStockDevices.length > 0 ? inStockDevices.map(d => renderDeviceItem(d, false)).join('') : '<div class="text-center text-muted py-3">暂无在库设备</div>';
-    const checkedOutHtml = checkedOutDevices.length > 0 ? checkedOutDevices.map(d => renderDeviceItem(d, true)).join('') : '<div class="text-center text-muted py-3">暂无已出库设备</div>';
+    const inStockHtml = (inStockDevices.length > 0 ? inStockDevices.map(d => renderDeviceItem(d, false)).join('') : '<div class="text-center text-muted py-3">暂无在库设备</div>');
+    const checkedOutHtml = (checkedOutDevices.length > 0 ? checkedOutDevices.map(d => renderDeviceItem(d, true)).join('') : '<div class="text-center text-muted py-3">暂无已出库设备</div>');
 
     list.innerHTML = `
         <div class="device-section in-stock-section">
@@ -920,6 +1221,7 @@ function renderDevices(devices) {
             <div class="device-section-body" id="checkedOutBody">${checkedOutHtml}</div>
         </div>
     `;
+    renderBatchToolbarHTML();
 }
 
 // 切换列表展开/折叠
@@ -3095,6 +3397,7 @@ document.addEventListener('keydown', function(e) {
 document.addEventListener('DOMContentLoaded', async () => {
     await loadPublicConfig();
     initSidebarResize();
+    initDragSelect();
 
     // 恢复视图模式：优先用户手动选择的，否则按设备类型默认
     const savedViewMode = localStorage.getItem('viewMode');

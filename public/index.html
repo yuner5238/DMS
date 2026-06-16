@@ -583,12 +583,56 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .page-header h5 { margin: 0; font-weight: 600; color: var(--text-primary); font-size: 16px; }
+
+        /* 内容卡片：工具栏 + 设备列表 */
+        .content-card {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* 操作工具栏 */
+        .action-toolbar-wrapper {
+            flex-shrink: 0;
+        }
+        .action-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+        }
+        .action-toolbar .search-box {
+            flex: 1;
+            min-width: 150px;
+            max-width: 400px;
+        }
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .action-toolbar .form-select-sm {
+            width: auto;
+            min-width: 100px;
+        }
+        .action-toolbar-wrapper .batch-toolbar {
+            border: none;
+            border-top: 1px solid #c2d5ff;
+            border-bottom: 1px solid var(--border-color);
+        }
 
         /* 搜索框 - Win11风格 + 流畅动画 */
         .search-box {
@@ -598,6 +642,8 @@
             font-size: 13px;
             transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             background: var(--bg-card);
+            width: 180px;
+            min-width: 100px;
         }
 
         .search-box:focus {
@@ -635,7 +681,7 @@
         }
 
         /* 设备分区 */
-        .device-section { margin-bottom: 20px; }
+        .device-section { margin-bottom: 0; }
 
         .device-section-header {
             display: flex;
@@ -643,16 +689,15 @@
             align-items: center;
             padding: 12px 16px;
             background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-bottom: none;
-            border-radius: 8px 8px 0 0;
+            border: none;
+            border-top: 1px solid var(--border-color);
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
             caret-color: transparent;
         }
 
-        .device-section-header:hover { background: #f8f8f8; transform: scale(1.005); }
-        .device-section-header:active { transform: scale(0.998); }
+        .device-section-header:hover { background: #f2f3f5; }
+        .device-section-header:active { background: #e8e9eb; }
         .device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px; }
         .device-section-header .badge {
             font-size: 11px;
@@ -664,12 +709,10 @@
 
         .device-section-body {
             background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-top: none;
-            border-radius: 0 0 8px 8px;
+            border: none;
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
             opacity: 0;
         }
 
@@ -679,7 +722,6 @@
         }
 
         .device-section-body:not(.expanded) {
-            border-color: transparent;
             background: transparent;
         }
 
@@ -688,6 +730,7 @@
             overflow-y: auto;
             padding-right: 4px;
             min-height: 0;
+            background: var(--bg-card);
         }
 
         .in-stock-section .device-section-header { border-top: 3px solid #107c10; }
@@ -1311,8 +1354,9 @@
             .stat-card p { font-size: 10px; margin: 0; }
 
             .page-header { display: none; }
+            .action-toolbar-wrapper { display: none; }
 
-            .device-section { margin-bottom: 12px; }
+            .device-section { margin-bottom: 0; }
             .device-item {
                 padding: 10px 12px;
                 margin: 6px;
@@ -2192,26 +2236,6 @@
                     <div class="page-header">
                         <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
                         <div class="d-flex align-items-center gap-2">
-                            <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()" style="width: auto;">
-                                <option value="name">按名称排序</option>
-                                <option value="checkin">按入库时间排序</option>
-                                <option value="checkout">按出库时间排序</option>
-                            </select>
-                            <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
-                            <button class="btn btn-sm filter-btn" onclick="toggleViewMode()" title="切换视图" id="viewToggleBtn">
-                                <i class="bi bi-layout-text-sidebar"></i>
-                            </button>
-                            <div class="btn-group add-device-group">
-                                <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
-                                    <i class="bi bi-plus-lg"></i> 添加设备
-                                </button>
-                                <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><h6 class="dropdown-header"><i class="bi bi-gear"></i> 数据操作</h6></li>
-                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-2"></i>导入设备</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-2"></i>导出当前仓库</a></li>
-                                </ul>
-                            </div>
                             <button class="btn btn-sm btn-outline-warning" onclick="backfillDeviceCodes()" id="btnBackfillCodes" style="display: none;" title="为旧设备补全设备ID码">
                                 <i class="bi bi-qr-code-scan"></i> 补全设备ID
                             </button>
@@ -2222,11 +2246,46 @@
                         </div>
                     </div>
 
-                    <!-- 设备列表 -->
-                    <div id="deviceList">
-                        <div class="empty-state">
-                            <i class="bi bi-inbox"></i>
-                            <p>请先选择或创建一个仓库</p>
+                    <!-- 内容卡片：工具栏 + 设备列表 -->
+                    <div class="content-card">
+                        <!-- 操作工具栏 -->
+                        <div id="batchToolbarContainer" class="action-toolbar-wrapper">
+                            <div class="action-toolbar">
+                                <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                                <div class="toolbar-actions">
+                                    <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()">
+                                        <option value="name">按名称排序</option>
+                                        <option value="checkin">按入库时间排序</option>
+                                        <option value="checkout">按出库时间排序</option>
+                                    </select>
+                                    <button class="btn btn-sm filter-btn" onclick="toggleViewMode()" title="切换视图" id="viewToggleBtn">
+                                        <i class="bi bi-layout-text-sidebar"></i>
+                                    </button>
+                                    <button class="btn btn-sm" id="batchToggleBtn" onclick="toggleBatchSelectMode(event)" title="批量操作">
+                                        <i class="bi bi-square"></i> <span>批量操作</span>
+                                    </button>
+                                    <div class="btn-group add-device-group">
+                                        <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
+                                            <i class="bi bi-plus-lg"></i> 添加设备
+                                        </button>
+                                        <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><h6 class="dropdown-header"><i class="bi bi-gear"></i> 数据操作</h6></li>
+                                            <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-2"></i>导入设备</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-2"></i>导出当前仓库</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="batch-toolbar" id="batchControlsBar" style="display: none;"></div>
+                        </div>
+
+                        <!-- 设备列表 -->
+                        <div id="deviceList">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <p>请先选择或创建一个仓库</p>
+                            </div>
                         </div>
                     </div>
                 </div>

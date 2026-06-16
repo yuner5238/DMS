@@ -976,6 +976,21 @@ app.delete('/api/devices/:id', async (req, res) => {
     }
 });
 
+// 批量删除设备
+app.post('/api/devices/batch-delete', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: '请提供要删除的设备ID列表' });
+        }
+        const placeholders = ids.map(() => '?').join(',');
+        const result = await query(`DELETE FROM devices WHERE id IN (${placeholders})`, ids);
+        res.json({ success: true, deleted: result.affectedRows || ids.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ============ 标签统计 API（用于侧边栏）============
 app.get('/api/tag-stats', async (req, res) => {
     try {
