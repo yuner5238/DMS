@@ -681,7 +681,7 @@ tr.batch-selected:hover {
 }
 
 /* 标签徽章 */
-.tag-badge { display: inline-block; background: #f0f0f0; color: var(--text-primary); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin: 2px; font-weight: 500; border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s ease; }
+.tag-badge { display: inline-block; background: #f0f0f0; color: var(--text-primary); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin: 2px; font-weight: 500; border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; }
 .tag-badge.selected { background: #007bff; color: white; border-color: #0056b3; }
 .tag-badge.removable { background: #007bff; color: white; border-color: #0056b3; }
 .tag-badge.removable:hover { background: #0056b3; }
@@ -919,11 +919,11 @@ tr.batch-selected:hover {
 .device-details .detail-item.remark .detail-value { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; overflow-wrap: break-word; max-height: 1.7em; display: inline-block; }
 
 /* 设备名称标签行布局 */
-.device-name-section .name-tags-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 16px; min-width: 0; max-width: 100%; overflow: hidden; width: 100%; }
+.device-name-section .name-tags-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 16px; min-width: 0; max-width: 100%; overflow: hidden; width: 100%; }
 .device-name-section .name-quantity-wrapper { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; min-width: 0; text-align: left; justify-content: flex-start; width: auto; }
 .device-name-section .name-quantity-wrapper strong { display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
 .device-name-section .name-quantity-wrapper strong.device-name-text { display: inline-block !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 100px !important; }
-.device-name-section .status-tags-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; text-align: right; justify-content: flex-end; }
+.device-name-section .status-tags-row { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-align: right; justify-content: flex-end; }
 
 /* 数量角标 */
 .quantity-badge { background: #e3f2fd; color: #1565c0; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 50%; min-width: 22px; height: 22px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }

@@ -3432,12 +3432,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSidebarResize();
     initDragSelect();
 
-    // 恢复视图模式：优先用户手动选择的，否则按设备类型默认
-    const savedViewMode = localStorage.getItem('viewMode');
-    if (savedViewMode) {
-        viewMode = savedViewMode;
+    // 恢复视图模式：移动端强制列表视图，桌面端优先用户手动选择
+    if (window.innerWidth <= 768) {
+        viewMode = 'list';
     } else {
-        viewMode = window.innerWidth <= 768 ? 'list' : 'table';
+        const savedViewMode = localStorage.getItem('viewMode');
+        viewMode = savedViewMode || 'table';
     }
     // 初始化按钮图标
     const btn = document.getElementById('viewToggleBtn');
