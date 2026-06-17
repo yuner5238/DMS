@@ -500,7 +500,7 @@ async function uploadImage(request, env) {
         const ext = file.name.includes('.') ? '.' + file.name.split('.').pop().toLowerCase() : '.png';
         const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}${ext}`;
         const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
-        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
 
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
@@ -546,7 +546,7 @@ async function deleteImage(env, deviceId, filename) {
     let realName = filename;
     try { realName = decodeURIComponent(filename); } catch (_) {}
     const s3Key = `${S3_BASE}/images/${deviceId}/${realName}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
 
@@ -572,7 +572,7 @@ async function proxyImage(env, deviceId, filename) {
     let realName = filename;
     try { realName = decodeURIComponent(filename); } catch (_) {}
     const s3Key = `${S3_BASE}/images/${deviceId}/${realName}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
     const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
     try {
@@ -602,7 +602,7 @@ async function proxyAttachment(env, deviceId, filename) {
     let realName = filename;
     try { realName = decodeURIComponent(filename); } catch (_) {}
     const s3Key = `${S3_BASE}/attachments/${deviceId}/${realName}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
     const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
     try {
@@ -675,7 +675,7 @@ async function uploadAttachment(request, env) {
         const safeBase = baseName.replace(/[\x00-\x1f\x7f]/g, '').substring(0, 200);
         const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}_${safeBase}${ext}`;
         const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
-        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+        const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
 
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
@@ -728,7 +728,7 @@ async function deleteAttachment(env, deviceId, filename) {
     let realName = filename;
     try { realName = decodeURIComponent(filename); } catch (_) {}
     const s3Key = `${S3_BASE}/attachments/${deviceId}/${realName}`;
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
 
@@ -749,6 +749,14 @@ async function deleteAttachment(env, deviceId, filename) {
 }
 
 // ============ S3 工具函数 ============
+
+// 安全编码 S3 路径：对每个 segment 做 decode→re-encode 归一化，避免已含 % 的旧文件名被二次编码
+function safeEncodeS3Path(s3Key) {
+    return s3Key.split('/').map(seg => {
+        try { return encodeURIComponent(decodeURIComponent(seg)); }
+        catch (_) { return encodeURIComponent(seg); }
+    }).join('/');
+}
 
 // AWS Signature V4 签名
 // objectKey: 原始未编码的 S3 对象路径（如 'DMS storage/images/123/file.png'）
