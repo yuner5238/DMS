@@ -505,7 +505,7 @@ async function uploadImage(request, env) {
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
 
-        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType);
+        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType, s3Key);
 
         const resp = await fetch(s3Url.toString(), {
             method: 'PUT',
@@ -521,7 +521,7 @@ async function uploadImage(request, env) {
 
         // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
         try {
-            const headSigned = await signS3Request(env, 'HEAD', s3Url);
+            const headSigned = await signS3Request(env, 'HEAD', s3Url, null, null, s3Key);
             const headResp = await fetch(s3Url.toString(), { method: 'HEAD', headers: headSigned.headers });
             if (!headResp.ok) {
                 console.error('[S3上传] HEAD 验证失败: HTTP', headResp.status, s3Key);
@@ -548,7 +548,7 @@ async function deleteImage(env, deviceId, filename) {
     const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
-    const signedRequest = await signS3Request(env, 'DELETE', s3Url);
+    const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
 
     try {
         const resp = await fetch(s3Url.toString(), {
@@ -569,8 +569,9 @@ async function deleteImage(env, deviceId, filename) {
 
 // 代理 S3 图片（签名后读取二进制数据返回，不走公开读重定向）
 async function proxyImage(env, deviceId, filename) {
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${S3_BASE}/images/${deviceId}/${encodeURIComponent(filename)}`);
-    const signedRequest = await signS3Request(env, 'GET', s3Url);
+    const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
     try {
         const resp = await fetch(s3Url.toString(), {
@@ -596,8 +597,9 @@ async function proxyImage(env, deviceId, filename) {
 
 // 代理 S3 附件（签名后读取二进制数据返回）
 async function proxyAttachment(env, deviceId, filename) {
-    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${S3_BASE}/attachments/${deviceId}/${encodeURIComponent(filename)}`);
-    const signedRequest = await signS3Request(env, 'GET', s3Url);
+    const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
+    const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
+    const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
     try {
         const resp = await fetch(s3Url.toString(), {
@@ -672,7 +674,7 @@ async function uploadAttachment(request, env) {
         const body = await file.arrayBuffer();
         const contentType = file.type || 'application/octet-stream';
 
-        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType);
+        const signedRequest = await signS3Request(env, 'PUT', s3Url, body, contentType, s3Key);
 
         const resp = await fetch(s3Url.toString(), {
             method: 'PUT',
@@ -688,7 +690,7 @@ async function uploadAttachment(request, env) {
 
         // ★ 上传后验证：HEAD 请求确认文件已落盘，防止假成功
         try {
-            const headSigned = await signS3Request(env, 'HEAD', s3Url);
+            const headSigned = await signS3Request(env, 'HEAD', s3Url, null, null, s3Key);
             const headResp = await fetch(s3Url.toString(), { method: 'HEAD', headers: headSigned.headers });
             if (!headResp.ok) {
                 console.error('[S3附件上传] HEAD 验证失败: HTTP', headResp.status, s3Key);
@@ -721,7 +723,7 @@ async function deleteAttachment(env, deviceId, filename) {
     const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
-    const signedRequest = await signS3Request(env, 'DELETE', s3Url);
+    const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
 
     try {
         const resp = await fetch(s3Url.toString(), {
@@ -741,7 +743,8 @@ async function deleteAttachment(env, deviceId, filename) {
 // ============ S3 工具函数 ============
 
 // AWS Signature V4 签名
-async function signS3Request(env, method, s3Url, body, contentType) {
+// objectKey: 原始未编码的 S3 对象路径（如 'DMS storage/images/123/file.png'）
+async function signS3Request(env, method, s3Url, body, contentType, objectKey) {
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'; // YYYYMMDD'T'HHMMSS'Z'
     const dateStamp = amzDate.slice(0, 8);
@@ -749,9 +752,11 @@ async function signS3Request(env, method, s3Url, body, contentType) {
     const region = env.S3_REGION || 'us-east-1';
     const service = 's3';
     const host = s3Url.host;
-    // URL.pathname 会解码 %20 → 空格，但 S3 实际接收编码后的 URL
-    // 需要重新编码每个路径段，确保签名与实际请求一致
-    const canonicalUri = s3Url.pathname.split('/').map(seg => encodeURIComponent(decodeURIComponent(seg))).join('/');
+    // 直接从原始 objectKey 计算 canonicalUri，不依赖 URL.pathname（各运行时编码行为不一致）
+    const fullPath = objectKey !== undefined
+        ? `/${env.S3_BUCKET}/${objectKey}`
+        : s3Url.pathname;
+    const canonicalUri = fullPath.split('/').map(seg => encodeURIComponent(seg)).join('/');
     const canonicalQuery = s3Url.searchParams.toString()
         .split('&').sort().join('&')
         .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
