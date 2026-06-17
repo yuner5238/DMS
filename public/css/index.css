@@ -1557,8 +1557,6 @@ tr.batch-selected:hover {
 
 /* ========== 附件列表（邮件风格） ========== */
 #deviceAttachmentsList {
-    max-height: 160px;
-    overflow-y: auto;
     overflow-x: hidden;
 }
 .attachment-item {
