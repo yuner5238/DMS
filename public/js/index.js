@@ -2457,6 +2457,7 @@ function uploadAttachmentFile(event) {
 
 // 删除附件
 async function deleteAttachmentFile(deviceId, encodedFilename) {
+    console.log('[deleteAttachmentFile] called', deviceId, encodedFilename);
     if (!confirm('确定要删除此附件吗？')) return;
 
     try {

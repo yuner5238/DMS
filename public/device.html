@@ -1312,11 +1312,12 @@
 
         // 删除附件
         async function deleteAttachmentFile(deviceId, encodedFilename) {
-            const filename = decodeURIComponent(encodedFilename);
+            console.log('[deleteAttachmentFile] called', deviceId, encodedFilename);
             if (!confirm('确定要删除此附件吗？')) return;
 
             try {
-                const res = await fetch(`${API_BASE}/attachments/${deviceId}/${encodeURIComponent(filename)}`, {
+                // encodedFilename 已由 onclick 中的 encodeURIComponent 编码，直接传入 URL
+                const res = await fetch(`${API_BASE}/attachments/${deviceId}/${encodedFilename}`, {
                     method: 'DELETE',
                 });
                 const data = await res.json();
