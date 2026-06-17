@@ -2405,7 +2405,10 @@ function uploadAttachmentFile(event) {
     if (container) {
         container.insertAdjacentHTML('beforeend',
             `<div id="${tmpId}" class="img-upload-progress" style="margin:4px 0;">
-                <span class="img-upload-progress-text">${escapeHtml(file.name)} 上传中...</span>
+                <span class="img-upload-progress-bar-outer">
+                    <span id="${tmpId}_bar" class="img-upload-progress-bar-inner"></span>
+                </span>
+                <span id="${tmpId}_text" class="img-upload-progress-text">${escapeHtml(file.name)} 0%</span>
             </div>`);
     }
 
@@ -2415,6 +2418,16 @@ function uploadAttachmentFile(event) {
     formData.append('deviceId', deviceId);
 
     xhr.open('POST', `${API_BASE}/upload/attachment`);
+
+    xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            const bar = document.getElementById(tmpId + '_bar');
+            const text = document.getElementById(tmpId + '_text');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = `${escapeHtml(file.name)} ${pct}%`;
+        }
+    };
 
     xhr.onload = function () {
         const progEl = document.getElementById(tmpId);
@@ -2432,8 +2445,10 @@ function uploadAttachmentFile(event) {
     };
 
     xhr.onerror = function () {
-        const progEl = document.getElementById(tmpId);
-        if (progEl) { progEl.textContent = '网络错误'; progEl.style.color = '#dc3545'; }
+        const bar = document.getElementById(tmpId + '_bar');
+        const text = document.getElementById(tmpId + '_text');
+        if (bar) bar.style.background = '#dc3545';
+        if (text) { text.textContent = '网络错误'; text.className = 'img-upload-progress-error'; }
     };
 
     xhr.send(formData);
