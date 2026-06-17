@@ -1340,7 +1340,9 @@ app.get('/api/attachments/:deviceId', async (req, res) => {
                 const url = `/api/attachments/${deviceId}/${encodeURIComponent(filename)}`;
                 // 提取原始文件名（去掉前14位时间戳+下划线+6位随机+下划线前缀）
                 const match = filename.match(/^\d+_[a-f0-9]{6}_(.+)$/);
-                const displayName = match ? match[1] : filename;
+                let displayName = match ? match[1] : filename;
+                // 兼容旧文件（有 encodeURIComponent）和新文件（无编码）
+                try { displayName = decodeURIComponent(displayName); } catch (_) {}
                 return {
                     filename,
                     displayName,
