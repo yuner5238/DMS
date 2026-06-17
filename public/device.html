@@ -1238,7 +1238,7 @@
                                 <div class="attachment-meta">${formatFileSize(a.size)}</div>
                             </div>
                             <div class="attachment-actions">
-                                <button onclick="deleteAttachmentFile('${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
+                                <button onclick="deleteAttachmentFile(this, '${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
                             </div>
                         </div>`;
                 }).join('');
@@ -1294,12 +1294,13 @@
                 const data = await res.json();
                 if (!res.ok || !data.success) throw new Error(data.error || '上传失败');
 
+                console.log('[handleAttachmentUpload] 上传成功:', file.name);
                 // 刷新附件列表
                 if (currentDevice.device_id) {
                     await loadDeviceAttachments(currentDevice.device_id);
                 }
             } catch (err) {
-                console.error('附件上传失败:', err);
+                console.error('[handleAttachmentUpload] 上传失败:', err);
                 alert('上传失败: ' + err.message);
                 if (list) {
                     list.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:4px 0;">上传失败</div>';
@@ -1311,9 +1312,14 @@
         }
 
         // 删除附件
-        async function deleteAttachmentFile(deviceId, encodedFilename) {
-            console.log('[deleteAttachmentFile] called', deviceId, encodedFilename);
+        async function deleteAttachmentFile(btn, deviceId, encodedFilename) {
+            console.log('[deleteAttachmentFile] 开始删除:', deviceId, encodedFilename);
             if (!confirm('确定要删除此附件吗？')) return;
+
+            // 加载动画：按钮内显示 spinner
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width:14px;height:14px;border-width:2px;"></span>';
+            btn.disabled = true;
 
             try {
                 // encodedFilename 已由 onclick 中的 encodeURIComponent 编码，直接传入 URL
@@ -1322,10 +1328,14 @@
                 });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
+                console.log('[deleteAttachmentFile] 删除成功:', encodedFilename);
                 loadDeviceAttachments(deviceId);
             } catch (err) {
-                console.error('删除附件失败:', err);
+                console.error('[deleteAttachmentFile] 删除失败:', err);
                 alert('删除失败: ' + err.message);
+                // 恢复按钮
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
             }
         }
 

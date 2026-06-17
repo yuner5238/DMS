@@ -2362,7 +2362,7 @@ async function loadAttachments(deviceId) {
                         <div class="attachment-meta">${formatFileSize(a.size)}</div>
                     </div>
                     <div class="attachment-actions">
-                        <button onclick="deleteAttachmentFile('${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
+                        <button onclick="deleteAttachmentFile(this, '${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
                     </div>
                 </div>`;
         }).join('');
@@ -2435,11 +2435,14 @@ function uploadAttachmentFile(event) {
         if (xhr.status >= 200 && xhr.status < 300) {
             try {
                 JSON.parse(xhr.responseText);
+                console.log('[uploadAttachmentFile] 上传成功:', file.name);
                 loadAttachments(deviceId);
             } catch (_) {
+                console.error('[uploadAttachmentFile] 上传失败: 响应解析错误');
                 alert('上传失败');
             }
         } else {
+            console.error('[uploadAttachmentFile] 上传失败: HTTP', xhr.status);
             alert('上传失败');
         }
     };
@@ -2456,9 +2459,14 @@ function uploadAttachmentFile(event) {
 }
 
 // 删除附件
-async function deleteAttachmentFile(deviceId, encodedFilename) {
-    console.log('[deleteAttachmentFile] called', deviceId, encodedFilename);
+async function deleteAttachmentFile(btn, deviceId, encodedFilename) {
+    console.log('[deleteAttachmentFile] 开始删除:', deviceId, encodedFilename);
     if (!confirm('确定要删除此附件吗？')) return;
+
+    // 加载动画：按钮内显示 spinner
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width:14px;height:14px;border-width:2px;"></span>';
+    btn.disabled = true;
 
     try {
         // encodedFilename 已由 onclick 中的 encodeURIComponent 编码，直接传入 URL
@@ -2467,15 +2475,20 @@ async function deleteAttachmentFile(deviceId, encodedFilename) {
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
+        console.log('[deleteAttachmentFile] 删除成功:', encodedFilename);
         loadAttachments(deviceId);
     } catch (err) {
-        console.error('删除附件失败:', err);
+        console.error('[deleteAttachmentFile] 删除失败:', err);
         alert('删除失败: ' + err.message);
+        // 恢复按钮
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
     }
 }
 
 // 删除单个图片
 async function deleteSingleImage(filename) {
+    console.log('[deleteSingleImage] 开始删除:', filename);
     if (!confirm(`确定要删除图片 "${filename}" 吗？此操作不可撤销。`)) return;
 
     try {
@@ -2485,10 +2498,12 @@ async function deleteSingleImage(filename) {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || '删除失败');
 
+        console.log('[deleteSingleImage] 删除成功:', filename);
         _existingImages = _existingImages.filter(i => i.filename !== filename);
         _selectedImages.delete(filename);
         renderImageGrid(_existingImages);
     } catch (err) {
+        console.error('[deleteSingleImage] 删除失败:', err);
         alert('删除失败: ' + err.message);
     }
 }
@@ -2498,6 +2513,7 @@ async function deleteSelectedImages() {
     if (_selectedImages.size === 0) return;
 
     const count = _selectedImages.size;
+    console.log('[deleteSelectedImages] 开始批量删除:', count, '张图片');
     if (!confirm(`确定要删除选中的 ${count} 张图片吗？此操作不可撤销。`)) return;
 
     let failed = 0;
@@ -2520,6 +2536,7 @@ async function deleteSelectedImages() {
         }
     }
 
+    console.log(`[deleteSelectedImages] 批量删除完成: 成功 ${toDelete.length - failed}, 失败 ${failed}`);
     renderImageGrid(_existingImages);
     if (failed > 0) {
         alert(`删除完成，但有 ${failed} 张图片删除失败。`);
