@@ -936,6 +936,11 @@
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
+        /* 列表视图备注禁止 hover 换行 */
+        .device-details .detail-item.remark:hover .detail-value {
+            white-space: nowrap !important;
+            word-break: normal !important;
+        }
 
         /* 设备名称标签行布局 - 全局样式 */
         .device-name-section .name-tags-row {

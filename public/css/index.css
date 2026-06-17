@@ -917,6 +917,8 @@ tr.batch-selected:hover {
 
 /* 备注值支持多行显示和换行 */
 .device-details .detail-item.remark .detail-value { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; word-wrap: break-word; overflow-wrap: break-word; max-height: 1.7em; display: inline-block; }
+/* 列表视图备注禁止 hover 换行 */
+.device-details .detail-item.remark:hover .detail-value { white-space: nowrap !important; word-break: normal !important; }
 
 /* 设备名称标签行布局 */
 .device-name-section .name-tags-row { display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap; gap: 16px; min-width: 0; max-width: 100%; overflow: hidden; width: 100%; }
