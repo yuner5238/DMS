@@ -543,7 +543,9 @@ async function uploadImage(request, env) {
 async function deleteImage(env, deviceId, filename) {
     if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
 
-    const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
+    let realName = filename;
+    try { realName = decodeURIComponent(filename); } catch (_) {}
+    const s3Key = `${S3_BASE}/images/${deviceId}/${realName}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
@@ -567,7 +569,9 @@ async function deleteImage(env, deviceId, filename) {
 
 // 代理 S3 图片（签名后读取二进制数据返回，不走公开读重定向）
 async function proxyImage(env, deviceId, filename) {
-    const s3Key = `${S3_BASE}/images/${deviceId}/${filename}`;
+    let realName = filename;
+    try { realName = decodeURIComponent(filename); } catch (_) {}
+    const s3Key = `${S3_BASE}/images/${deviceId}/${realName}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
     const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
@@ -595,7 +599,9 @@ async function proxyImage(env, deviceId, filename) {
 
 // 代理 S3 附件（签名后读取二进制数据返回）
 async function proxyAttachment(env, deviceId, filename) {
-    const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
+    let realName = filename;
+    try { realName = decodeURIComponent(filename); } catch (_) {}
+    const s3Key = `${S3_BASE}/attachments/${deviceId}/${realName}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
     const signedRequest = await signS3Request(env, 'GET', s3Url, null, null, s3Key);
 
@@ -665,7 +671,9 @@ async function uploadAttachment(request, env) {
         const baseName = ext
             ? file.name.slice(0, file.name.length - ext.length).replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200)
             : file.name.replace(/[\/\\:*?"<>|]/g, '_').substring(0, 200);
-        const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}_${encodeURIComponent(baseName)}${ext}`;
+        // ★ 不用 encodeURIComponent，避免 % 字符在 URL 往返中产生编解码不一致
+        const safeBase = baseName.replace(/[\x00-\x1f\x7f]/g, '').substring(0, 200);
+        const filename = `${Date.now()}_${crypto.randomUUID().slice(0, 6)}_${safeBase}${ext}`;
         const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
         const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
@@ -716,7 +724,10 @@ async function uploadAttachment(request, env) {
 async function deleteAttachment(env, deviceId, filename) {
     if (!deviceId || deviceId === '0') return jsonResponse({ error: '缺少 deviceId' }, 400);
 
-    const s3Key = `${S3_BASE}/attachments/${deviceId}/${filename}`;
+    // URL.pathname 保留 percent-encoding，decodeURIComponent 还原真实 S3 key
+    let realName = filename;
+    try { realName = decodeURIComponent(filename); } catch (_) {}
+    const s3Key = `${S3_BASE}/attachments/${deviceId}/${realName}`;
     const s3Url = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${encodeURI(s3Key)}`);
 
     const signedRequest = await signS3Request(env, 'DELETE', s3Url, null, null, s3Key);
@@ -727,7 +738,8 @@ async function deleteAttachment(env, deviceId, filename) {
             headers: signedRequest.headers,
         });
         if (!resp.ok && resp.status !== 204) {
-            return jsonResponse({ error: 'S3 删除失败' }, 502);
+            console.error('[S3附件删除] HTTP', resp.status, s3Key);
+            return jsonResponse({ error: `S3 删除失败 (HTTP ${resp.status})` }, 502);
         }
         return jsonResponse({ success: true });
     } catch (err) {
@@ -752,7 +764,10 @@ async function signS3Request(env, method, s3Url, body, contentType, objectKey) {
     const fullPath = objectKey !== undefined
         ? `/${env.S3_BUCKET}/${objectKey}`
         : s3Url.pathname;
-    const canonicalUri = fullPath.split('/').map(seg => encodeURIComponent(seg)).join('/');
+    const canonicalUri = fullPath.split('/').map(seg => {
+        try { return encodeURIComponent(decodeURIComponent(seg)); }
+        catch (_) { return encodeURIComponent(seg); }
+    }).join('/');
     const canonicalQuery = s3Url.searchParams.toString()
         .split('&').sort().join('&')
         .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
@@ -887,7 +902,9 @@ function parseS3ListAttachmentsXml(xml, prefix, env) {
             if (key.endsWith('/')) continue;
             const filename = key.replace(prefix, '');
             const parts = filename.match(/^(\d+)_([0-9a-f]+)_(.+)$/);
-            const displayName = parts ? decodeURIComponent(parts[3]) : filename;
+            let displayName = parts ? parts[3] : filename;
+            // 兼容旧文件（有 encodeURIComponent）和新文件（无编码）
+            try { displayName = decodeURIComponent(displayName); } catch (_) {}
             attachments.push({
                 filename,
                 displayName,
