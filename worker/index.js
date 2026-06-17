@@ -536,8 +536,8 @@ async function uploadImage(request, env) {
 
         return jsonResponse({ success: true, url: imageUrl, key: s3Key });
     } catch (err) {
-        console.error('[S3上传] 异常:', err.message, err.stack || '');
-        return jsonResponse({ error: err.message }, 500);
+        console.error('[S3上传] 异常:', err.message, err.stack || '', err.name);
+        return jsonResponse({ error: `${err.name}: ${err.message}`, stack: err.stack }, 500);
     }
 }
 
@@ -712,8 +712,8 @@ async function uploadAttachment(request, env) {
             size: file.size,
         });
     } catch (err) {
-        console.error('[S3附件上传] 异常:', err.message);
-        return jsonResponse({ error: err.message }, 500);
+        console.error('[S3附件上传] 异常:', err.message, err.stack || '', err.name);
+        return jsonResponse({ error: `${err.name}: ${err.message}`, stack: err.stack }, 500);
     }
 }
 
@@ -762,7 +762,8 @@ async function signS3Request(env, method, s3Url, body, contentType, objectKey) {
         .replace(/\+/g, '%20');  // AWS S3 签名 V4 要求 query string 空格为 %20 而非 +
 
     const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-    const payloadHash = body ? await sha256Hash(body) : 'UNSIGNED-PAYLOAD';
+    // 使用 emptyHash 而非 UNSIGNED-PAYLOAD —— 部分 S3 兼容服务（如 cstcloud）不支持 unsigned payload
+    const payloadHash = body ? await sha256Hash(body) : emptyHash;
 
     const headersToSign = {
         'host': host,
