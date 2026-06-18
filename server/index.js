@@ -771,6 +771,15 @@ app.post('/api/devices/import-batch', async (req, res) => {
                 device.warehouse_name = defaultWhName || null;
             }
 
+            // 校验仓库是否存在（如果指定了仓库名）
+            if (device.warehouse_name) {
+                const whExists = await query('SELECT id FROM warehouses WHERE name=?', [device.warehouse_name]);
+                if (!whExists.length) {
+                    errors.push(`第${rowNum}行: 仓库「${device.warehouse_name}」不存在`);
+                    continue;
+                }
+            }
+
             // 默认值
             device.status = device.status || '正常';
             device.quantity = device.quantity || 1;
@@ -796,7 +805,8 @@ app.post('/api/devices/import-batch', async (req, res) => {
             devices.push(device);
         }
 
-        if (!devices.length) {
+        // 有任何校验错误则整体拦截，不允许部分成功
+        if (errors.length > 0) {
             return res.json({ success: 0, total: data.length, errors });
         }
 

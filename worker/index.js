@@ -468,6 +468,15 @@ async function importBatchDevices(request, env) {
             device.warehouse_name = defaultWhName || null;
         }
 
+        // 校验仓库是否存在
+        if (device.warehouse_name) {
+            const wh = await env.DB.prepare('SELECT id FROM warehouses WHERE name=?').bind(device.warehouse_name).first();
+            if (!wh) {
+                errors.push(`第${rowNum}行: 仓库「${device.warehouse_name}」不存在`);
+                continue;
+            }
+        }
+
         // 默认值
         device.status = device.status || '正常';
         device.quantity = device.quantity || 1;
@@ -493,7 +502,8 @@ async function importBatchDevices(request, env) {
         devices.push(device);
     }
 
-    if (!devices.length) {
+    // 有任何校验错误则整体拦截，不允许部分成功
+    if (errors.length > 0) {
         return jsonResponse({ success: 0, total: data.length, errors });
     }
 

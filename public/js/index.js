@@ -679,7 +679,7 @@ function renderDevicesTableView(devices) {
             return `
                 <tr class="${rowClass}" data-device-id="${device.id}" onclick="${rowClick}" style="cursor: pointer;">
                     ${checkboxTd}
-                    <td data-col="device-id">${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
+                    <td data-col="device-id">${device.device_id ? `<span class="device-id-badge${!device.warehouse_name ? ' device-id-badge-no-warehouse' : ''}" title="${!device.warehouse_name ? '未指定仓库' : ''}" onclick="event.stopPropagation()">${device.device_id}</span>` : '<span class="text-muted">-</span>'}</td>
                     <td data-col="name" class="device-name-cell"><strong>${device.name}</strong></td>
                     <td data-col="serial-number">${device.serial_number || '<span class="text-muted">-</span>'}</td>
                     <td data-col="spec-model">${device.spec_model || '<span class="text-muted">-</span>'}</td>
@@ -1171,7 +1171,7 @@ function renderDevices(devices) {
                             <div class="device-name-section">
                                 <div class="name-tags-row">
                                     <div class="name-quantity-wrapper">
-                                        ${device.device_id ? `<span class="device-id-badge" onclick="event.stopPropagation()">${device.device_id}</span>` : ''}
+                                        ${device.device_id ? `<span class="device-id-badge${!device.warehouse_name ? ' device-id-badge-no-warehouse' : ''}" title="${!device.warehouse_name ? '未指定仓库' : ''}" onclick="event.stopPropagation()">${device.device_id}</span>` : ''}
                                         <strong id="device-name-${device.id}" class="device-name-text">${device.name}</strong>
                                         ${device.quantity ? `<span class="quantity-badge">${device.quantity}</span>` : ''}
                                     </div>
@@ -3688,6 +3688,7 @@ async function copyAIPrompt() {
 - status: 状态（正常/异常/维修中，不填默认为正常）
 - destination: 去向
 - remark: 备注
+- warehouse_name: 归属仓库。从我的描述中推断我提到的仓库名（如"工作仓库""家居仓库""办公仓库"等）。如果我说"工作仓库的笔记本""家居仓库里的沙发"，就把对应的仓库名填上。没提到仓库就不填。
 
 可选的标签列表（括号内为分类示例，只需填逗号前的标签名，一个物品可以用1~3个标签）：
 数码电子（电脑、笔记本、平板、显示器、键盘、鼠标、耳机、音箱、充电宝、U盘、硬盘、数据线、充电器、电源、手机、相机）
@@ -3709,11 +3710,12 @@ async function copyAIPrompt() {
 儿童用品（玩具、童装、尿不湿、奶瓶）
 易耗品, 贵重物品
 
-注意：不需要填 device_id 和 warehouse_name。
+注意：不需要填 device_id。
 
 输出格式示例：
 [
-  { "name": "U盘", "spec_model": "金士顿 64G", "quantity": 5, "tags": "数码电子", "source": "京东采购", "storage_location": "抽屉A" }
+  { "name": "U盘", "spec_model": "金士顿 64G", "quantity": 5, "tags": "数码电子", "source": "京东采购", "storage_location": "抽屉A" },
+  { "warehouse_name": "工作仓库", "name": "笔记本", "spec_model": "联想E14 16G+500G", "source": "公司配发", "department_path": "技术部", "responsible_person": "李宇阳" }
 ]
 
 请只输出JSON数组，不要加任何解释文字。`;
