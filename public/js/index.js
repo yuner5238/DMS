@@ -3570,13 +3570,21 @@ function exportDevices() {
     if (currentWarehouseId > 0) params.set('warehouseId', currentWarehouseId);
     params.set('format', 'xlsx');
     const url = `${API_BASE}/devices/export?${params.toString()}`;
-    // 使用 <a> 标签触发下载，避免浏览器拦截 window.open
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // fetch + Blob 下载，可靠且不触发弹窗拦截
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('导出失败');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '设备表.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    } catch (e) {
+        alert('导出失败: ' + e.message);
+    }
 }
 
 // 清空当前仓库所有设备
@@ -3608,13 +3616,21 @@ async function clearCurrentWarehouse() {
 }
 
 // 下载导入模板
-function downloadImportTemplate() {
-    const a = document.createElement('a');
-    a.href = `${API_BASE}/devices/template`;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+async function downloadImportTemplate() {
+    try {
+        const res = await fetch(`${API_BASE}/devices/template`);
+        if (!res.ok) throw new Error('下载失败');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '设备导入模板.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    } catch (e) {
+        alert('下载模板失败: ' + e.message);
+    }
 }
 
 // 显示导入弹窗
