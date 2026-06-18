@@ -74,6 +74,10 @@ export default {
             if (path === '/api/devices/clear-warehouse' && method === 'POST') {
                 return await clearWarehouse(request, env);
             }
+            // 批量粘贴导入设备
+            if (path === '/api/devices/import-batch' && method === 'POST') {
+                return await importBatchDevices(request, env);
+            }
 
             // ===== 标签统计 API =====
             if (path === '/api/tag-stats' && method === 'GET') {
@@ -374,6 +378,153 @@ async function clearWarehouse(request, env) {
         result = await env.DB.prepare('DELETE FROM devices').run();
     }
     return jsonResponse({ success: true, deleted: result.meta?.changes || 0 });
+}
+
+// 批量粘贴导入设备
+async function importBatchDevices(request, env) {
+    const { warehouseName, warehouseId, data } = await request.json();
+
+    if (!data || !Array.isArray(data) || !data.length) {
+        return jsonResponse({ error: '请提供有效的设备数据数组' }, 400);
+    }
+
+    // 确定默认仓库
+    let defaultWhName = warehouseName || '';
+    if (!defaultWhName && warehouseId && warehouseId !== '0') {
+        const wh = await env.DB.prepare('SELECT name FROM warehouses WHERE id=?').bind(warehouseId).first();
+        if (wh) defaultWhName = wh.name;
+    }
+
+    const errors = [];
+    const devices = [];
+
+    // 预取最大 device_id
+    const maxRows = await env.DB.prepare(
+        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
+    ).first();
+    let batchNextId = (maxRows?.max_code || 0) + 1;
+
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const rowNum = i + 1;
+        const device = {};
+
+        if (!row.name && !row.device_name) {
+            errors.push(`第${rowNum}行: 设备名称不能为空`);
+            continue;
+        }
+
+        device.name = row.name || row.device_name;
+
+        // 直接映射字段
+        const fieldMappings = {
+            warehouse_name: 'warehouse_name',
+            device_id: 'device_id',
+            serial_number: 'serial_number',
+            spec_model: 'spec_model',
+            source: 'source',
+            department_path: 'department_path',
+            responsible_person: 'responsible_person',
+            storage_location: 'storage_location',
+            status: 'status',
+            destination: 'destination',
+            remark: 'remark',
+        };
+
+        for (const [jsonKey, dbCol] of Object.entries(fieldMappings)) {
+            if (jsonKey in row && row[jsonKey] !== undefined && row[jsonKey] !== null) {
+                device[dbCol] = String(row[jsonKey]).trim() || null;
+            }
+        }
+
+        // 数量
+        device.quantity = ('quantity' in row) ? (parseInt(row.quantity, 10) || 1) : 1;
+
+        // 标签
+        if (row.tags || row.tag_names) {
+            const tagsVal = row.tags || row.tag_names;
+            if (Array.isArray(tagsVal)) {
+                device.tag_names = JSON.stringify(tagsVal);
+            } else {
+                const tags = String(tagsVal).split(/[,，]/).map(t => t.trim()).filter(t => t);
+                device.tag_names = JSON.stringify(tags);
+            }
+        } else {
+            device.tag_names = '';
+        }
+
+        // 日期
+        device.expiry_date = row.expiry_date || row.expiryDate || null;
+        if (device.expiry_date && !isNaN(new Date(device.expiry_date).getTime())) {
+            device.expiry_date = new Date(device.expiry_date).toISOString().split('T')[0];
+        } else {
+            device.expiry_date = null;
+        }
+        device.checkin_time = row.checkin_time || row.checkinTime || null;
+        device.checkout_time = row.checkout_time || row.checkoutTime || null;
+
+        // 仓库兜底
+        if (!device.warehouse_name) {
+            device.warehouse_name = defaultWhName || null;
+        }
+
+        // 默认值
+        device.status = device.status || '正常';
+        device.quantity = device.quantity || 1;
+
+        // device_id 唯一性校验
+        if (device.device_id) {
+            const existing = await env.DB.prepare('SELECT id FROM devices WHERE device_id=?').bind(device.device_id).first();
+            if (existing) {
+                errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在`);
+                continue;
+            }
+        }
+
+        // 自动生成 device_id
+        if (!device.device_id) {
+            if (batchNextId > 999999) {
+                errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                continue;
+            }
+            device.device_id = String(batchNextId++).padStart(6, '0');
+        }
+
+        devices.push(device);
+    }
+
+    if (!devices.length) {
+        return jsonResponse({ success: 0, total: data.length, errors });
+    }
+
+    let inserted = 0;
+    const insertErrors = [];
+
+    for (const device of devices) {
+        try {
+            await env.DB.prepare(
+                `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+                device.device_id, device.warehouse_name, device.name,
+                device.tag_names || '', device.status || '正常', device.quantity || 1,
+                device.storage_location || '', device.destination || '', device.remark || '',
+                device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
+                device.responsible_person || null, device.department_path || null,
+                device.serial_number || null, device.spec_model || null, device.source || null
+            ).run();
+            inserted++;
+        } catch (err) {
+            insertErrors.push(`设备「${device.name}」入库失败: ${err.message}`);
+        }
+    }
+
+    if (insertErrors.length) errors.push(...insertErrors);
+
+    return jsonResponse({
+        success: inserted,
+        total: data.length,
+        errors: errors.length ? errors : undefined
+    });
 }
 
 // ============ 标签统计 ============
