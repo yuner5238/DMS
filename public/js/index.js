@@ -3550,6 +3550,34 @@ function exportDevices() {
     window.open(url, '_blank');
 }
 
+// 清空当前仓库所有设备
+async function clearCurrentWarehouse() {
+    if (!currentWarehouseId && currentWarehouseId !== 0) {
+        alert('请先选择仓库');
+        return;
+    }
+    const label = currentWarehouseId === 0 ? '【总仓库（全部设备）】' : `【${currentWarehouseName}】`;
+    if (!confirm(`确定要清空仓库 ${label} 下的所有设备吗？\n\n此操作不可撤销！`)) return;
+    if (!confirm('再次确认：清空后数据不可恢复，确定继续？')) return;
+    try {
+        const res = await fetch(`${API_BASE}/devices/clear-warehouse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ warehouseName: currentWarehouseId > 0 ? currentWarehouseName : null })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`已清空 ${data.deleted} 台设备`);
+            await loadDevices();
+            await loadTagStats(currentWarehouseName);
+        } else {
+            alert('清空失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        alert('清空失败: ' + e.message);
+    }
+}
+
 // 下载导入模板
 function downloadImportTemplate() {
     window.open(`${API_BASE}/devices/template`, '_blank');
@@ -3648,8 +3676,8 @@ async function copyAIPrompt() {
     const prompt = `请将我下面描述的设备整理成JSON数组格式，每个设备一个对象。只需要name字段是必填的，其他字段有就填，没有就省略。
 
 支持的字段及说明：
-- name: 设备名称（必填）
-- spec_model: 规格型号
+- name: 设备名称（必填。只填物品本身，如"U盘""显示器""键盘"，不要把品牌/型号写进来）
+- spec_model: 规格型号（品牌、型号、容量等信息放这里，如"金士顿 64G""Dell U2723QE""罗技 MX Master 3"）
 - serial_number: 序列号
 - quantity: 数量（数字，不填默认为1）
 - tags: 标签（只选与物品直接相关的核心分类，1个就够了，不要硬凑。手表→数码电子，冰袖→运动户外，沙发→家具。多个标签仅在该物品确实跨品类时用逗号分隔，如扫地机器人→家电,家居用品）
@@ -3679,13 +3707,13 @@ async function copyAIPrompt() {
 服装（衣物、鞋、帽子、包、饰品、手表）
 宠物用品（猫粮、狗粮、猫砂、宠物玩具、宠物药品）
 儿童用品（玩具、童装、尿不湿、奶瓶）
-易耗品, 耐用品, 贵重物品, 办公, 家用, 公司, 个人, 借用, 维修中, 报废
+易耗品, 贵重物品
 
 注意：不需要填 device_id 和 warehouse_name。
 
 输出格式示例：
 [
-  { "name": "机械键盘", "spec_model": "MX87", "quantity": 5, "tags": "键盘,外设", "source": "淘宝采购", "storage_location": "货架A-3" }
+  { "name": "U盘", "spec_model": "金士顿 64G", "quantity": 5, "tags": "数码电子", "source": "京东采购", "storage_location": "抽屉A" }
 ]
 
 请只输出JSON数组，不要加任何解释文字。`;
@@ -3708,8 +3736,8 @@ async function copyAIPrompt() {
 function insertJsonExample() {
     document.getElementById('batchPasteText').value = `[
   { "warehouse_name": "工作仓库", "name": "机械键盘", "spec_model": "MX87", "quantity": 5, "tags": "键盘,外设", "source": "采购" },
-  { "warehouse_name": "工作仓库", "name": "27寸显示器", "serial_number": "SN-DELL-001", "department_path": "技术部", "responsible_person": "张三" },
-  { "warehouse_name": "家居仓库", "name": "U盘64G", "quantity": 10, "storage_location": "货架A-3", "remark": "金士顿" }
+  { "warehouse_name": "工作仓库", "name": "显示器", "spec_model": "Dell U2723QE", "serial_number": "SN-DELL-001", "department_path": "技术部", "responsible_person": "张三" },
+  { "warehouse_name": "家居仓库", "name": "U盘", "spec_model": "金士顿 64G", "quantity": 10, "storage_location": "货架A-3" }
 ]`;
 }
 

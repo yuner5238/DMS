@@ -991,6 +991,23 @@ app.post('/api/devices/batch-delete', async (req, res) => {
     }
 });
 
+// 清空当前仓库所有设备
+app.post('/api/devices/clear-warehouse', async (req, res) => {
+    try {
+        const { warehouseName } = req.body;
+        let result;
+        if (warehouseName) {
+            result = await query('DELETE FROM devices WHERE warehouse_name=?', [warehouseName]);
+        } else {
+            // 未指定仓库 = 清空全部设备
+            result = await query('DELETE FROM devices');
+        }
+        res.json({ success: true, deleted: result.affectedRows || 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ============ 标签统计 API（用于侧边栏）============
 app.get('/api/tag-stats', async (req, res) => {
     try {

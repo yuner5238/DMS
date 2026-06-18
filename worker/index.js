@@ -70,6 +70,10 @@ export default {
             if (path === '/api/devices/batch-delete' && method === 'POST') {
                 return await batchDeleteDevices(request, env);
             }
+            // 清空当前仓库所有设备
+            if (path === '/api/devices/clear-warehouse' && method === 'POST') {
+                return await clearWarehouse(request, env);
+            }
 
             // ===== 标签统计 API =====
             if (path === '/api/tag-stats' && method === 'GET') {
@@ -358,6 +362,18 @@ async function batchDeleteDevices(request, env) {
         `DELETE FROM devices WHERE id IN (${placeholders})`
     ).bind(...ids).run();
     return jsonResponse({ success: true, deleted: result.meta?.changes || ids.length });
+}
+
+// 清空当前仓库所有设备
+async function clearWarehouse(request, env) {
+    const { warehouseName } = await request.json();
+    let result;
+    if (warehouseName) {
+        result = await env.DB.prepare('DELETE FROM devices WHERE warehouse_name=?').bind(warehouseName).run();
+    } else {
+        result = await env.DB.prepare('DELETE FROM devices').run();
+    }
+    return jsonResponse({ success: true, deleted: result.meta?.changes || 0 });
 }
 
 // ============ 标签统计 ============

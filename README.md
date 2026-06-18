@@ -6,22 +6,41 @@
 
 ---
 
-## 快速开始
+## 访问
 
-### 云端使用（直接访问）
+### 云端
 
 **在线访问**: <https://dms-2tu.pages.dev>
 
-直接在浏览器打开即可使用，数据存储在云端（Cloudflare D1）。
+直接在浏览器打开即可使用，无需任何配置，数据存储在云端（Cloudflare D1）。
+
+### 本地
+
+```bash
+# 1. 克隆项目并安装依赖
+git clone <repo-url> && cd DMS
+npm install
+
+# 2. 启动服务
+node server/index.js
+
+# 3. 访问 http://localhost:3000
+```
+
+本地服务默认连接 TiDB Cloud，开箱即用；如需切换数据库见下方开发章节。
+
+---
+
+## 开发
 
 ### 本地开发
 
 ```bash
-# 1. 配置数据库连接
-# 编辑 .env 文件
-
-# 2. 安装依赖
+# 1. 克隆项目并安装依赖
+git clone <repo-url> && cd DMS
 npm install
+
+# 2. 配置 .env 文件（数据库、S3 等，见下方说明）
 
 # 3. 启动服务
 node server/index.js
@@ -35,18 +54,18 @@ node server/index.js
 
 | 值 | 数据库 | 说明 |
 | --- | --- | --- |
-| `TiDB` | TiDB Cloud | 云端数据库（默认） |
-| `local` | 本地 MySQL | 需要本地搭建 MySQL |
+| `cloud` | 云端数据库 | 默认，开箱即用 |
+| `local` | 本地 MySQL | 需自行搭建 MySQL |
 
 ```
-DB_ACTIVE=TiDB   # 切换为 TiDB Cloud
-DB_ACTIVE=local  # 切换为本地 MySQL
+DB_ACTIVE=cloud   # 云端数据库
+DB_ACTIVE=local   # 本地 MySQL
 ```
 
-本地 MySQL 首次使用需要创建数据库：
+使用本地 MySQL 时，先创建数据库再配置 `.env`：
 
 ```bash
-# 1. 在 MySQL 中执行
+# 1. 创建数据库（在 MySQL 中执行）
 mysql -u root -p < local_database.sql
 
 # 2. 修改 .env 中的本地数据库配置
@@ -61,21 +80,43 @@ DB_LOCAL_DATABASE=DMS
 
 #### 切换对象存储（S3）
 
-在 `.env` 中修改 `S3_ACTIVE`：
-
-| 值 | 说明 |
-| --- | --- |
-| `config1` | hi168 测试仓库 |
-| `config2` | cstcloud 中国科技云 |
+支持多套 S3 仓库通过 `.env` 中 `S3_ACTIVE` 快速切换：
 
 ```env
-S3_ACTIVE=config2   # 正式仓库
-S3_ACTIVE=config1   # 切换为测试仓库
+# .env
+S3_ACTIVE=config1   # 激活 config1
 ```
 
-新增仓库只需在 `.env` 中加一组 `S3_CONFIG3_*` 配置，然后改 `S3_ACTIVE` 即可，无需改代码。配置模块 `server/s3.config.js` 自动读取。
+每个仓库配置对应一组 `S3_CONFIG{N}_*` 变量：
+
+```env
+# 仓库 1
+S3_CONFIG1_ENDPOINT=https://s3.example.com
+S3_CONFIG1_BUCKET=my-bucket
+S3_CONFIG1_PUBLIC_URL=https://pub.example.com
+# ... 其他配置项
+
+# 仓库 2
+S3_CONFIG2_ENDPOINT=https://s3.another.com
+S3_CONFIG2_BUCKET=another-bucket
+S3_CONFIG2_PUBLIC_URL=https://pub.another.com
+```
+
+新增仓库只需加一组 `S3_CONFIG3_*`、`S3_CONFIG4_*` …，然后改 `S3_ACTIVE` 即可，无需改代码。配置模块 `server/s3.config.js` 自动读取。
 
 > 修改后需重启服务器生效。
+
+### 云端部署
+
+项目通过 GitHub Actions 自动部署到 Cloudflare：
+
+| 组件 | 平台 | 说明 |
+| --- | --- | --- |
+| 前端 | Cloudflare Pages | `public/` + `functions/` |
+| 后端 | Cloudflare Workers | `worker/` |
+| 数据库 | Cloudflare D1 | 数据存储 |
+
+详见下方 [GitHub Actions 自动部署](#github-actions-自动部署) 章节。
 
 ---
 
