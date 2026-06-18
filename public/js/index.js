@@ -3432,13 +3432,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSidebarResize();
     initDragSelect();
 
-    // 恢复视图模式：移动端强制列表视图，桌面端优先用户手动选择
-    if (window.innerWidth <= 768) {
-        viewMode = 'list';
-    } else {
-        const savedViewMode = localStorage.getItem('viewMode');
-        viewMode = savedViewMode || 'table';
-    }
+    // 默认表格模式，移动端自动切换列表模式
+    viewMode = window.innerWidth <= 768 ? 'list' : 'table';
     // 初始化按钮图标
     const btn = document.getElementById('viewToggleBtn');
     const icon = btn?.querySelector('i');
@@ -3534,6 +3529,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// 窗口缩放时自动切换视图（跨 768px 断点时生效）
+let lastWidth = window.innerWidth;
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        const w = window.innerWidth;
+        if ((lastWidth > 768 && w <= 768) || (lastWidth <= 768 && w > 768)) {
+            lastWidth = w;
+            viewMode = w <= 768 ? 'list' : 'table';
+            const btn = document.getElementById('viewToggleBtn');
+            const icon = btn?.querySelector('i');
+            if (icon && btn) {
+                if (viewMode === 'table') {
+                    icon.className = 'bi bi-grid-3x3-gap';
+                    btn.classList.add('active');
+                    btn.title = '切换到列表视图';
+                } else {
+                    icon.className = 'bi bi-layout-text-sidebar';
+                    btn.classList.remove('active');
+                    btn.title = '切换到表格视图';
+                }
+            }
+            if (allDevices && allDevices.length > 0) renderDevices(allDevices);
+        }
+        lastWidth = w;
+    }, 250);
+});
+
 // ============ 导入导出 ============
 
 // 导出设备
@@ -3546,8 +3570,13 @@ function exportDevices() {
     if (currentWarehouseId > 0) params.set('warehouseId', currentWarehouseId);
     params.set('format', 'xlsx');
     const url = `${API_BASE}/devices/export?${params.toString()}`;
-    // 直接触发下载
-    window.open(url, '_blank');
+    // 使用 <a> 标签触发下载，避免浏览器拦截 window.open
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 // 清空当前仓库所有设备
@@ -3580,7 +3609,12 @@ async function clearCurrentWarehouse() {
 
 // 下载导入模板
 function downloadImportTemplate() {
-    window.open(`${API_BASE}/devices/template`, '_blank');
+    const a = document.createElement('a');
+    a.href = `${API_BASE}/devices/template`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 // 显示导入弹窗
