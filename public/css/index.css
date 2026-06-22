@@ -1275,7 +1275,7 @@ tr.batch-selected:hover {
 
 .announcement-content { flex: 1; min-width: 0; display: flex; align-items: center; gap: 16px; }
 .announcement-time { font-size: 12px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; font-weight: 400; }
-.announcement-text { color: var(--text-primary); font-size: 14px; line-height: 1.5; margin: 0; word-wrap: break-word; overflow-wrap: break-word; font-weight: 400; cursor: pointer; user-select: none; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.announcement-text { color: var(--text-primary); font-size: 14px; line-height: 1.5; margin: 0; word-wrap: break-word; overflow-wrap: break-word; font-weight: 400; cursor: pointer; user-select: text; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .announcement-text.expanded { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
 
 /* 移动端公告栏 */
