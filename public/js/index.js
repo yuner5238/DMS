@@ -3561,7 +3561,7 @@ window.addEventListener('resize', () => {
 // ============ 导入导出 ============
 
 // 导出设备
-function exportDevices() {
+async function exportDevices() {
     if (!currentWarehouseId && currentWarehouseId !== 0) {
         alert('请先选择仓库');
         return;
