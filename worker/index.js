@@ -410,7 +410,7 @@ async function importBatchDevices(request, env) {
         const device = {};
 
         if (!row.name && !row.device_name) {
-            errors.push(`第${rowNum}行: 设备名称不能为空`);
+            errors.push(`第${rowNum}条: 设备名称不能为空`);
             continue;
         }
 
@@ -472,7 +472,7 @@ async function importBatchDevices(request, env) {
         if (device.warehouse_name) {
             const wh = await env.DB.prepare('SELECT id FROM warehouses WHERE name=?').bind(device.warehouse_name).first();
             if (!wh) {
-                errors.push(`第${rowNum}行: 仓库「${device.warehouse_name}」不存在`);
+                errors.push(`第${rowNum}条: 仓库「${device.warehouse_name}」不存在`);
                 continue;
             }
         }
@@ -485,7 +485,7 @@ async function importBatchDevices(request, env) {
         if (device.device_id) {
             const existing = await env.DB.prepare('SELECT id FROM devices WHERE device_id=?').bind(device.device_id).first();
             if (existing) {
-                errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在`);
+                errors.push(`第${rowNum}条: 设备ID「${device.device_id}」已存在`);
                 continue;
             }
         }
@@ -493,7 +493,7 @@ async function importBatchDevices(request, env) {
         // 自动生成 device_id
         if (!device.device_id) {
             if (batchNextId > 999999) {
-                errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                errors.push(`第${rowNum}条: 无法自动生成设备ID（已用尽999999）`);
                 continue;
             }
             device.device_id = String(batchNextId++).padStart(6, '0');
@@ -593,6 +593,7 @@ async function getExpiringDevices(request, env) {
         FROM devices
         WHERE expiry_date IS NOT NULL
         AND expiry_date >= date('now')
+        AND CAST(julianday(expiry_date) - julianday('now') AS INTEGER) <= 7
         ORDER BY remaining_days ASC
         LIMIT 10`
     ).all();

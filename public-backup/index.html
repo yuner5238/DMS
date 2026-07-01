@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库资产管理系统</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/index.css" rel="stylesheet">
+    <style>
+        /* Windows 11 风格配色 */
+        :root {
+            --primary: #0067c0;
+            --primary-hover: #005a9e;
+            --primary-light: #60cdff;
+            --secondary: #5c5c5c;
+            --success: #0f7b0f;
+            --success-bg: #dff6dd;
+            --success-border: #4caf50;
+            --warning: #9d5b00;
+            --warning-bg: #fff4ce;
+            --warning-border: #ffb900;
+            --danger: #c42b1c;
+            --danger-bg: #fde7e9;
+            --info: #0078d4;
+            --info-bg: #e5f1fb;
+            --bg-main: #f3f3f3;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #424242;
+            --text-muted: #757575;
+            --border-color: #e5e5e5;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --announcement-bg: #fff3cd;
+            --announcement-border: #ffc107;
+            --announcement-text: #856404;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; font-family: 'Segoe UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; }
+        html, body { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; }
+        body { background: var(--bg-main); min-height: 100%; }
+        .container-fluid { width: 100%; height: 100%; min-height: 100%; margin: 0; padding: 0; }
+
+        /* 移动端 body 无 padding */
+        @media (max-width: 768px) {
+            body {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+        }
+
+        .main-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            min-height: 100%;
+            height: 100%;
+        }
+
+        .main-card > .row {
+            display: flex;
+            flex-wrap: nowrap;
+            min-height: 100%;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            min-height: 100%;
+            height: 100%;
+            padding: 20px;
+            background: var(--bg-main);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 侧边栏 - Win11风格浅色 */
+        .sidebar {
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
+            /* min-height: 100%; */
+            /* height: 100%; */
+            padding: 0;
+            border-right: 1px solid var(--border-color);
+            position: relative;
+            min-width: 200px;
+            max-width: 400px;
+            transition: width 0.2s ease, min-width 0.2s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0;
+            padding: 0;
+            border-right: none;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .sidebar-header,
+        .sidebar.collapsed .sidebar-content {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        /* 侧边栏拖拽调整宽度 */
+        .sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 10;
+        }
+
+
+
+        .sidebar-header {
+            height: 80px;
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-content{
+            flex: 1 1 0; /* 弹性比例分配：填充侧边栏剩余空间 */
+        }
+
+        .sidebar-header h5 { font-weight: 600; font-size: 16px; margin: 0; color: var(--text-primary); }
+
+        .sidebar-toggle-pc {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle-pc:hover { background: #f0f0f0; }
+        .sidebar-toggle-pc i { font-size: 14px; color: var(--text-secondary); }
+
+        .sidebar .nav-link {
+            color: var(--text-secondary);
+            padding: 12px 16px;
+            margin: 2px 8px;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+            font-weight: 400;
+        }
+
+        .sidebar .nav-link:hover { background: #f0f0f0; color: var(--text-primary); }
+        .sidebar .nav-link.active { background: #e5f1fb; color: var(--primary); font-weight: 500; }
+        .sidebar .nav-link i { margin-right: 10px; font-size: 16px; }
+
+        /* 仓库卡片 - 更流畅的动画 */
+        .warehouse-card {
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            border-radius: 6px;
+            position: relative;
+            background: transparent;
+            margin: 2px 6px;
+            padding: 8px 10px 8px 13px;
+            border-left: 3px solid transparent;
+            user-select: none;
+            outline: none;
+            caret-color: transparent;
+        }
+
+        .warehouse-card:hover {
+            background: #f0f0f0;
+            transform: translateX(2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+        .warehouse-card:active {
+            transform: translateX(2px) scale(0.98);
+            background: #e8e8e8;
+        }
+        .warehouse-card:focus-visible {
+            transform: translateX(2px) scale(0.98);
+        }
+        .warehouse-card.active { background: #e5f1fb; }
+
+        .warehouse-card.all { border-left-color: #6c757d; background: #f8f9fa; font-weight: 600; }
+        .warehouse-card.all.active { background: #e5f1fb; border-left-color: #0067c0; }
+
+        .warehouse-card .warehouse-name {
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .warehouse-card .warehouse-name i {
+            font-size: 12px;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: #e5f1fb;
+            color: #0067c0;
+        }
+
+        .warehouse-card.all .warehouse-name i {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .warehouse-card .warehouse-stats {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .warehouse-card .stat-item {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .warehouse-card .stat-item.in-stock { color: #107c10; }
+        .warehouse-card .stat-item.checked-out { color: #b8860b; }
+
+        .warehouse-actions {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.15s;
+            display: flex;
+            gap: 2px;
+        }
+        .warehouse-card:hover .warehouse-actions { opacity: 1; }
+        .warehouse-actions .btn-sm {
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            padding: 0 !important;
+            margin: 0;
+            line-height: 1 !important;
+            border-radius: 4px;
+        }
+        .warehouse-actions .btn-sm i {
+            display: inline-block;
+            width: 100%;
+            height: 100%;
+            font-size: 12px;
+            line-height: 22px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .warehouse-actions .btn-outline-light {
+            background: #f0f0f0;
+            border-color: #ccc;
+            color: #555;
+        }
+        .warehouse-actions .btn-outline-light:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .warehouse-actions .btn-outline-danger {
+            background: #ffeef0;
+            border-color: #f5c6cb;
+            color: #c82333;
+        }
+        .warehouse-actions .btn-outline-danger:hover {
+            background: #dc3545;
+            color: #fff;
+        }
+        .warehouse-actions .btn { padding: 2px 6px; font-size: 11px; }
+
+        /* 移动端仓库操作按钮常态显示 */
+        @media (max-width: 768px) {
+            .warehouse-actions {
+                opacity: 1 !important;
+                transition: none;
+                right: 2px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            .warehouse-card:hover .warehouse-actions {
+                opacity: 1 !important;
+            }
+            .warehouse-actions .btn-sm {
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+            }
+            .warehouse-actions .btn-sm i {
+                font-size: 11px;
+                line-height: 20px;
+            }
+
+            /* 移动端隐藏 PC 端的侧边栏收缩按钮 */
+            .sidebar-toggle-pc {
+                display: none !important;
+            }
+        }
+
+        /* 标签徽章 - Win11风格 */
+        .tag-badge {
+            display: inline-block;
+            background: #f0f0f0;
+            color: var(--text-primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin: 2px;
+            font-weight: 500;
+            border: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+
+        /* 多余标签计数徽章 */
+        .tag-more {
+            position: relative;
+            cursor: default;
+            background: #e8f0fe;
+            color: var(--primary);
+            border-color: #b3d4fc;
+        }
+        .tag-more .tag-tooltip {
+            display: none;
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 6px);
+            transform: translateX(-50%);
+            background: #fff;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            padding: 4px 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            white-space: nowrap;
+            z-index: 999;
+            pointer-events: none;
+        }
+        .tag-more .tag-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #d0d0d0;
+        }
+        .tag-more:hover .tag-tooltip {
+            display: block;
+        }
+
+        /* 备注图标及悬停预览 */
+        .remark-icon {
+            color: #6c757d;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .remark-icon:hover {
+            color: #0d6efd;
+        }
+        .remark-tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* 设备ID徽章 */
+        .device-id-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 1px 7px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            vertical-align: middle;
+            margin-left: 6px;
+            white-space: nowrap;
+            user-select: text;
+            cursor: text;
+        }
+
+        .device-id-badge-no-warehouse {
+            background: #fff5f5;
+            color: #dc3545;
+            border-color: #dc3545;
+            cursor: pointer;
+        }
+
+        /* body 级别的气泡，绕过表格 overflow 裁剪 */
+        .remark-body-tooltip {
+            display: none;
+            position: fixed;
+            background: rgba(50, 50, 50, 0.96);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+            white-space: normal;
+            word-break: break-word;
+            max-width: 320px;
+            max-height: 260px;
+            overflow-y: auto;
+            min-width: 120px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #f0f0f0;
+            z-index: 9999;
+            pointer-events: auto;
+        }
+
+        /* 可编辑的标签徽章（Modal 中） */
+        .tag-badge-editable {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #e5f1fb;
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid #b3d4fc;
+        }
+        .tag-badge-editable .tag-remove {
+            cursor: pointer;
+            color: #005a9e;
+            font-size: 16px;
+            line-height: 1;
+            font-weight: bold;
+            padding: 0 2px;
+            transition: color 0.15s;
+        }
+        .tag-badge-editable .tag-remove:hover {
+            color: #c42b1c;
+        }
+
+        .tag-count {
+            background: var(--primary);
+            color: white;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        /* 标签区域 */
+        .tag-section { flex: 1 1 0; min-height: 80px; display: flex; flex-direction: column; overflow: hidden; }
+
+        .tag-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: transparent;
+            border-radius: 4px;
+            margin: 2px 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            user-select: none;
+            outline: none;
+            caret-color: transparent;
+        }
+
+        .tag-list-item:hover {
+            background: #f5f5f5;
+            cursor: pointer;
+            transform: translateX(2px);
+        }
+        .tag-list-item:active {
+            transform: translateX(2px) scale(0.98);
+            background: #eeeeee;
+        }
+        .tag-list-item:focus-visible {
+            transform: translateX(2px) scale(0.98);
+        }
+        .tag-list-item.active { background: #e5f1fb; color: var(--primary); }
+        .tag-list-item.active .count { background: var(--primary); color: white; }
+        .tag-list-item .count {
+            background: #e5e5e5;
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .tag-list-item:hover .count { transform: scale(1.05); }
+        .tag-list-item .tag-actions {
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .tag-list-item:hover .tag-actions { opacity: 1; }
+
+        /* 状态过滤按钮 - 更流畅的动画 */
+        .filter-buttons { display: flex; gap: 6px; }
+        .filter-btn {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            transform-origin: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .filter-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .filter-btn:active {
+            transform: scale(0.95);
+        }
+        .filter-btn.active {
+            border-color: var(--border-color);
+        }
+        .filter-btn.active-in-stock {
+            background: var(--success-bg);
+            border-color: var(--success-border);
+            color: var(--success);
+            box-shadow: 0 2px 6px rgba(16, 124, 16, 0.2);
+        }
+        .filter-btn.active-checked-out {
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+            color: var(--warning);
+            box-shadow: 0 2px 6px rgba(186, 134, 11, 0.2);
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            min-height: 100vh;
+            height: 100vh;
+            padding: 20px;
+            background: var(--bg-main);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* 统计卡片 - Win11 Fluent风格 + 流畅动画 */
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
+        }
+        .stat-card h3 { font-size: 28px; font-weight: 600; margin: 0; color: var(--text-primary); transition: all 0.25s ease; }
+        .stat-card:hover h3 { transform: scale(1.02); }
+        .stat-card p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
+        .stat-card.success { border-left: 3px solid #107c10; background: linear-gradient(135deg, #f1faf1 0%, #ffffff 100%); }
+        .stat-card.success h3 { color: #107c10; }
+        .stat-card.warning { border-left: 3px solid #eaa300; background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%); }
+        .stat-card.warning h3 { color: #b8860b; }
+        .stat-card.info { border-left: 3px solid #0078d4; background: linear-gradient(135deg, #f0f7fd 0%, #ffffff 100%); }
+        .stat-card.info h3 { color: #0078d4; }
+
+        /* 标题栏 */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .page-header h5 { margin: 0; font-weight: 600; color: var(--text-primary); font-size: 16px; }
+
+        /* 内容卡片：工具栏 + 设备列表（邮箱风格） */
+        .content-card {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        /* 操作工具栏（邮箱式顶栏） */
+        .action-toolbar-wrapper {
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .action-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+        }
+        .action-toolbar .search-box {
+            flex: 1;
+            min-width: 150px;
+            max-width: 400px;
+        }
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .action-toolbar .form-select-sm {
+            width: auto;
+            min-width: 100px;
+        }
+        .action-toolbar-wrapper .batch-toolbar {
+            border: none;
+            border-top: 1px solid #c2d5ff;
+            border-bottom: 1px solid #d9e2f0;
+        }
+
+        /* 搜索框 - Win11风格 + 流畅动画 */
+        .search-box {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+            transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1);
+            background: var(--bg-card);
+            width: 180px;
+            min-width: 100px;
+        }
+
+        .search-box:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 103, 192, 0.15);
+            outline: none;
+            transform: scale(1.01);
+        }
+
+        /* 按钮样式 - Win11风格 + 流畅动画 */
+        .btn { transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0) scale(0.98); }
+        .btn-primary { background: var(--primary); border-color: var(--primary); font-weight: 500; border-radius: 4px; }
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 103, 192, 0.3); }
+        .btn-outline-primary { color: var(--primary); border-color: var(--primary); border-radius: 4px; }
+        .btn-outline-primary:hover { background: var(--primary); border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 103, 192, 0.2); }
+        .btn-outline-secondary { border-radius: 4px; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn-outline-secondary:hover { background: #e9ecef; transform: translateY(-1px); }
+        .btn-light { background: #f5f5f5; border-color: var(--border-color); border-radius: 4px; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); }
+        .btn-light:hover { background: #e5e5e5; transform: translateY(-1px); }
+
+        /* 导入辅助按钮 - hover时白字有色底 */
+        .import-helper-btn {
+            border: 1px solid var(--btn-c);
+            color: var(--btn-c);
+            background: transparent;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .import-helper-btn:hover {
+            background: var(--btn-c);
+            color: #fff !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+        }
+
+        /* 设备分区 - 邮箱风格分组头 */
+        .device-section { margin-bottom: 0; }
+
+        .device-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: #f7f8fa;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.15s ease;
+            caret-color: transparent;
+        }
+
+        .device-section-header:hover { background: #eef0f4; }
+        .device-section-header:active { background: #e5e7ec; }
+        .device-section-header h6 { margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; color: #374151; font-size: 13px; }
+        .device-section-header .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            font-weight: 500;
+            border-radius: 10px;
+        }
+
+        .device-section-body {
+            background: var(--bg-card);
+            border: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+            opacity: 0;
+        }
+
+        .device-section-body.expanded {
+            max-height: 3000px;
+            opacity: 1;
+        }
+
+        .device-section-body:not(.expanded) {
+            background: transparent;
+        }
+
+        #deviceList {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+            min-height: 0;
+        }
+
+        .in-stock-section .device-section-header { border-left: 3px solid #107c10; background: #f0faf0; }
+        .in-stock-section .device-section-header .badge { background: #107c10; color: #ffffff; }
+        .checked-out-section .device-section-header { border-left: 3px solid #eaa300; background: #fffbf0; }
+        .checked-out-section .device-section-header .badge { background: #eaa300; color: #ffffff; }
+
+        /* 设备项样式已统一定义在 css/index.css */
+
+        /* 设备项内容布局 */
+        .device-item .d-flex.justify-content-between {
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .device-item .flex-grow-1 {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            max-width: 100%;
+        }
+        .device-item .device-header-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .device-item .d-flex.gap-2 {
+            flex-shrink: 0;
+            gap: 6px !important;
+        }
+
+        /* 设备详情表格样式 */
+        .device-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0;
+            font-size: 12px;
+            margin-top: 6px;
+            overflow: hidden;
+            min-width: 0;
+        }
+        .device-details .detail-item {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            padding-right: 10px;
+            margin-right: 10px;
+            border-right: 1px solid #eee;
+            min-width: 0;
+        }
+        .device-details .detail-item.remark {
+            flex: 1;
+            min-width: 120px;
+            overflow: hidden;
+        }
+        .device-details .detail-item.checkin {
+            width: 100%;
+            border-right: none;
+            margin-right: 0;
+            padding-right: 0;
+            margin-top: 0;
+            padding-left: 0;
+        }
+        /* 桌面端入库时间显示在右侧 */
+        .desktop-info-row {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            margin-right: 15px;
+        }
+        .desktop-location-info,
+        .desktop-checkin-time {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            min-width: 120px;
+            text-align: left;
+        }
+        .desktop-location-info .location-label,
+        .desktop-checkin-time .checkin-label {
+            margin-right: 4px;
+        }
+        .desktop-location-info .location-value,
+        .desktop-checkin-time .checkin-value {
+            color: var(--text-muted);
+        }
+        /* 设备操作容器 */
+        .device-actions-wrapper {
+            margin-left: auto;
+        }
+        .device-details .detail-item:last-child {
+            border-right: none;
+            margin-right: 0;
+            padding-right: 0;
+        }
+        .device-details .detail-label {
+            color: var(--text-muted);
+            margin-right: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .device-details .detail-value {
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .device-details .detail-value.checkin-time {
+            color: var(--text-muted);
+        }
+        .device-details .detail-item:hover .detail-value {
+            white-space: normal;
+            word-break: break-all;
+        }
+        /* 位置列 */
+        .device-details .detail-item.position {
+            width: 120px;
+            flex-shrink: 0;
+        }
+        .device-details .detail-item.position .detail-value {
+            color: var(--text-muted);
+        }
+        /* 位置和入库时间同行显示 */
+        .device-details .detail-item.location-checkin-row {
+            display: flex;
+            width: 100%;
+            gap: 8px;
+            align-items: center;
+            background: transparent;
+            padding-right: 0;
+            margin-right: 0;
+            border-right: none;
+        }
+        .device-details .detail-half {
+            flex: 0 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            text-align: left;
+            justify-content: flex-start;
+        }
+        .device-details .detail-half.location-half {
+            flex: 0 0 200px;
+            width: 200px;
+        }
+        .device-details .detail-half.checkin-half {
+            flex: 0 0 auto;
+            min-width: auto;
+            overflow: hidden;
+            white-space: nowrap;
+            text-align: right;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+        .device-details .detail-value.checkin-time {
+            display: inline-block;
+            white-space: nowrap;
+        }
+        .device-details .detail-half .detail-label {
+            flex-shrink: 0;
+            margin-right: 4px;
+            line-height: 1.4;
+        }
+        .device-details .detail-half .detail-value {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .device-details .detail-half .detail-value.location-value,
+        .device-details .detail-half .detail-value.checkin-time {
+            color: var(--text-muted);
+        }
+        /* 入库时间列 */
+        .device-details .detail-item.checkin {
+            width: 130px;
+            flex-shrink: 0;
+            display: none;
+        }
+        /* 备注列 */
+        .device-details .detail-item.remark {
+            flex: 1;
+            min-width: 150px;
+            max-width: 300px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* 备注值支持多行显示和换行 */
+        .device-details .detail-item.remark .detail-value {
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        /* 列表视图备注禁止 hover 换行 */
+        .device-details .detail-item.remark:hover .detail-value {
+            white-space: nowrap !important;
+            word-break: normal !important;
+        }
+
+        /* 设备名称标签行布局 - 全局样式 */
+        .device-name-section .name-tags-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+            gap: 16px;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .device-name-section .name-quantity-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 0 0 auto;
+            min-width: 0;
+            text-align: left;
+            justify-content: flex-start;
+            width: auto;
+        }
+
+        .device-name-section .name-quantity-wrapper strong {
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+        /* 设备名称文本特定样式，优先级更高 */
+        .device-name-section .name-quantity-wrapper strong.device-name-text {
+            display: inline-block !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100px !important;
+        }
+
+        .device-name-section .status-tags-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 4px;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-align: right;
+            justify-content: flex-end;
+        }
+
+        /* 数量角标 */
+        .quantity-badge {
+            background: #e3f2fd;
+            color: #1565c0;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 7px;
+            border-radius: 50%;
+            min-width: 22px;
+            height: 22px;
+            text-align: center;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        /* 状态徽章 - Win11风格 */
+        .status-badge { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .status-normal { background: #d4edda; color: #155724; }
+        .status-abnormal { background: #f8d7da; color: #721c24; }
+        .status-maintenance { background: #fff3cd; color: #856404; }
+
+        /* 操作按钮 */
+        .checkout-btn, .checkin-btn { padding: 5px 10px; font-size: 12px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+        .checkout-btn { color: #8b6914; border-color: #eaa300; background: #fff8e6; }
+        .checkout-btn:hover { background: #eaa300; color: white; border-color: #eaa300; }
+        .checkin-btn { color: #0d5d0d; border-color: #107c10; background: #e6f5e6; }
+        .checkin-btn:hover { background: #107c10; color: white; border-color: #107c10; }
+
+        /* 设备项按钮组 */
+        .device-item .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: auto;
+            flex-shrink: 0;
+        }
+
+        .device-item .btn-outline-primary {
+            padding: 4px 8px;
+        }
+
+        /* 设备操作按钮区域 */
+        .device-item .device-actions {
+            flex-shrink: 0;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        /* 去向标签 */
+        .destination-tag {
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid #ffc107;
+        }
+        .location-tag {
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        /* Modal 样式 - Win11风格 */
+        .modal-header { background: var(--bg-card); color: var(--text-primary); border-bottom: 1px solid var(--border-color); border-radius: 8px 8px 0 0; padding: 16px 20px; }
+        .modal-header .btn-close { opacity: 0.5; transition: all 0.2s ease; }
+        .modal-header .btn-close:hover { opacity: 1; transform: rotate(90deg); }
+        .modal-content { border-radius: 8px; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); animation: modalSlideIn 0.3s cubic-bezier(0.19, 1, 0.22, 1); }
+        .modal-footer { border-top: 1px solid var(--border-color); background: var(--bg-card); border-radius: 0 0 8px 8px; padding: 12px 20px; }
+        .modal-body { padding: 20px; }
+
+        /* Modal 弹出动画 */
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* 设备详情样式 */
+        .device-detail-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .detail-row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 12px 20px;
+            padding: 12px;
+            background: var(--bg-light);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            align-items: start;
+        }
+        .detail-row.full-width {
+            grid-template-columns: 1fr;
+        }
+        .detail-row.full-width .detail-label {
+            grid-column: 1;
+            margin-bottom: 4px;
+        }
+        .detail-row.full-width .detail-value {
+            grid-column: 1;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 14px;
+            word-break: break-word;
+        }
+        .detail-remark {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            min-height: 60px;
+            white-space: pre-wrap;
+        }
+
+        /* 表单样式 - Win11风格 */
+        .form-control, .form-select { border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; font-size: 13px; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+        .form-label { font-weight: 500; color: var(--text-secondary); font-size: 12px; margin-bottom: 4px; }
+
+        /* 公告内容输入框 */
+        #announcementContent {
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        /* 折叠箭头 */
+        .chevron-icon { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; }
+        .chevron-icon.collapsed { transform: rotate(-90deg); }
+
+        /* 滚动条美化 - Win11风格 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+
+        /* 空状态 */
+        .empty-state { text-align: center; padding: 40px 24px; color: var(--text-muted); }
+        .empty-state i { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+        .empty-state p { margin: 0; font-size: 13px; }
+
+        /* Alert样式 */
+        .alert { border-radius: 4px; border: none; }
+        .alert-warning { background: #fff3cd; color: #856404; }
+        .alert-success { background: #d4edda; color: #155724; }
+
+        /* 侧边栏收纳/展开控制 */
+        .sidebar-toggle-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle-btn:hover { background: #f5f5f5; }
+        .sidebar-toggle-btn i { font-size: 18px; color: var(--text-secondary); }
+
+        /* PC端侧边栏收起后的展开按钮 */
+        .sidebar-expand-btn {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            margin-right: 12px;
+        }
+        .sidebar-expand-btn:hover { background: #f5f5f5; }
+        .sidebar-expand-btn i { font-size: 18px; color: var(--text-secondary); }
+
+        @media (min-width: 769px) {
+            .sidebar.collapsed + .main-content .sidebar-expand-btn {
+                display: flex;
+            }
+        }
+
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-secondary);
+            z-index: 10;
+        }
+        .sidebar-close-btn:hover { background: #f0f0f0; color: var(--text-primary); }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.show { display: block; opacity: 1; }
+
+        /* ========== 移动端优化 (≤768px) ========== */
+        @media (max-width: 768px) {
+            body {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow-x: hidden;
+            }
+
+            .container-fluid {
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .main-card {
+                min-height: 100vh;
+                border-radius: 0 !important;
+                border: none !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
+
+            .main-card > .row {
+                margin: 0 !important;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                width: 280px;
+                height: 100vh;
+                z-index: 1050;
+                transition: left 0.3s ease;
+                min-height: auto;
+                border-right: none;
+                box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+                overflow-y: auto;
+            }
+            .sidebar.show { left: 0; }
+
+            .sidebar-toggle-btn { display: flex; }
+            .sidebar-close-btn { display: flex; align-items: center; justify-content: center; }
+
+            .sidebar-header { position: relative; padding-right: 48px; }
+
+            .main-content {
+                padding: 12px;
+                width: 100% !important;
+                margin: 0 !important;
+                min-height: 100vh;
+            }
+
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .mobile-header .page-title {
+                flex: 1;
+                font-weight: 600;
+                font-size: 14px;
+                color: var(--text-primary);
+                margin: 0;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .mobile-tools {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .mobile-sort-select {
+                width: 70px;
+                font-size: 12px;
+                padding: 4px 8px;
+            }
+            .mobile-search-btn,
+            .mobile-add-btn {
+                padding: 6px 10px;
+                font-size: 14px;
+            }
+            #mobileAnnouncementBtn {
+                position: relative;
+            }
+            #mobileAnnouncementBtn .mobile-announcement-badge {
+                position: absolute;
+                top: -4px;
+                right: -4px;
+                background: var(--danger);
+                color: white;
+                border-radius: 10px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: bold;
+                min-width: 16px;
+                height: 16px;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                line-height: 1;
+            }
+            .mobile-search-container {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 12px;
+                padding: 8px;
+                background: var(--bg-light);
+                border-radius: 6px;
+            }
+            .mobile-search-input {
+                flex: 1;
+                font-size: 14px;
+            }
+
+            /* 统计卡片横向紧凑排列 */
+            .stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+            .stat-row .col-md-4 { flex: 1; padding: 0; }
+            .stat-card {
+                padding: 10px 12px;
+                margin-bottom: 0;
+                text-align: center;
+            }
+            .stat-card h3 { font-size: 18px; margin-bottom: 2px; }
+            .stat-card p { font-size: 10px; margin: 0; }
+
+            .page-header { display: none; }
+            .action-toolbar-wrapper { display: none; }
+
+            .device-section { margin-bottom: 0; }
+            .device-item {
+            padding: 10px 12px;
+            margin: 0;
+            }
+
+            /* 移动端设备项布局优化 */
+            .device-item .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .device-item .d-flex.gap-2 {
+                width: 100%;
+                justify-content: flex-end;
+                margin-top: 4px;
+            }
+
+            .device-item .btn-sm {
+                flex: 1;
+                min-width: 80px;
+            }
+
+            /* 移动端设备详情横向紧凑布局 */
+            .device-item .device-details {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px 10px;
+                margin-top: 6px;
+            }
+
+            .device-item .detail-item {
+                display: inline-flex;
+                align-items: center;
+                font-size: 11px;
+                margin: 0;
+                padding: 2px 6px;
+                background: #f5f5f5;
+                border-radius: 3px;
+            }
+
+            .device-item .detail-label {
+                color: var(--text-muted);
+                margin-right: 4px;
+                font-size: 10px;
+            }
+
+            .device-item .detail-value {
+                color: var(--text-primary);
+                font-weight: 500;
+                max-width: 80px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            /* 移动端入库时间显示优化 */
+            .device-item .detail-item.checkin {
+                min-width: 95px;
+            }
+
+            .device-item .detail-item.checkin .detail-value {
+                max-width: 95px;
+            }
+
+            .device-item .detail-item.remark {
+                width: 100%;
+                background: transparent;
+                padding: 2px 0;
+            }
+
+            .device-item .detail-item.remark .detail-value {
+                max-width: 100%;
+            }
+
+            .device-item .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 移动端按钮文字简化 */
+            .checkout-btn::after { content: "  出库"; }
+            .checkin-btn::after { content: "  入库"; }
+        }
+
+        /* ========== 平板端优化 (769px - 1024px) ========== */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .main-content {
+                padding: 16px;
+            }
+
+            .device-item {
+            padding: 10px 16px;
+            margin: 0;
+        }
+
+            .device-item {
+                padding: 12px 14px;
+                margin: 6px 8px;
+            }
+
+            .device-item .d-flex.justify-content-between {
+                gap: 10px;
+            }
+
+            .device-item .flex-grow-1 {
+                min-width: 0;
+            }
+
+            /* 平板端设备列表左右布局 */
+            .device-header-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .device-name-section {
+                flex: 0 0 auto;
+                min-width: 0;
+                max-width: 50%;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            /* 平板端详情列宽度调整 */
+            .device-details {
+                flex-wrap: wrap;
+                gap: 6px 10px;
+                flex: 1;
+                min-width: 0;
+                align-items: flex-start;
+                overflow: hidden;
+            }
+
+            .device-details .detail-item {
+                flex: 0 0 auto;
+                min-width: 0;
+                white-space: nowrap;
+            }
+
+            .device-details .detail-item.position {
+                min-width: 90px;
+                width: auto;
+            }
+
+            .device-details .detail-item.checkin {
+                min-width: 110px;
+                width: auto;
+            }
+
+            .device-details .detail-item.remark {
+                min-width: 100px;
+                max-width: 100%;
+                flex: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .device-details .detail-item .detail-label {
+                display: inline-block;
+                font-size: 10px;
+                color: var(--text-secondary);
+                margin-right: 4px;
+            }
+
+            .device-details .detail-item .detail-value {
+                display: inline-block;
+                font-size: 11px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: calc(100% - 30px);
+                vertical-align: middle;
+            }
+
+            .device-details .detail-item.remark .detail-value {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .device-details .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 平板端按钮优化 */
+            .device-item .device-actions {
+                gap: 4px;
+            }
+
+            .device-item .btn-sm {
+                padding: 4px 6px;
+                font-size: 11px;
+                min-width: auto;
+            }
+
+            .checkout-btn, .checkin-btn {
+                padding: 4px 6px;
+                font-size: 11px;
+            }
+
+            .device-item strong {
+                font-size: 14px;
+            }
+
+            /* 平板端标签和状态徽章 */
+            .tag-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
+            .status-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
+            /* 平板端统计卡片 */
+            .stat-card {
+                padding: 12px 16px;
+            }
+
+            .stat-card h3 {
+                font-size: 22px;
+            }
+        }
+
+        /* ========== 桌面端优化 (≥1025px) ========== */
+        @media (min-width: 1025px) {
+            .device-item {
+                padding: 12px 16px;
+                margin: 0;
+            }
+
+        /* 桌面端详情列完整显示 */
+        .device-details .detail-item.position {
+            width: 120px;
+        }
+
+            .device-details .detail-item.checkin {
+                display: none;
+            }
+
+            .device-actions-wrapper {
+                display: none;
+            }
+
+            .device-details .detail-item.remark {
+                min-width: 200px;
+                max-width: 600px;
+            }
+
+            .device-details .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+
+            /* 桌面端按钮完整显示 */
+            .device-item .btn-sm {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .checkout-btn, .checkin-btn {
+                padding: 5px 12px;
+                font-size: 12px;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .mobile-header { display: none; }
+        }
+
+        /* ========== 小屏手机优化 (≤480px) ========== */
+        @media (max-width: 480px) {
+            .device-item {
+            background: var(--bg-card);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 8px;
+
+            .device-details .detail-item.remark .detail-value {
+                white-space: nowrap !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* 位置和入库时间字体大小与备注一致 */
+            .device-details .detail-half {
+                font-size: 11px !important;
+            }
+            .device-details .detail-half .detail-label {
+                font-size: 11px !important;
+                color: var(--text-muted);
+            }
+            .device-details .detail-half .detail-value {
+                font-size: 11px !important;
+                color: var(--text-muted);
+            }
+            /* 移动端减少间距，考虑滚动条宽度 */
+            .device-details .detail-item.location-checkin-row {
+                gap: 4px !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+            .device-details .detail-half.location-half {
+                flex: 0 0 140px !important;
+                width: 140px !important;
+            }
+            /* 移动端入库时间宽度调整 */
+            .device-details .detail-half.checkin-half {
+                flex: 0 0 auto;
+                text-align: right !important;
+                justify-content: flex-end !important;
+                margin-left: auto !important;
+            }
+            .device-details .detail-value.checkin-time {
+                display: inline-block;
+                min-width: 60px !important;
+                max-width: 60px !important;
+                width: 60px !important;
+            }
+
+            .device-details .detail-item.checkin {
+                width: 100%;
+                border-right: none;
+                margin-right: 0;
+                padding-right: 0;
+            }
+            transition: all 0.15s;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--success-border);
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+            .device-item {
+            padding: 8px 14px;
+            margin: 0;
+            }
+
+            .device-item strong {
+                font-size: 13px;
+            }
+
+            .device-details {
+                font-size: 11px;
+            }
+
+            .device-item .btn-sm {
+                font-size: 11px;
+                padding: 3px 6px;
+                min-width: 70px;
+            }
+
+            .checkout-btn::after { content: "  出库"; }
+            .checkin-btn::after { content: "  入库"; }
+
+            /* 小屏上隐藏图标 */
+
+            /* 小屏手机详情更紧凑 */
+            .device-item .device-details {
+                gap: 6px 8px;
+            }
+
+            .device-item .detail-item {
+                padding: 2px 4px;
+                font-size: 10px;
+            }
+
+            .device-item .detail-value {
+                max-width: 60px;
+            }
+
+            /* 移动端减少名称行间距 */
+            .device-name-section .name-tags-row {
+                gap: 8px !important;
+            }
+
+            /* 移动端不设置固定宽度 */
+            .device-name-section .name-quantity-wrapper {
+                flex: 0 1 auto;
+                min-width: 0;
+                width: auto;
+            }
+            .device-name-section .name-quantity-wrapper strong.device-name-text {
+                max-width: 100px !important;
+                display: inline-block !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .device-name-section .location-half {
+                flex: 1;
+                width: auto;
+            }
+
+            .device-item .detail-item.remark .detail-value.remark-clickable {
+                cursor: pointer;
+            }
+        }
+
+        /* 富文本编辑器占位符样式 */
+        [contenteditable][data-placeholder]:empty:before {
+            content: attr(data-placeholder);
+            color: #6c757d;
+            display: block;
+        }
+
+        /* 公告栏样式已迁移至 public/css/index.css */
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- 公告栏（内联下拉方案） -->
+        <div class="ann-bar-wrap" id="annBarWrap">
+            <div class="ann-bar" id="annBar" onclick="toggleAnnDropdown()">
+                <i class="bi bi-megaphone ann-bar-icon"></i>
+                <span class="ann-bar-text" id="annBarText">暂无公告</span>
+                <span class="ann-bar-badge" id="annBarBadge" style="display:none">0</span>
+                <i class="bi bi-chevron-down ann-bar-chevron"></i>
+            </div>
+            <div class="ann-dropdown" id="annDropdown">
+                <div class="ann-dropdown-header">
+                    <span class="ann-dropdown-title">系统公告</span>
+                    <button class="ann-dropdown-add-btn" onclick="event.stopPropagation();showAnnouncementModal()">
+                        <i class="bi bi-plus"></i> 新增
+                    </button>
+                </div>
+                <div class="ann-dropdown-inner" id="annDropdownInner">
+                    <div class="ann-dropdown-loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-card">
+            <div class="row g-0">
+                <!-- 遮罩层 -->
+                <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+                <!-- 侧边栏 -->
+                <div class="col-md-3 sidebar" id="sidebar">
+                    <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+                    <div class="sidebar-wrapper" style="display: flex;height: 100%;flex-direction: column;">
+                        <div class="sidebar-header">
+                            <h5><i class="bi bi-box-seam me-2"></i>仓库资产管理系统 <small style="font-size: 12px; color: var(--text-muted); font-weight: normal;">v2026.6.16.16.53</small></h5>
+                            <button class="sidebar-toggle-pc" onclick="toggleSidebarPC()" title="收起侧边栏">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                        </div>
+                        <div class="sidebar-content">
+                        <div class="warehouse-section">
+                            <div class="section-collapse-header" onclick="toggleWarehouseSection()">
+                                <span><i class="bi bi-box"></i> 仓库列表</span>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button class="btn btn-light btn-sm" onclick="event.stopPropagation(); showWarehouseModal();" title="新建仓库" style="padding:2px 6px; font-size:12px;">
+                                        <i class="bi bi-plus-circle"></i> 新建仓库
+                                    </button>
+                                    <i class="bi bi-chevron-down chevron-icon" id="warehouseChevron"></i>
+                                </div>
+                            </div>
+                            <div class="section-collapse-body" id="warehouseSectionBody">
+                                <div class="warehouse-container">
+                                    <div class="nav flex-column" id="warehouseList"></div>
+                                    <div class="show-more-btn" id="warehouseShowMore" onclick="showMoreWarehouses()" style="display:none">
+                                        <i class="bi bi-chevron-down"></i> 显示更多
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="expiring-section">
+                            <div class="section-collapse-header" onclick="toggleExpiringSection()">
+                                <span style="display:flex; align-items:center; gap:6px;">
+                                    <span><i class="bi bi-clock-history"></i> 临期列表</span>
+                                    <span class="show-more-btn expiring-more-btn" id="expiringShowMore" onclick="event.stopPropagation(); showMoreExpiring();" style="display:none;">
+                                        <i class="bi bi-chevron-down" style="font-size:9px;"></i> 更多
+                                    </span>
+                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="filter-buttons">
+                                        <button class="btn btn-sm filter-btn active-in-stock" id="expiringFilterInStock" onclick="toggleExpiringLocationFilter('in_stock'); event.stopPropagation();" title="在库设备">
+                                            <i class="bi bi-box-seam"></i>
+                                        </button>
+                                        <button class="btn btn-sm filter-btn active-checked-out" id="expiringFilterCheckedOut" onclick="toggleExpiringLocationFilter('checked_out'); event.stopPropagation();" title="出库设备">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                    <i class="bi bi-chevron-down chevron-icon" id="expiringChevron"></i>
+                                </div>
+                            </div>
+                            <div class="section-collapse-body" id="expiringSectionBody">
+                                <div class="expiring-container">
+                                    <div id="expiringList"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tag-section">
+                            <div class="tag-section-header">
+                                <h6 onclick="toggleTagSection()" style="cursor:pointer;">
+                                    <i class="bi bi-tags"></i> 标签统计
+                                </h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="filter-buttons" id="filterButtons">
+                                        <button class="btn btn-sm filter-btn active" id="filterInStock" onclick="toggleLocationFilter('in_stock')" title="在库设备">
+                                            <i class="bi bi-box-seam"></i>
+                                        </button>
+                                        <button class="btn btn-sm filter-btn active" id="filterCheckedOut" onclick="toggleLocationFilter('checked_out')" title="出库设备">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                    <i class="bi bi-chevron-down chevron-icon" id="tagChevron" onclick="toggleTagSection()" style="cursor:pointer;"></i>
+                                </div>
+                            </div>
+                            <div class="section-collapse-body" id="tagSectionBody">
+                                <div class="tag-container">
+                                    <div id="tagStatsList"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- 主内容区 -->
+                <div class="main-content">
+                    <!-- 移动端顶部工具栏 -->
+                    <div class="mobile-header">
+                        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="打开菜单">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <h5 class="page-title" id="mobileWarehouseTitle">请选择仓库</h5>
+                        <div class="mobile-tools">
+                            <select class="form-select form-select-sm mobile-sort-select" id="mobileSortSelect" onchange="sortDevices()">
+                                <option value="name">排序</option>
+                                <option value="name">名称</option>
+                                <option value="checkin">入库</option>
+                                <option value="checkout">出库</option>
+                            </select>
+                            <button class="btn btn-light btn-sm mobile-search-btn" onclick="toggleMobileSearch()" title="搜索">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <button class="btn btn-light btn-sm" onclick="toggleAnnDropdown()" title="公告栏" id="mobileAnnouncementBtn">
+                                <i class="bi bi-megaphone"></i>
+                                <span class="mobile-announcement-badge" id="mobileAnnouncementBadge"></span>
+                            </button>
+                            <div class="btn-group add-device-group">
+                                <button class="btn btn-primary btn-sm mobile-add-btn" onclick="showDeviceModal()" title="添加设备">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-1"></i>导入设备</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-1"></i>导出设备</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#" onclick="event.preventDefault();clearCurrentWarehouse()"><i class="bi bi-trash me-1"></i>清空当前仓库</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 移动端搜索框（默认隐藏） -->
+                    <div class="mobile-search-container" id="mobileSearchContainer" style="display: none;">
+                        <input type="text" class="form-control mobile-search-input" id="mobileSearchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                        <button class="btn btn-light btn-sm" onclick="toggleMobileSearch()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
+                    <!-- PC端收起后的展开按钮 -->
+                    <div class="d-none d-md-flex align-items-center mb-3" id="pcToolbar">
+                        <button class="sidebar-expand-btn" onclick="toggleSidebarPC()" title="展开侧边栏">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <!-- 标题栏 -->
+                    <div class="page-header">
+                        <h5 id="currentWarehouseTitle"><i class="bi bi-folder"></i> 请选择仓库</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-warning" onclick="backfillDeviceCodes()" id="btnBackfillCodes" style="display: none;" title="为旧设备补全设备ID码">
+                                <i class="bi bi-qr-code-scan"></i> 补全设备ID
+                            </button>
+                            <button class="btn btn-sm filter-btn position-relative" onclick="toggleAnnDropdown()" title="公告栏" id="announcementToggleBtn">
+                                <i class="bi bi-megaphone"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="announcementBtnBadge" style="display: none;">0</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 内容卡片：工具栏 + 设备列表 -->
+                    <div class="content-card">
+                        <!-- 操作工具栏 -->
+                        <div id="batchToolbarContainer" class="action-toolbar-wrapper">
+                            <div class="action-toolbar">
+                                <input type="text" class="search-box" id="searchInput" placeholder="搜索设备..." oninput="filterDevices()">
+                                <div class="toolbar-actions">
+                                    <select class="form-select form-select-sm" id="sortSelect" onchange="sortDevices()">
+                                        <option value="name">按名称排序</option>
+                                        <option value="checkin">按入库时间排序</option>
+                                        <option value="checkout">按出库时间排序</option>
+                                    </select>
+                                    <button class="btn btn-sm filter-btn" onclick="toggleViewMode()" title="切换视图" id="viewToggleBtn">
+                                        <i class="bi bi-layout-text-sidebar"></i>
+                                    </button>
+                                    <button class="btn btn-sm" id="batchToggleBtn" onclick="toggleBatchSelectMode(event)" title="批量操作">
+                                        <i class="bi bi-square"></i> <span>批量操作</span>
+                                    </button>
+                                    <div class="btn-group add-device-group">
+                                        <button class="btn btn-primary btn-sm" onclick="showDeviceModal()">
+                                            <i class="bi bi-plus-lg"></i> 添加设备
+                                        </button>
+                                        <button class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><h6 class="dropdown-header"><i class="bi bi-gear"></i> 数据操作</h6></li>
+                                            <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showImportModal()"><i class="bi bi-file-earmark-arrow-up me-2"></i>导入设备</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="event.preventDefault();exportDevices()"><i class="bi bi-file-earmark-arrow-down me-2"></i>导出当前仓库</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="event.preventDefault();clearCurrentWarehouse()"><i class="bi bi-trash me-2"></i>清空当前仓库</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="batch-toolbar" id="batchControlsBar" style="display: none;"></div>
+                        </div>
+
+                        <!-- 设备列表 -->
+                        <div id="deviceList">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <p>请先选择或创建一个仓库</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 公告Modal -->
+    <div class="modal fade" id="announcementModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-megaphone"></i> 新增公告</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">公告内容 *</label>
+                        <textarea class="form-control" id="announcementContent" rows="4" placeholder="请输入公告内容..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAnnouncement()">发布</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- 仓库Modal -->
+    <div class="modal fade" id="warehouseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="warehouseModalTitle">新建仓库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="warehouseId">
+                    <div class="mb-3">
+                        <label class="form-label">仓库名称 *</label>
+                        <input type="text" class="form-control" id="warehouseName" placeholder="例如：工作仓库">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" id="warehouseDesc" rows="2" placeholder="仓库描述（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteWarehouseBtn" style="display:none;" onclick="deleteWarehouse()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveWarehouse()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设备Modal -->
+    <div class="modal fade" id="deviceModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: min(920px, 96vw); margin-left: auto; margin-right: auto;">
+            <div class="modal-content" style="border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" id="deviceModalTitle" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
+                        <i class="bi bi-gear me-2" style="color: #495057;"></i>添加设备
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+                    <input type="hidden" id="deviceId">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备ID <span style="font-size: 11px; color: #adb5bd;">(6位码，自动生成)</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="deviceIdCode" readonly placeholder="新建时自动生成" maxlength="6" style="font-size: 14px; background-color: #f8f9fa;">
+                            <button type="button" class="btn btn-outline-secondary" id="btnGenerateDeviceCode" onclick="generateDeviceCode()" title="重新生成设备ID" style="font-size: 12px;">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属仓库</label>
+                        <select class="form-select" id="deviceWarehouse" style="font-size: 14px;"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">设备名称 *</label>
+                        <input type="text" class="form-control" id="deviceName" placeholder="例如：Dell电脑主机" style="font-size: 14px;">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">规格型号</label>
+                            <input type="text" class="form-control" id="deviceSpecModel" placeholder="例如：联想 E14" style="font-size: 14px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">来源</label>
+                            <input type="text" class="form-control" id="deviceSource" placeholder="例如：淘宝采购" style="font-size: 14px;">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">标签（点击 × 删除）</label>
+                        <div id="deviceTagBadges" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 24px;"></div>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="text" class="form-control" id="deviceTagInput" placeholder="输入标签名，回车添加..." list="tagSuggestionsList"
+                                   style="font-size: 14px; flex: 1;"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToDevice();}">
+                            <datalist id="tagSuggestionsList"></datalist>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addTagToDevice()" style="white-space: nowrap;">
+                                <i class="bi bi-plus"></i> 添加
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">数量 *</label>
+                        <input type="number" class="form-control" id="deviceQuantity" value="1" min="1" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">存放位置</label>
+                        <input type="text" class="form-control" id="deviceStorageLocation" placeholder="例如：A区货架2层" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">入库时间</label>
+                        <input type="text" class="form-control date-input" id="deviceCheckinTime" placeholder="2026.5.20" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">到期日期 <span style="font-size: 11px; color: #adb5bd;">(选填)</span></label>
+                        <input type="text" class="form-control date-input" id="deviceExpiryDate" placeholder="2026.5.20" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">在库状态</label>
+                        <select class="form-select" id="deviceLocationStatus" style="font-size: 14px;">
+                            <option value="in_stock">在库</option>
+                            <option value="checked_out">已出库</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="destinationField" style="display:none;">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">去向</label>
+                        <input type="text" class="form-control" id="deviceDestination" placeholder="例如：同事张三借用" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">状态</label>
+                        <select class="form-select" id="deviceStatus" style="font-size: 14px;">
+                            <option value="正常">正常</option>
+                            <option value="异常">异常</option>
+                            <option value="维修中">维修中</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">所属路径</label>
+                        <input type="text" class="form-control" id="deviceDepartmentPath" placeholder="例如：XX公司 / 研发部" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">序列号</label>
+                        <input type="text" class="form-control" id="deviceSerialNumber" placeholder="例如：SN20240501-001" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 13px; font-weight: 500; color: #6c757d;">负责人</label>
+                        <input type="text" class="form-control" id="deviceResponsiblePerson" placeholder="例如：张三" style="font-size: 14px;">
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label mb-0" style="font-size: 13px; font-weight: 500; color: #6c757d;"><i class="bi bi-paperclip me-1"></i>附件</label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('attachmentFileInput').click()" title="添加附件" style="font-size: 12px; padding: 4px 10px;">
+                                <i class="bi bi-plus-lg me-1"></i>添加
+                            </button>
+                        </div>
+                        <input type="file" id="attachmentFileInput" style="display:none;" onchange="uploadAttachmentFile(event)">
+                        <div id="deviceAttachmentsList" style="display:flex; flex-direction:column; gap:4px; min-width:0;"></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label mb-0" style="font-size: 13px; font-weight: 500; color: #6c757d;">备注</label>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertImageToRemark(document.getElementById('deviceIdCode').value || '0', null, event)" title="插入图片" style="font-size: 12px; padding: 4px 8px;">
+                                    <i class="bi bi-image"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="showRemarkPreview(null, '', '', 'deviceModal')" style="font-size: 12px; padding: 4px 12px;">
+                                    <i class="bi bi-pencil-square me-1"></i>富文本模式
+                                </button>
+                            </div>
+                        </div>
+                        <!-- 使用隐藏的textarea存储原始数据 -->
+                        <textarea id="deviceRemark" style="display: none;"></textarea>
+                        <!-- 富文本编辑器 -->
+                        <div id="deviceRemarkEditor" contenteditable="true"
+                             data-placeholder="其他说明（可选）"
+                             style="min-height: 80px; overflow-y: auto; padding: 8px 12px; font-size: 14px; line-height: 1.6; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; outline: none;"></div>
+                        <input type="file" id="remarkImageInput" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 20px; font-size: 14px;">取消</button>
+                    <button type="button" class="btn btn-danger" id="deleteDeviceBtn" style="display:none; padding: 6px 20px; font-size: 14px;" onclick="deleteDevice()">删除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveDevice()" style="padding: 6px 20px; font-size: 14px;">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设备详情Modal -->
+    <div class="modal fade" id="deviceDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deviceDetailTitle">
+                        <i class="bi bi-info-circle me-2"></i>设备详情
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="device-detail-container">
+                        <div class="detail-row">
+                            <span class="detail-label">设备名称</span>
+                            <span class="detail-value" id="detailName"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">所属仓库</span>
+                            <span class="detail-value" id="detailWarehouse"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">标签</span>
+                            <span class="detail-value" id="detailTag"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">数量</span>
+                            <span class="detail-value" id="detailQuantity"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">状态</span>
+                            <span class="detail-value" id="detailStatus"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">位置</span>
+                            <span class="detail-value" id="detailLocation"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">入库时间</span>
+                            <span class="detail-value" id="detailCheckinTime"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">到期日期</span>
+                            <span class="detail-value" id="detailExpiryDate"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">创建时间</span>
+                            <span class="detail-value" id="detailCreatedAt"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">更新时间</span>
+                            <span class="detail-value" id="detailUpdatedAt"></span>
+                        </div>
+                        <div class="detail-row full-width">
+                            <span class="detail-label">备注</span>
+                            <div class="detail-value detail-remark" id="detailRemark"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="detailEditBtn">编辑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 出库Modal -->
+    <div class="modal fade" id="checkoutModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-right"></i> 设备出库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="checkoutDeviceId">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 确定要将设备 <strong id="checkoutDeviceName"></strong> 出库吗？
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">去向</label>
+                        <input type="text" class="form-control" id="checkoutDestination" placeholder="例如：同事张三借用">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="confirmCheckout()">确认出库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 入库Modal -->
+    <div class="modal fade" id="checkinModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-left"></i> 设备入库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="checkinDeviceId">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> 确定要将设备 <strong id="checkinDeviceName"></strong> 重新入库吗？
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="confirmCheckin()">确认入库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 富文本编辑器Modal -->
+    <div class="modal fade" id="richTextEditorModal" tabindex="-1" aria-labelledby="richTextEditorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" style="max-width: 900px;">
+            <div class="modal-content" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0;">
+                        <i class="bi bi-pencil-square me-2" style="color: #495057;"></i>富文本编辑器
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+                    <!-- 工具栏 -->
+                    <div style="padding: 10px 20px; background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('undo')" title="撤回">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('redo')" title="重做">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('bold')" title="加粗">
+                            <i class="bi bi-type-bold"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('italic')" title="斜体">
+                            <i class="bi bi-type-italic"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('underline')" title="下划线">
+                            <i class="bi bi-type-underline"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('strikeThrough')" title="删除线">
+                            <i class="bi bi-type-strikethrough"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('insertUnorderedList')" title="无序列表">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('insertOrderedList')" title="有序列表">
+                            <i class="bi bi-list-ol"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyLeft')" title="左对齐">
+                            <i class="bi bi-text-left"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyCenter')" title="居中">
+                            <i class="bi bi-text-center"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyRight')" title="右对齐">
+                            <i class="bi bi-text-right"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleFontSizePanel(this)" title="字体大小">
+                            <span style="font-weight:600;font-size:13px;">A</span><i class="bi bi-caret-down-fill" style="font-size:8px;margin-left:-1px;vertical-align:bottom;"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this, 'foreColor')" title="文字颜色">
+                            <span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1;gap:1px;">
+                                <span style="font-weight:600;font-size:15px;">A</span>
+                                <span style="display:block;height:2.5px;background:#333;border-radius:1px;width:14px;"></span>
+                            </span>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this, 'hiliteColor')" title="突出显示">
+                            <span style="font-weight:600;font-size:14px;background:#ffff00;padding:0 2px;border-radius:2px;">A</span>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="showTablePicker(this)" title="插入表格">
+                            <i class="bi bi-table"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceIdCode')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('removeFormat')" title="清除格式">
+                            <i class="bi bi-eraser"></i>
+                        </button>
+                    </div>
+                    <!-- 编辑区域 -->
+                    <div id="richTextEditor" contenteditable="true" style="min-height: 300px; max-height: 500px; overflow-y: auto; padding: 20px; font-size: 14px; line-height: 1.6; outline: none;"></div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 20px; font-size: 14px;">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveRichTextContent()" style="padding: 6px 20px; font-size: 14px;">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 备注预览Modal -->
+    <div class="modal fade" id="remarkPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 900px;">
+            <div class="modal-content" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529; margin: 0; display: flex; align-items: center;">
+                        <i class="bi bi-file-text me-2" style="color: #495057;"></i>备注详情
+                        <span id="remarkPreviewStatus" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #198754; margin-left: 10px; flex-shrink: 0;" title="已是最新版本"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+                    <input type="hidden" id="remarkPreviewDeviceId">
+                    <input type="hidden" id="remarkPreviewDeviceIdCode">
+                    <div style="padding: 14px 20px; background-color: #fff; border-bottom: 1px solid #dee2e6;">
+                        <label style="display: block; font-size: 13px; font-weight: 500; color: #6c757d; margin-bottom: 4px;">设备名称</label>
+                        <div id="remarkDeviceName" style="font-size: 15px; font-weight: 500; color: #212529;"></div>
+                    </div>
+                    <!-- 工具栏 -->
+                    <div style="padding: 10px 20px; background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('undo')" title="撤回">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('redo')" title="重做">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('bold')" title="加粗">
+                            <i class="bi bi-type-bold"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('italic')" title="斜体">
+                            <i class="bi bi-type-italic"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('underline')" title="下划线">
+                            <i class="bi bi-type-underline"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('strikeThrough')" title="删除线">
+                            <i class="bi bi-type-strikethrough"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('insertUnorderedList')" title="无序列表">
+                            <i class="bi bi-list-ul"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('insertOrderedList')" title="有序列表">
+                            <i class="bi bi-list-ol"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyLeft')" title="左对齐">
+                            <i class="bi bi-text-left"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyCenter')" title="居中">
+                            <i class="bi bi-text-center"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('justifyRight')" title="右对齐">
+                            <i class="bi bi-text-right"></i>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleFontSizePanel(this)" title="字体大小">
+                            <span style="font-weight:600;font-size:13px;">A</span><i class="bi bi-caret-down-fill" style="font-size:8px;margin-left:-1px;vertical-align:bottom;"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this, 'foreColor')" title="文字颜色">
+                            <span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1;gap:1px;">
+                                <span style="font-weight:600;font-size:15px;">A</span>
+                                <span style="display:block;height:2.5px;background:#333;border-radius:1px;width:14px;"></span>
+                            </span>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this, 'hiliteColor')" title="突出显示">
+                            <span style="font-weight:600;font-size:14px;background:#ffff00;padding:0 2px;border-radius:2px;">A</span>
+                        </button>
+                        <div style="width: 1px; background-color: #dee2e6; margin: 0 4px; height: 18px;"></div>
+                        <button type="button" class="editor-toolbar-btn" onclick="showTablePicker(this)" title="插入表格">
+                            <i class="bi bi-table"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="insertImageToRemark((document.getElementById('remarkPreviewDeviceIdCode')?.value || document.getElementById('deviceIdCode')?.value || '0'), 'remarkContent', event)" title="插入图片">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <button type="button" class="editor-toolbar-btn" onclick="execCmd('removeFormat')" title="清除格式">
+                            <i class="bi bi-eraser"></i>
+                        </button>
+                    </div>
+                    <!-- 编辑区域 -->
+                    <div id="remarkContent" contenteditable="true" style="min-height: 300px; max-height: 500px; overflow-y: auto; padding: 20px; font-size: 14px; line-height: 1.6; outline: none;"></div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 12px 20px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 6px 24px; font-size: 14px;">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveRemarkFromPreview()" style="padding: 6px 24px; font-size: 14px;">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片插入小弹窗（popover风格，箭头指向按钮） -->
+    <div id="imageInsertPopup" style="display:none; position:fixed; z-index:1080; background:#fff; border-radius:10px; box-shadow:0 -4px 20px rgba(0,0,0,0.12); padding:14px 18px; min-width:210px;">
+        <div style="display:flex; gap:12px; align-items:center; justify-content:center;">
+            <!-- 上传新图片 -->
+            <button type="button" class="image-popup-btn" onclick="triggerImageUpload(); closeImageInsertPopup();" title="上传新图片"
+                    style="display:flex; flex-direction:column; align-items:center; gap:5px; border:none; background:transparent; cursor:pointer; padding:8px 14px; border-radius:8px; transition:background 0.15s;"
+                    onmouseenter="this.style.background='#f0f7ff'" onmouseleave="this.style.background='transparent'">
+                <i class="bi bi-cloud-arrow-up" style="font-size:20px; color:#0067c0;"></i>
+                <span style="font-size:12px; color:#495057; white-space:nowrap;">上传新图片</span>
+            </button>
+            <!-- 仓库已有图片 -->
+            <button type="button" class="image-popup-btn" onclick="closeImageInsertPopup(); openImageBrowser();" title="仓库已有图片"
+                    style="display:flex; flex-direction:column; align-items:center; gap:5px; border:none; background:transparent; cursor:pointer; padding:8px 14px; border-radius:8px; transition:background 0.15s;"
+                    onmouseenter="this.style.background='#f0f7ff'" onmouseleave="this.style.background='transparent'">
+                <i class="bi bi-folder2-open" style="font-size:20px; color:#0067c0;"></i>
+                <span style="font-size:12px; color:#495057; white-space:nowrap;">仓库已有图片</span>
+            </button>
+        </div>
+        <!-- 箭头（向下，指向按钮） -->
+        <div id="imagePopupArrow" style="position:absolute; width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:7px solid #fff; bottom:-7px; left:50%; transform:translateX(-50%); filter:drop-shadow(0 1px 2px rgba(0,0,0,0.1));"></div>
+    </div>
+
+    <!-- 隐藏的文件上传输入 -->
+    <input type="file" id="imagePickerFileInput" accept="image/*" style="display:none;" onchange="handleImagePickerUpload(event)">
+
+    <!-- 仓库已有图片浏览弹窗 -->
+    <div class="modal fade" id="imageBrowserModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 680px;">
+            <div class="modal-content" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 12px 18px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 15px; font-weight: 600; color: #212529; margin: 0; display: flex; align-items: center;">
+                        <i class="bi bi-folder2-open me-2" style="color: #495057;"></i>仓库已有图片
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 14px 18px;">
+                    <div id="imageGridContainer">
+                        <div class="image-empty-state">
+                            <i class="bi bi-hourglass-split d-block"></i>
+                            <p>加载中...</p>
+                        </div>
+                    </div>
+                    <div class="image-picker-footer" style="margin-top: 12px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelectUnusedImages" onclick="selectAllUnused()" disabled
+                                style="font-size: 13px; padding: 5px 14px;" title="一键选中所有未在备注中使用的图片">
+                            <i class="bi bi-boxes me-1"></i>选中未使用
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnDeleteSelectedImages" onclick="deleteSelectedImages()" disabled
+                                style="font-size: 13px; padding: 5px 14px;">
+                            <i class="bi bi-trash me-1"></i>删除选中
+                        </button>
+                        <div style="font-size: 12px; color: #6c757d; display: flex; align-items: center; gap: 10px;">
+                            <span id="imageSelectionCount"></span>
+                            <span class="usage-legend"><span class="usage-legend-dot used"></span>已使用</span>
+                            <span class="usage-legend"><span class="usage-legend-dot unused"></span>未使用</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" id="btnInsertSelectedImages" onclick="insertSelectedImages()" disabled
+                                style="font-size: 13px; padding: 5px 18px;">
+                            <i class="bi bi-check-lg me-1"></i>插入选中
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 10px 18px; background-color: #f8f9fa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="padding: 5px 18px; font-size: 14px;">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片右键尺寸菜单 -->
+    <div id="imgSizeContextMenu" class="img-size-context-menu">
+        <div class="img-size-menu-item small" data-size="small" onclick="setImageSize('small')">
+            <span class="size-icon"></span>小
+        </div>
+        <div class="img-size-menu-item medium" data-size="medium" onclick="setImageSize('medium')">
+            <span class="size-icon"></span>中
+        </div>
+        <div class="img-size-menu-item large" data-size="large" onclick="setImageSize('large')">
+            <span class="size-icon"></span>大
+        </div>
+    </div>
+
+    <!-- 色板选择器全局弹窗 -->
+    <div id="colorSwatchPopover" class="color-swatch-popover">
+        <div class="swatch-title" id="swatchTitle">文字颜色</div>
+        <div class="color-swatch-grid" id="colorSwatchGrid"></div>
+    </div>
+    <!-- 字体大小弹出面板 -->
+    <div id="fontSizePopover" class="font-size-popover">
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('1')">小</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('3')">中</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('5')">大</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('7')">特大</div>
+    </div>
+
+    <!-- 导入设备 Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 16px 20px; background-color: #f8f9fa;">
+                    <h5 class="modal-title" style="font-size: 16px; font-weight: 600; color: #212529;">
+                        <i class="bi bi-file-earmark-arrow-up me-2" style="color: #495057;"></i>导入设备
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <!-- 目标仓库选择（全部仓库视图时需要） -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size: 13px; margin-bottom: 6px;">
+                            <i class="bi bi-geo-alt me-1"></i>目标仓库
+                        </label>
+                        <select class="form-select form-select-sm" id="importWarehouseSelect" style="max-width: 280px; font-size: 13px;">
+                            <option value="">不指定（需在每行填写「仓库名称」）</option>
+                        </select>
+                        <small class="text-muted d-block mt-1" style="font-size: 11px;">
+                            选择后，文件/粘贴中未指定「仓库名称」的行都将导入到该仓库
+                        </small>
+                    </div>
+
+                    <!-- Tab 切换 -->
+                    <ul class="nav nav-tabs mb-3" id="importTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="file-tab" data-bs-toggle="tab" data-bs-target="#importFile" type="button" role="tab">
+                                <i class="bi bi-file-earmark-excel me-1"></i> 文件导入
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="paste-tab" data-bs-toggle="tab" data-bs-target="#importPaste" type="button" role="tab">
+                                <i class="bi bi-clipboard me-1"></i> 批量粘贴
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- 标签一：文件导入 -->
+                        <div class="tab-pane fade show active" id="importFile" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted" style="font-size: 13px;">请使用模板填写数据，再上传文件</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="downloadImportTemplate()">
+                                    <i class="bi bi-download me-1"></i>下载模板
+                                </button>
+                            </div>
+                            <div class="upload-area" id="importDropZone"
+                                 style="border: 2px dashed #dee2e6; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s;"
+                                 onclick="document.getElementById('importFileInput').click()"
+                                 ondragover="event.preventDefault();this.style.borderColor='#0d6efd';this.style.background='#f0f7ff'"
+                                 ondragleave="this.style.borderColor='#dee2e6';this.style.background='transparent'"
+                                 ondrop="event.preventDefault();this.style.borderColor='#dee2e6';this.style.background='transparent';handleImportFileDrop(event)">
+                                <i class="bi bi-cloud-upload" style="font-size: 36px; color: #adb5bd;"></i>
+                                <p class="mt-2 mb-1" style="font-size: 14px; color: #6c757d;">点击选择或拖拽文件到此处</p>
+                                <p style="font-size: 12px; color: #adb5bd; margin: 0;">支持 .csv .xlsx .xls 格式</p>
+                            </div>
+                            <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleImportFile(this.files[0])">
+                            <div id="importFileInfo" class="mt-2" style="display:none; font-size: 13px;"></div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-primary btn-sm" id="btnStartImport" style="display:none;" onclick="startFileImport()">
+                                    <i class="bi bi-upload me-1"></i>开始导入
+                                </button>
+                            </div>
+                            <div id="importFileResult" class="mt-3" style="display:none;"></div>
+                        </div>
+
+                        <!-- 标签二：批量粘贴 -->
+                        <div class="tab-pane fade" id="importPaste" role="tabpanel">
+                            <p class="text-muted" style="font-size: 13px;">粘贴 JSON 数组格式的设备数据，每行一个设备对象</p>
+                            <button class="btn btn-sm mb-2 import-helper-btn" onclick="insertJsonExample()" style="--btn-c:#0067c0;">
+                                <i class="bi bi-lightbulb me-1"></i>插入示例
+                            </button>
+                            <button class="btn btn-sm mb-2 ms-1 import-helper-btn" onclick="copyAIPrompt()" style="--btn-c:#0f7b0f;">
+                                <i class="bi bi-clipboard me-1"></i>复制AI提示语
+                            </button>
+                            <textarea class="form-control" id="batchPasteText" rows="10"
+                                      style="font-family: 'Consolas','Monaco',monospace; font-size: 13px; resize: vertical;"
+                                      placeholder='[
+  { "name": "机械键盘", "spec_model": "MX87", "quantity": 5, "tags": "键盘,外设" },
+  { "name": "显示器", "serial_number": "SN789", "source": "采购" }
+]'></textarea>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-primary btn-sm" onclick="startBatchImport()">
+                                    <i class="bi bi-upload me-1"></i>导入
+                                </button>
+                            </div>
+                            <div id="importBatchResult" class="mt-3" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/index.js"></script>
+</body>
+</html>

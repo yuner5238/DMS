@@ -2766,68 +2766,101 @@ async function loadAnnouncements() {
         const data = await response.json();
         if (data.success) {
             announcements = data.data || [];
-            renderAnnouncements();
-            updateAnnouncementBadge();
+            updateAnnBar();
         }
     } catch (error) {
         console.error('加载公告失败:', error);
+        document.getElementById('annBarText').textContent = '公告加载失败';
     }
 }
 
-// 渲染公告列表（数据来自数据库加载，不做前端过滤）
-function renderAnnouncements() {
-    const announcementList = document.getElementById('announcementList');
-    const announcementBar = document.getElementById('announcementBar');
+// 更新公告条显示
+function updateAnnBar() {
+    const barText = document.getElementById('annBarText');
+    const barBadge = document.getElementById('annBarBadge');
 
-    // 没有公告
+    if (announcements.length > 0) {
+        barText.textContent = announcements[0].content;
+        barBadge.textContent = announcements.length;
+        barBadge.style.display = '';
+    } else {
+        barText.textContent = '暂无公告';
+        barBadge.style.display = 'none';
+    }
+
+    // 同步更新 PC 和 Mobile 按钮角标
+    const badge = document.getElementById('announcementBtnBadge');
+    const mobileBadge = document.getElementById('mobileAnnouncementBadge');
+    if (announcements.length > 0) {
+        if (badge) { badge.textContent = announcements.length; badge.style.display = 'inline-flex'; }
+        if (mobileBadge) { mobileBadge.textContent = announcements.length; mobileBadge.style.display = 'flex'; }
+    } else {
+        if (badge) badge.style.display = 'none';
+        if (mobileBadge) mobileBadge.style.display = 'none';
+    }
+}
+
+// 渲染下拉列表
+function renderDropdown() {
+    const inner = document.getElementById('annDropdownInner');
     if (announcements.length === 0) {
-        announcementList.innerHTML = '<div class="text-center py-3 text-muted" style="font-size: 13px;">暂无公告</div>';
-        if (window.innerWidth <= 768) {
-            announcementBar.classList.remove('collapsed');
-        }
+        inner.innerHTML = '<div class="ann-dropdown-empty">暂无公告</div>';
         return;
     }
 
-    // 按时间排序，最新的在前面
+    // 按时间排序，最新在前
     announcements.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    // 渲染公告列表
-    announcementList.innerHTML = announcements.map(announcement => `
-        <div class="announcement-item" data-id="${announcement.id}">
-            <div class="announcement-content">
-                <span class="announcement-time">${formatTime(announcement.created_at)}</span>
-                <span class="announcement-text" onclick="toggleAnnouncementText(this)" title="点击展开/收起">${escapeHtml(announcement.content)}</span>
+    inner.innerHTML = announcements.map(a => `
+        <div class="ann-dropdown-item">
+            <span class="bullet"></span>
+            <div class="body">
+                <div class="content">${escapeHtml(a.content)}</div>
+                <div class="time">${formatTime(a.created_at)}</div>
             </div>
-            <button class="announcement-close" onclick="dismissAnnouncement(${announcement.id})">
+            <button class="ann-item-delete" onclick="event.stopPropagation();dismissAnnouncement(${a.id})" title="删除">
                 <i class="bi bi-x"></i>
             </button>
         </div>
     `).join('');
 }
 
-// 删除公告（直接从数据库删除后重新加载）
+// 切换下拉面板
+function toggleAnnDropdown() {
+    const dropdown = document.getElementById('annDropdown');
+    const annBar = document.getElementById('annBar');
+    if (dropdown.style.display === 'block') { closeAnnDropdown(); return; }
+    renderDropdown();
+    dropdown.style.display = 'block';
+    annBar.classList.add('open');
+}
+
+// 关闭下拉面板
+function closeAnnDropdown() {
+    const dropdown = document.getElementById('annDropdown');
+    const annBar = document.getElementById('annBar');
+    dropdown.style.display = 'none';
+    annBar.classList.remove('open');
+}
+
+// 点击外部关闭
+document.addEventListener('click', e => {
+    const dropdown = document.getElementById('annDropdown');
+    if (!dropdown || dropdown.style.display !== 'block') return;
+    const wrap = document.getElementById('annBarWrap');
+    if (wrap && !wrap.contains(e.target)) closeAnnDropdown();
+});
+
+// 删除公告
 async function dismissAnnouncement(announcementId) {
     try {
         await fetch(`${API_BASE}/announcements/${announcementId}`, { method: 'DELETE' });
         await loadAnnouncements();
+        // 如果下拉开着，刷新内容
+        const dropdown = document.getElementById('annDropdown');
+        if (dropdown.style.display === 'block') renderDropdown();
     } catch (error) {
         console.error('删除公告失败:', error);
-    }
-}
-
-// 更新公告按钮角标
-function updateAnnouncementBadge() {
-    const badge = document.getElementById('announcementBtnBadge');
-    const mobileBadge = document.getElementById('mobileAnnouncementBadge');
-
-    if (announcements.length > 0) {
-        badge.textContent = announcements.length;
-        badge.style.display = 'inline-flex';
-        mobileBadge.textContent = announcements.length;
-        mobileBadge.style.display = 'flex';
-    } else {
-        badge.style.display = 'none';
-        mobileBadge.style.display = 'none';
     }
 }
 
@@ -2855,30 +2888,15 @@ async function saveAnnouncement() {
         if (data.success) {
             await loadAnnouncements();
             bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
-            alert('公告发布成功！');
+            // 如果下拉开着，刷新内容
+            const dropdown = document.getElementById('annDropdown');
+            if (dropdown.style.display === 'block') renderDropdown();
         } else {
             alert('发布失败：' + (data.error || '未知错误'));
         }
     } catch (error) {
         alert('发布失败：' + error.message);
     }
-}
-
-// 切换公告文本展开/收起
-function toggleAnnouncementText(element) {
-    element.classList.toggle('expanded');
-}
-
-// 移动端：切换公告列表显示
-function toggleAnnouncementBar() {
-    const announcementBar = document.getElementById('announcementBar');
-    announcementBar.classList.toggle('collapsed');
-}
-
-// 切换公告栏显示/隐藏
-function toggleAnnouncementBar() {
-    const announcementBar = document.getElementById('announcementBar');
-    announcementBar.classList.toggle('hidden');
 }
 
 // HTML转义

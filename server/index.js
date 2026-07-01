@@ -80,7 +80,7 @@ const pool = mysql.createPool({
     waitForConnections: true,
     queueLimit: 0,
     enableKeepAlive: true,     // TCP keep-alive，防止防火墙断开
-    keepAliveInitialDelay: 0,
+    keepAliveInitialDelay: 30000,  // 30s 后开始 keep-alive，TiDB 约 5 分钟断空闲连接
 });
 
 // 连接池错误处理（防止连接断开导致进程崩溃）
@@ -129,30 +129,65 @@ const IMPORT_COLUMNS = [
     { header: '备注',         dbCol: 'remark',              type: 'string' },
 ];
 
-// 封装查询函数（带超时保护）
-const query = (sql, values = []) => {
-    return new Promise((resolve, reject) => {
-        pool.query({ sql, values, timeout: 30_000 }, (err, results) => {
-            if (err) {
-                if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
-                    reject(new Error(`查询超时（30秒）：${sql.substring(0, 80)}...`));
-                } else {
-                    reject(err);
-                }
-            } else {
-                resolve(results);
-            }
-        });
-    });
+// 封装查询函数（使用 getConnection 确保坏连接被销毁，连接异常自动重试）
+const query = async (sql, values = [], maxRetries = 2) => {
+    let lastErr;
+    const retryableCodes = [
+        'ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ECONNREFUSED',
+        'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR', 'PROTOCOL_ENQUEUE_AFTER_QUIT'
+    ];
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let conn = null;
+        try {
+            conn = await new Promise((resolve, reject) => {
+                pool.getConnection((err, connection) => {
+                    if (err) reject(err); else resolve(connection);
+                });
+            });
+            const results = await new Promise((resolve, reject) => {
+                conn.query({ sql, values, timeout: 30_000 }, (err, results) => {
+                    if (err) {
+                        if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+                            reject(new Error(`查询超时（30秒）：${sql.substring(0, 80)}...`));
+                        } else {
+                            reject(err);
+                        }
+                    } else {
+                        resolve(results);
+                    }
+                });
+            });
+            conn.release();
+            return results;
+        } catch (err) {
+            // 连接异常时销毁坏连接，避免放回池子被下次复用
+            if (conn) conn.destroy();
+            lastErr = err;
+            const isRetryable = retryableCodes.some(code => err.message?.includes(code) || err.code === code);
+            if (!isRetryable || attempt >= maxRetries) throw err;
+            const delay = (attempt + 1) * 500;  // TiDB 冷启动需要更长的恢复时间
+            console.warn(`[查询重试] ${attempt + 1}/${maxRetries}，${delay}ms 后重试: ${err.message}`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw lastErr;
 };
 
-// 大数据量查询（长超时 + ECONNRESET 自动重试）
+// 大数据量查询（长超时 + ECONNRESET 自动重试，销毁坏连接）
 const queryLarge = async (sql, values = [], maxRetries = 3) => {
     let lastErr;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const retryableCodes = ['ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ECONNREFUSED',
+        'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR', 'PROTOCOL_ENQUEUE_AFTER_QUIT'];
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let conn = null;
         try {
-            return await new Promise((resolve, reject) => {
-                pool.query({ sql, values, timeout: 120_000 }, (err, results) => {
+            conn = await new Promise((resolve, reject) => {
+                pool.getConnection((err, connection) => {
+                    if (err) reject(err); else resolve(connection);
+                });
+            });
+            const results = await new Promise((resolve, reject) => {
+                conn.query({ sql, values, timeout: 120_000 }, (err, results) => {
                     if (err) {
                         if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
                             reject(new Error(`查询超时（120秒）：${sql.substring(0, 80)}...`));
@@ -164,17 +199,16 @@ const queryLarge = async (sql, values = [], maxRetries = 3) => {
                     }
                 });
             });
+            conn.release();
+            return results;
         } catch (err) {
+            if (conn) conn.destroy();
             lastErr = err;
-            // ECONNRESET / ETIMEDOUT / PROTOCOL_CONNECTION_LOST → 可重试
-            const isRetryable = ['ECONNRESET', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST', 'ECONNREFUSED']
-                .some(code => err.message?.includes(code) || err.code === code);
-            if (isRetryable && attempt < maxRetries) {
-                console.warn(`[导出] 连接异常（${err.message}），${attempt}/${maxRetries} 次重试，等待 ${attempt * 2}s...`);
-                await new Promise(r => setTimeout(r, attempt * 2000));
-                continue;
-            }
-            throw err;
+            const isRetryable = retryableCodes.some(code => err.message?.includes(code) || err.code === code);
+            if (!isRetryable || attempt >= maxRetries) throw err;
+            const delay = (attempt + 1) * 500;
+            console.warn(`[导出重试] ${attempt + 1}/${maxRetries}，${delay}ms 后重试: ${err.message}`);
+            await new Promise(r => setTimeout(r, delay));
         }
     }
     throw lastErr;
@@ -182,12 +216,13 @@ const queryLarge = async (sql, values = [], maxRetries = 3) => {
 
 // ============ 仓库 API ============
 
-// 获取所有仓库
+// 获取所有仓库（设备数量由前端从 allDevices 计算）
 app.get('/api/warehouses', async (req, res) => {
     try {
         const warehouses = await query('SELECT * FROM warehouses ORDER BY id');
         res.json(warehouses);
     } catch (err) {
+        console.error('[warehouses] 查询失败 — code:', err.code, 'message:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -334,6 +369,7 @@ app.get('/api/devices/expiring', async (req, res) => {
             FROM devices
             WHERE expiry_date IS NOT NULL
             AND expiry_date >= CURDATE()
+            AND DATEDIFF(expiry_date, CURDATE()) <= 7
             ORDER BY remaining_days ASC
             LIMIT 10`;
         const result = await query(sql);
@@ -576,7 +612,7 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
 
                 // 必填校验（仓库名称可选，后续用默认值兜底）
                 if (col.required && !val) {
-                    errors.push(`第${rowNum}行: 「${col.header}」不能为空`);
+                    errors.push(`第${rowNum}条: 「${col.header}」不能为空`);
                     rowHasError = true;
                     continue;
                 }
@@ -586,7 +622,7 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
                     if (val) {
                         const n = parseInt(val, 10);
                         if (isNaN(n) || n < 0) {
-                            errors.push(`第${rowNum}行: 「${col.header}」格式错误，应为数字`);
+                            errors.push(`第${rowNum}条: 「${col.header}」格式错误，应为数字`);
                             rowHasError = true;
                             continue;
                         }
@@ -623,7 +659,7 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
             if (device.device_id) {
                 const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
                 if (existing.length > 0) {
-                    errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在，请修改或留空自动生成`);
+                    errors.push(`第${rowNum}条: 设备ID「${device.device_id}」已存在，请修改或留空自动生成`);
                     continue;
                 }
             }
@@ -631,7 +667,7 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
             // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
             if (!device.device_id) {
                 if (batchNextId > 999999) {
-                    errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                    errors.push(`第${rowNum}条: 无法自动生成设备ID（已用尽999999）`);
                     continue;
                 }
                 device.device_id = String(batchNextId++).padStart(6, '0');
@@ -714,7 +750,7 @@ app.post('/api/devices/import-batch', async (req, res) => {
 
             // 设备名称必填
             if (!row.name && !row.device_name) {
-                errors.push(`第${rowNum}行: 设备名称不能为空`);
+                errors.push(`第${rowNum}条: 设备名称不能为空`);
                 continue;
             }
 
@@ -775,7 +811,7 @@ app.post('/api/devices/import-batch', async (req, res) => {
             if (device.warehouse_name) {
                 const whExists = await query('SELECT id FROM warehouses WHERE name=?', [device.warehouse_name]);
                 if (!whExists.length) {
-                    errors.push(`第${rowNum}行: 仓库「${device.warehouse_name}」不存在`);
+                    errors.push(`第${rowNum}条: 仓库「${device.warehouse_name}」不存在`);
                     continue;
                 }
             }
@@ -788,7 +824,7 @@ app.post('/api/devices/import-batch', async (req, res) => {
             if (device.device_id) {
                 const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
                 if (existing.length > 0) {
-                    errors.push(`第${rowNum}行: 设备ID「${device.device_id}」已存在`);
+                    errors.push(`第${rowNum}条: 设备ID「${device.device_id}」已存在`);
                     continue;
                 }
             }
@@ -796,7 +832,7 @@ app.post('/api/devices/import-batch', async (req, res) => {
             // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
             if (!device.device_id) {
                 if (batchNextId > 999999) {
-                    errors.push(`第${rowNum}行: 无法自动生成设备ID（已用尽999999）`);
+                    errors.push(`第${rowNum}条: 无法自动生成设备ID（已用尽999999）`);
                     continue;
                 }
                 device.device_id = String(batchNextId++).padStart(6, '0');
@@ -1104,6 +1140,24 @@ app.post('/api/announcements', async (req, res) => {
     }
 });
 
+
+// 编辑公告
+app.put('/api/announcements/:id', async (req, res) => {
+    try {
+        const { content } = req.body;
+        if (!content) {
+            return res.status(400).json({ success: false, error: '公告内容不能为空' });
+        }
+        await query('UPDATE announcements SET content=? WHERE id=?', [content, req.params.id]);
+        const announcements = await query('SELECT * FROM announcements WHERE id=?', [req.params.id]);
+        if (announcements.length === 0) {
+            return res.status(404).json({ success: false, error: '公告不存在' });
+        }
+        res.json({ success: true, data: announcements[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // 删除公告
 app.delete('/api/announcements/:id', async (req, res) => {
@@ -1542,6 +1596,12 @@ app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
 
 // 静态文件服务（放在最后以避免与API路由冲突）
 app.use(express.static(path.join(__dirname, '../public')));
+
+// 旧版前端备份
+app.use('/backup', express.static(path.join(__dirname, '../public-backup')));
+app.get('/backup', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public-backup/index.html'));
+});
 
 // 根路径返回 index.html
 app.get('/', (req, res) => {

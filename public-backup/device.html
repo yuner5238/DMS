@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备详情 - DMS设备管理系统</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/index.css" rel="stylesheet">
+    <style>
+        /* Windows 11 风格配色 */
+        :root {
+            --primary: #0067c0;
+            --primary-hover: #005a9e;
+            --primary-light: #60cdff;
+            --secondary: #5c5c5c;
+            --success: #0f7b0f;
+            --success-bg: #dff6dd;
+            --success-border: #4caf50;
+            --warning: #9d5b00;
+            --warning-bg: #fff4ce;
+            --warning-border: #ffb900;
+            --danger: #c42b1c;
+            --danger-bg: #fde7e9;
+            --info: #0078d4;
+            --info-bg: #e5f1fb;
+            --bg-main: #f3f3f3;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #424242;
+            --text-muted: #757575;
+            --border-color: #e5e5e5;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-main);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: white;
+            box-shadow: none;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h5 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 18px;
+        }
+
+        .detail-container {
+            max-width: 900px;
+            margin: 15px auto;
+            padding: 0 16px;
+        }
+
+        .detail-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .detail-header {
+            padding: 20px 24px;
+            background: #ffffff;
+            color: var(--text-primary);
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .detail-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .detail-header h4 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            color: var(--text-primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .detail-header .device-icon {
+            position: absolute;
+            top: 50%;
+            right: 24px;
+            transform: translateY(-50%);
+            font-size: 50px;
+            opacity: 0.05;
+            color: var(--text-primary);
+        }
+
+        .detail-header .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 500;
+            margin-top: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .status-normal {
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid var(--success-border);
+        }
+
+        .status-normal::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-border);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        .status-abnormal {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid #e88a8a;
+        }
+
+        .status-abnormal::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        .status-maintenance {
+            background: var(--warning-bg);
+            color: var(--warning);
+            border: 1px solid #f5c563;
+        }
+
+        .status-maintenance::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--warning-border);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .detail-body {
+            padding: 20px 24px;
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: 115px 1fr;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 1px solid #f0f0f0;
+            border-radius: 0;
+            background: transparent;
+            align-items: center;
+            gap: 10px 20px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        /* 富文本内容样式 */
+        .rich-text-content {
+            line-height: 1.8;
+        }
+
+        .rich-text-content p {
+            margin-bottom: 12px;
+        }
+
+        .rich-text-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .rich-text-content ul,
+        .rich-text-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .rich-text-content li {
+            margin-bottom: 6px;
+        }
+
+        .rich-text-content strong,
+        .rich-text-content b {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .rich-text-content em,
+        .rich-text-content i {
+            font-style: italic;
+        }
+
+        .rich-text-content u {
+            text-decoration: underline;
+        }
+
+        .rich-text-content s {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .rich-text-content a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .rich-text-content a:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .rich-text-content br {
+            display: block;
+            margin: 4px 0;
+        }
+
+        .detail-actions {
+            padding: 16px 24px;
+            background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
+        }
+
+        .detail-actions .btn {
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .detail-actions .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .detail-actions .btn:active {
+            transform: translateY(0);
+        }
+
+        .detail-actions .btn-primary {
+            background: linear-gradient(135deg, #0067c0 0%, #0086d4 100%);
+            border-color: #0067c0;
+        }
+
+        .detail-actions .btn-primary:hover {
+            background: linear-gradient(135deg, #005a9e 0%, #0070b8 100%);
+        }
+
+        .detail-actions .btn-outline-danger {
+            background-color: var(--danger-bg);
+            border-color: #f5c6cb;
+            color: var(--danger);
+        }
+
+        .detail-actions .btn-outline-danger:hover {
+            background-color: var(--danger);
+            border-color: var(--danger);
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px 20px;
+            color: var(--text-muted);
+        }
+
+        .loading i {
+            font-size: 56px;
+            color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading p {
+            font-size: 16px;
+            margin-top: 20px;
+            color: var(--text-secondary);
+        }
+
+        .error {
+            text-align: center;
+            padding: 100px 20px;
+            color: var(--danger);
+        }
+
+        .error i {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .error p {
+            font-size: 16px;
+            margin-top: 16px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+        }
+
+        .back-btn:hover {
+            color: var(--text-primary);
+            background: rgba(0, 103, 192, 0.08);
+        }
+
+        .back-btn i {
+            font-size: 22px;
+        }
+
+        /* 标签样式 */
+        .tag-badge {
+            display: inline-block;
+            background: #f0f0f0;
+            color: var(--text-primary);
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 2px;
+            font-weight: 500;
+            border: 1px solid #e0e0e0;
+            cursor: default;
+            white-space: nowrap;
+        }
+
+        /* 设备ID徽章 */
+        .device-id-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            user-select: text;
+            cursor: text;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 16px;
+            }
+
+            .detail-container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .detail-card {
+                border-radius: 8px;
+            }
+
+            .detail-header {
+                padding: 16px 20px;
+            }
+
+            .detail-header h4 {
+                font-size: 18px;
+            }
+
+            .detail-header .device-icon {
+                font-size: 38px;
+                right: 20px;
+            }
+
+            .detail-body {
+                padding: 16px;
+            }
+
+            .detail-row {
+                grid-template-columns: 1fr;
+                gap: 5px;
+                padding: 10px 0;
+                align-items: start;
+            }
+
+            .detail-label {
+                font-size: 13px;
+            }
+
+            .detail-actions {
+                padding: 16px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .detail-actions .btn {
+                flex: 1;
+                min-width: 120px;
+                padding: 10px 20px;
+            }
+        }
+
+        /* 图片全屏查看 */
+        .image-fullscreen-overlay {
+            position: fixed; inset: 0; z-index: 99999;
+            background: rgba(0,0,0,0.88);
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .image-fullscreen-close {
+            position: absolute; top: 20px; right: 24px;
+            font-size: 32px; color: #fff; cursor: pointer;
+            opacity: 0.7; transition: opacity 0.2s; z-index: 1;
+        }
+        .image-fullscreen-close:hover { opacity: 1; }
+        .image-fullscreen-img {
+            max-width: 92vw; max-height: 92vh;
+            object-fit: contain; border-radius: 4px;
+        }
+        /* 详情页备注图片提示 */
+        .rich-text-content img {
+            cursor: zoom-in;
+            transition: transform 0.15s;
+        }
+        .rich-text-content img:hover {
+            transform: scale(1.01);
+        }
+
+        /* ========== 编辑模式表单样式 ========== */
+        .edit-form-group {
+            margin-bottom: 0;
+        }
+        .edit-form-group label {
+            display: block;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .edit-form-group input,
+        .edit-form-group select,
+        .edit-form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            color: var(--text-primary);
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .edit-form-group input:focus,
+        .edit-form-group select:focus,
+        .edit-form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 103, 192, 0.12);
+        }
+        .edit-form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .edit-row {
+            display: grid;
+            grid-template-columns: 115px 1fr;
+            gap: 10px 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        .edit-row:last-child { border-bottom: none; }
+        .edit-row .edit-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 14px;
+            align-self: start;
+            padding-top: 8px;
+        }
+        .edit-actions {
+            padding: 16px 24px;
+            background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+        }
+        .edit-actions .btn {
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .edit-actions .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .edit-actions .btn:active { transform: translateY(0); }
+        .edit-actions .btn-success {
+            background: linear-gradient(135deg, #0f7b0f 0%, #1a8e1a 100%);
+            border-color: #0f7b0f;
+            color: #fff;
+        }
+        .edit-actions .btn-success:hover {
+            background: linear-gradient(135deg, #0c6b0c 0%, #167a16 100%);
+        }
+        @media (max-width: 768px) {
+            .edit-row { grid-template-columns: 1fr; gap: 4px; }
+            .edit-row .edit-label { padding-top: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="index.html" class="back-btn">
+                <i class="bi bi-arrow-left"></i>
+                返回设备列表
+            </a>
+            <h5>设备详情</h5>
+            <div></div>
+        </div>
+    </div>
+
+    <div class="detail-container" id="detailContainer">
+        <div class="loading">
+            <i class="bi bi-hourglass-split"></i>
+            <p class="mt-3">加载中...</p>
+        </div>
+    </div>
+
+    <!-- 隐藏的文件选择器，用于上传附件 -->
+    <input type="file" id="attachmentFileInput" style="display:none;" onchange="handleAttachmentUpload(this)">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ===== API 配置（自动切换）=====
+        // 本地开发（Node.js + MySQL）：http://localhost:3000 → 走本地 /api
+        // 云端部署（Pages Functions）：使用相对路径，直接调用 Pages Functions
+        // 备用方案：如果 Pages Functions 不可用，回退到 Worker
+        const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+            ? '/api'
+            : '/api';  // 优先使用同域名的 Pages Functions
+        // ===================
+
+        // ===== 公开配置（从服务器动态获取） =====
+        window.S3_PUBLIC_URL = '';
+
+        async function loadPublicConfig() {
+            try {
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                window.S3_PUBLIC_URL = cfg.s3PublicUrl || '';
+            } catch (e) {
+                console.warn('加载公开配置失败:', e);
+            }
+        }
+        // ===================
+
+
+        // 从URL获取设备ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceId = urlParams.get('device_id');
+
+        // 格式化日期
+        function formatDate(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        // 格式化时间
+        function formatDateTime(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        // 格式化日期（不含时间）
+        function formatDateOnly(timeStr) {
+            if (!timeStr) return '-';
+            const date = new Date(timeStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        // 解码富文本
+        function decodeRichText(text) {
+            if (!text) return '';
+
+            // 先将换行转换为 <br>
+            let html = text.replace(/\n/g, '<br>');
+
+            // 解析富文本标记
+            html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
+            html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
+            html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
+            html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
+            html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+            html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
+
+            // 确保连续的换行被正确处理
+            html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+
+
+            // 将旧 S3 直链替换为代理 URL（避免 401）
+            html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
+
+            // 先移除所有已损坏的 onerror 属性（在匹配 <img> 之前处理，避免属性值中的 > 导致 <img> 标签匹配提前结束）
+            html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
+            // 为所有 <img> 标签注入干净的 onerror
+            html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
+                return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');">`;
+            });
+
+            return html;
+        }
+
+        // 状态类映射
+        const statusClass = { '正常': 'status-normal', '异常': 'status-abnormal', '维修中': 'status-maintenance' };
+
+        // 加载设备详情
+        async function loadDeviceDetail() {
+            if (!deviceId) {
+                showError('设备ID无效');
+                return;
+            }
+
+            try {
+                let res;
+
+                // 优先通过设备ID码（6位码）查找
+                res = await fetch(`${API_BASE}/devices/by-code/${deviceId}`);
+                if (!res.ok) {
+                    // 回退：通过数据库主键ID查找
+                    res = await fetch(`${API_BASE}/devices/${deviceId}`);
+                }
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                const device = await res.json();
+
+                if (device.error) {
+                    throw new Error(device.error);
+                }
+
+                renderDeviceDetail(device);
+            } catch (e) {
+                console.error('加载设备详情失败:', e);
+                showError('加载设备详情失败: ' + e.message);
+            }
+        }
+
+        // 渲染设备详情
+        function renderDeviceDetail(device) {
+            currentDevice = device; // 保存到全局，供编辑模式使用
+            const container = document.getElementById('detailContainer');
+
+            let locationText = device.storage_location || '在库';
+            if (device.location_status === 'checked_out') {
+                locationText = device.destination || '已出库';
+            }
+
+            const statusBadge = `<span class="status-badge ${statusClass[device.status] || 'status-normal'}">${device.status || '未知'}</span>`;
+
+            const html = `
+                <div class="detail-card">
+                    <div class="detail-header">
+                        <h4>${escapeHtml(device.name || '未命名设备')}</h4>
+                        ${statusBadge}
+                    </div>
+                    <div class="detail-body">
+                        <div class="detail-row">
+                            <div class="detail-label">设备ID</div>
+                            <div class="detail-value">${device.device_id ? `<span class="device-id-badge">${device.device_id}</span>` : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">所属仓库</div>
+                            <div class="detail-value">${escapeHtml(device.warehouse_name) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">设备标签</div>
+                            <div class="detail-value">
+                                ${(() => {
+                                    // 解析 JSON 数组格式的标签，兼容逗号分隔旧格式
+                                    let deviceTags = [];
+                                    if (device.tag_names) {
+                                        const field = device.tag_names.trim();
+                                        if (field.startsWith('[')) {
+                                            try { deviceTags = JSON.parse(field); } catch (e) { deviceTags = []; }
+                                        } else if (field) {
+                                            deviceTags = field.split(',').map(t => t.trim()).filter(t => t);
+                                        }
+                                    } else if (device.tag_name) {
+                                        deviceTags = [device.tag_name];
+                                    }
+                                    return deviceTags.length > 0 
+                                        ? deviceTags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('')
+                                        : '-';
+                                })()}
+                            </div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">设备数量</div>
+                            <div class="detail-value">${device.quantity || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">所属路径</div>
+                            <div class="detail-value">${escapeHtml(device.department_path) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">规格型号</div>
+                            <div class="detail-value">${escapeHtml(device.spec_model) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">来源</div>
+                            <div class="detail-value">${escapeHtml(device.source) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">序列号</div>
+                            <div class="detail-value">${escapeHtml(device.serial_number) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">负责人</div>
+                            <div class="detail-value">${escapeHtml(device.responsible_person) || '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">存放位置</div>
+                            <div class="detail-value">${escapeHtml(locationText)}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">入库时间</div>
+                            <div class="detail-value">${device.checkin_time ? formatDateTime(device.checkin_time) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">到期日期</div>
+                            <div class="detail-value">${device.expiry_date ? formatDateOnly(device.expiry_date) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">创建时间</div>
+                            <div class="detail-value">${device.created_at ? formatDateTime(device.created_at) : '-'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">更新时间</div>
+                            <div class="detail-value">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</div>
+                        </div>
+                        <div class="detail-row" style="align-items: start; flex-direction: column;">
+                            <div class="detail-label" style="margin-bottom: 8px;">附件</div>
+                            <div class="detail-value" style="width: 100%;">
+                                <div id="detailAttachmentsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; min-width:0; overflow-x:hidden;">
+                                    <div style="font-size:12px;color:#adb5bd;padding:4px 0;">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="detail-row" style="align-items: start;">
+                            <div class="detail-label">备注</div>
+                            <div class="detail-value">${device.remark ? `<div class="rich-text-content">${decodeRichText(device.remark)}</div>` : '-'}</div>
+                        </div>
+                    </div>
+                    <div class="detail-actions">
+                        <button class="btn btn-primary" onclick="editDevice()">
+                            <i class="bi bi-pencil"></i> 编辑设备
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteDevice(${device.id}, '${escapeOnClick(device.name)}')">
+                            <i class="bi bi-trash"></i> 删除设备
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            // 双击图片全屏查看
+            container.addEventListener('dblclick', function(e) {
+                if (e.target.tagName === 'IMG') {
+                    e.preventDefault();
+                    showImageFullscreen(e.target.src);
+                }
+            });
+
+            // 加载附件
+            if (device.device_id) loadDeviceAttachments(device.device_id);
+        }
+
+        // 图片全屏查看
+        function showImageFullscreen(src) {
+            const existing = document.querySelector('.image-fullscreen-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.className = 'image-fullscreen-overlay';
+            overlay.innerHTML = `
+                <div class="image-fullscreen-close"><i class="bi bi-x-lg"></i></div>
+                <img src="${src}" class="image-fullscreen-img" />
+            `;
+            overlay.addEventListener('click', () => overlay.remove());
+            overlay.querySelector('.image-fullscreen-img').addEventListener('click', (e) => e.stopPropagation());
+
+            document.addEventListener('keydown', function onEsc(e) {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', onEsc);
+                }
+            });
+
+            document.body.appendChild(overlay);
+        }
+
+        // 显示错误
+        function showError(message) {
+            const container = document.getElementById('detailContainer');
+            container.innerHTML = `
+                <div class="error">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <p class="mt-3">${escapeHtml(message)}</p>
+                    <a href="index.html" class="btn btn-outline-primary mt-3">
+                        <i class="bi bi-arrow-left"></i> 返回设备列表
+                    </a>
+                </div>
+            `;
+        }
+
+        // 保存当前设备数据（供编辑模式使用）
+        let currentDevice = null;
+
+        // ========== 原地编辑模式 ==========
+
+        // 进入编辑模式
+        function editDevice() {
+            if (!currentDevice) return;
+            renderEditForm(currentDevice);
+        }
+
+        // 取消编辑，恢复查看模式
+        function cancelEdit() {
+            if (!currentDevice) return;
+            renderDeviceDetail(currentDevice);
+        }
+
+        // 渲染编辑表单
+        async function renderEditForm(device) {
+            const container = document.getElementById('detailContainer');
+            const card = container.querySelector('.detail-card');
+            if (!card) return;
+
+            // 获取仓库列表
+            let warehouseOptions = '<option value="">无仓库</option>';
+            try {
+                const res = await fetch(`${API_BASE}/warehouses`);
+                const warehouses = await res.json();
+                warehouseOptions += warehouses.map(w =>
+                    `<option value="${w.name}" ${w.name === device.warehouse_name ? 'selected' : ''}>${w.name}</option>`
+                ).join('');
+            } catch (e) {
+                warehouseOptions += device.warehouse_name
+                    ? `<option value="${device.warehouse_name}" selected>${device.warehouse_name}</option>`
+                    : '';
+            }
+
+            // 解析标签（支持 JSON 数组和逗号分隔）
+            let tagStr = '';
+            if (device.tag_names) {
+                const field = device.tag_names.trim();
+                if (field.startsWith('[')) {
+                    try { tagStr = JSON.parse(field).join(', '); } catch (e) {}
+                } else {
+                    tagStr = field;
+                }
+            } else if (device.tag_name) {
+                tagStr = device.tag_name;
+            }
+
+            const isCheckedOut = device.location_status === 'checked_out';
+
+            // 更新 header 中的名称（显示为可编辑的标题）
+            const header = card.querySelector('.detail-header h4');
+            if (header) {
+                header.innerHTML = `<input type="text" id="editDeviceName" value="${escapeHtml(device.name || '')}" 
+                    style="font-size:22px;font-weight:600;border:none;border-bottom:2px solid var(--primary);outline:none;background:transparent;width:100%;padding:4px 0;color:var(--text-primary);">`;
+            }
+
+            // 更新 detail-body
+            const body = card.querySelector('.detail-body');
+            body.innerHTML = `
+                <div class="edit-row">
+                    <div class="edit-label">设备ID</div>
+                    <div class="edit-form-group">
+                        <span class="device-id-badge">${device.device_id || '-'}</span>
+                        <small class="text-muted ms-2">（不可修改）</small>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">所属仓库</div>
+                    <div class="edit-form-group">
+                        <select id="editWarehouse">${warehouseOptions}</select>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备标签</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editTags" value="${escapeHtml(tagStr)}" placeholder="多个标签用逗号分隔">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备数量</div>
+                    <div class="edit-form-group">
+                        <input type="number" id="editQuantity" value="${device.quantity || 1}" min="1">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">所属路径</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editDepartmentPath" value="${escapeHtml(device.department_path || '')}" placeholder="公司或部门">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">规格型号</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSpecModel" value="${escapeHtml(device.spec_model || '')}" placeholder="例如：联想 E14">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">来源</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSource" value="${escapeHtml(device.source || '')}" placeholder="例如：淘宝采购">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">序列号</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editSerialNumber" value="${escapeHtml(device.serial_number || '')}" placeholder="设备序列号">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">负责人</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editResponsiblePerson" value="${escapeHtml(device.responsible_person || '')}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">设备状态</div>
+                    <div class="edit-form-group">
+                        <select id="editStatus">
+                            <option value="正常" ${device.status === '正常' ? 'selected' : ''}>正常</option>
+                            <option value="异常" ${device.status === '异常' ? 'selected' : ''}>异常</option>
+                            <option value="维修中" ${device.status === '维修中' ? 'selected' : ''}>维修中</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">存放位置</div>
+                    <div class="edit-form-group">
+                        <select id="editLocationStatus" onchange="toggleDestination()">
+                            <option value="in_stock" ${device.location_status === 'in_stock' ? 'selected' : ''}>库存</option>
+                            <option value="checked_out" ${device.location_status === 'checked_out' ? 'selected' : ''}>已出库</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="edit-row" id="editDestinationRow" style="${isCheckedOut ? '' : 'display:none;'}">
+                    <div class="edit-label">去向</div>
+                    <div class="edit-form-group">
+                        <input type="text" id="editDestination" value="${escapeHtml(device.destination || '')}" placeholder="出库去向">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">入库时间</div>
+                    <div class="edit-form-group">
+                        <input type="date" id="editCheckinTime" value="${device.checkin_time ? formatDateForInput(device.checkin_time) : ''}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">到期日期</div>
+                    <div class="edit-form-group">
+                        <input type="date" id="editExpiryDate" value="${device.expiry_date ? formatDateForInput(device.expiry_date) : ''}">
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">创建时间</div>
+                    <div class="edit-form-group">
+                        <span class="text-muted">${device.created_at ? formatDateTime(device.created_at) : '-'}</span>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">更新时间</div>
+                    <div class="edit-form-group">
+                        <span class="text-muted">${device.updated_at ? formatDateTime(device.updated_at) : '-'}</span>
+                    </div>
+                </div>
+                <div class="edit-row" style="align-items: start;">
+                    <div class="edit-label">附件</div>
+                    <div class="edit-form-group">
+                        <div id="detailAttachmentsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; min-width:0; overflow-x:hidden;">
+                            <div style="font-size:12px;color:#adb5bd;padding:4px 0;">加载中...</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="triggerUploadAttachment()" style="font-size:13px;">
+                            <i class="bi bi-plus-lg"></i> 上传附件
+                        </button>
+                    </div>
+                </div>
+                <div class="edit-row">
+                    <div class="edit-label">备注</div>
+                    <div class="edit-form-group">
+                        <button type="button" class="btn btn-sm btn-outline-success mb-2" onclick="openRichTextEditorForDevice('${device.device_id}', '${escapeOnClick(device.name)}')" style="font-size:13px;">
+                            <i class="bi bi-pencil-square"></i> 富文本编辑
+                        </button>
+                        <textarea id="editRemark" rows="4">${escapeHtml(device.remark || '')}</textarea>
+                    </div>
+                </div>
+            `;
+
+            // 更新底部按钮（兼容重复调用：先尝试 .detail-actions，再尝试 .edit-actions）
+            let actions = card.querySelector('.detail-actions');
+            if (!actions) actions = card.querySelector('.edit-actions');
+            if (!actions) return;
+            actions.className = 'edit-actions';
+            actions.innerHTML = `
+                <button class="btn btn-success" onclick="saveDeviceInline()">
+                    <i class="bi bi-check-lg"></i> 保存
+                </button>
+                <button class="btn btn-outline-secondary" onclick="cancelEdit()">
+                    取消
+                </button>
+            `;
+
+            // 重新加载附件
+            if (device.device_id) loadDeviceAttachments(device.device_id);
+        }
+
+        // 切换去向字段显示
+        function toggleDestination() {
+            const status = document.getElementById('editLocationStatus');
+            const row = document.getElementById('editDestinationRow');
+            if (status && row) {
+                row.style.display = status.value === 'checked_out' ? '' : 'none';
+            }
+        }
+
+        // 格式化日期为 input[type=date] 格式
+        function formatDateForInput(timeStr) {
+            if (!timeStr) return '';
+            const d = new Date(timeStr);
+            if (isNaN(d.getTime())) return '';
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        // 保存编辑
+        async function saveDeviceInline() {
+            const id = currentDevice ? currentDevice.id : null;
+            if (!id) { alert('设备数据异常'); return; }
+
+            const locationStatus = document.getElementById('editLocationStatus')?.value || 'in_stock';
+            const destination = locationStatus === 'checked_out'
+                ? (document.getElementById('editDestination')?.value || '')
+                : '';
+            const checkinDate = document.getElementById('editCheckinTime')?.value || '';
+            const expiryDate = document.getElementById('editExpiryDate')?.value || '';
+
+            const data = {
+                device_id: currentDevice.device_id || '',
+                warehouseName: document.getElementById('editWarehouse')?.value || '',
+                name: document.getElementById('editDeviceName')?.value || '',
+                tag_names: document.getElementById('editTags')?.value || '',
+                quantity: parseInt(document.getElementById('editQuantity')?.value) || 1,
+                status: document.getElementById('editStatus')?.value || '正常',
+                storage_location: currentDevice.storage_location || '',
+                location_status: locationStatus,
+                destination: destination,
+                remark: document.getElementById('editRemark')?.value || '',
+                checkin_time: checkinDate ? checkinDate + ' 00:00:00' : null,
+                expiry_date: expiryDate || null,
+                responsible_person: document.getElementById('editResponsiblePerson')?.value || '',
+                department_path: document.getElementById('editDepartmentPath')?.value || '',
+                serial_number: document.getElementById('editSerialNumber')?.value || '',
+                spec_model: document.getElementById('editSpecModel')?.value || '',
+                source: document.getElementById('editSource')?.value || ''
+            };
+
+            if (!data.name) { alert('请输入设备名称'); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/devices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errText}`);
+                }
+                // 重新加载设备
+                await loadDeviceDetail();
+            } catch (e) {
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        // ============ 附件功能 ============
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+
+        // 跳转到 index.html 的富文本编辑器（编辑当前设备的备注）
+        function openRichTextEditorForDevice(deviceIdCode, deviceName) {
+            const params = new URLSearchParams();
+            params.set('remark_edit', deviceIdCode);
+            params.set('remark_name', deviceName);
+            window.open('index.html?' + params.toString(), '_blank');
+        }
+
+        // 安全地转义 onclick 属性中的字符串参数（防止 & \ " ' 破坏 HTML 属性/JS 语法）
+        function escapeOnClick(str) {
+            return String(str || '').replace(/\\/g, '\\\\').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            let size = bytes;
+            while (size >= 1024 && i < units.length - 1) {
+                size /= 1024;
+                i++;
+            }
+            return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+        }
+
+        function getAttachmentIconClass(ext) {
+            if (ext === 'pdf') return 'pdf';
+            if (/^docx?$/.test(ext) || ext === 'doc') return 'doc';
+            if (/^xlsx?$/.test(ext) || /^csv$/.test(ext)) return 'xls';
+            if (/^(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(ext)) return 'img';
+            if (/^(zip|rar|7z|tar|gz)$/.test(ext)) return 'zip';
+            return 'other';
+        }
+
+        async function loadDeviceAttachments(deviceId) {
+            const container = document.getElementById('detailAttachmentsList');
+            if (!container || !deviceId) {
+                if (container) container.innerHTML = '';
+                return;
+            }
+
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 15_000);
+                const res = await fetch(`${API_BASE}/attachments/${deviceId}`, { signal: controller.signal });
+                clearTimeout(timeout);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                if (!data.attachments || data.attachments.length === 0) {
+                    container.innerHTML = '<div style="font-size:12px;color:#adb5bd;padding:4px 0;">暂无附件</div>';
+                    return;
+                }
+
+                container.innerHTML = data.attachments.map(a => {
+                    const ext = (a.displayName || a.filename).split('.').pop().toLowerCase();
+                    const iconClass = getAttachmentIconClass(ext);
+                    const abbr = ext.toUpperCase().slice(0, 3);
+                    return `
+                        <div class="attachment-item">
+                            <i class="bi bi-check-circle-fill" style="color:#10b981;font-size:18px;flex-shrink:0;"></i>
+                            <div class="attachment-icon ${iconClass}">${abbr}</div>
+                            <div class="attachment-info">
+                                <div class="attachment-name">
+                                    <a href="${a.url}" target="_blank" title="${a.displayName || a.filename}">${escapeHtml(a.displayName || a.filename)}</a>
+                                </div>
+                                <div class="attachment-meta">${formatFileSize(a.size)}</div>
+                            </div>
+                            <div class="attachment-actions">
+                                <button onclick="deleteAttachmentFile(this, '${deviceId}', '${encodeURIComponent(a.filename)}')" class="danger btn-sm-delete"><i class="bi bi-trash3"></i> 删除</button>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('加载附件失败:', err);
+                const msg = err.name === 'AbortError' ? '加载超时，请检查网络后刷新重试' : '加载失败';
+                container.innerHTML = `<div style="font-size:12px;color:#dc3545;padding:4px 0;">${msg}</div>`;
+            }
+        }
+
+        // ============ 附件上传 ============
+
+        // 触发文件选择
+        function triggerUploadAttachment() {
+            const input = document.getElementById('attachmentFileInput');
+            if (input) input.click();
+        }
+
+        // 处理附件上传
+        async function handleAttachmentUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (!currentDevice || !currentDevice.device_id) {
+                alert('无法获取设备ID');
+                input.value = '';
+                return;
+            }
+
+            // 文件大小检查（50MB 限制）
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert(`文件过大：${formatFileSize(file.size)}，附件不能超过 ${formatFileSize(maxSize)}`);
+                input.value = '';
+                return;
+            }
+
+            // 显示上传中状态
+            const list = document.getElementById('detailAttachmentsList');
+            if (list) {
+                list.innerHTML = '<div style="font-size:12px;color:#0067c0;padding:4px 0;"><span class="spinner-border spinner-border-sm" role="status"></span> 上传中...</div>';
+            }
+
+            const formData = new FormData();
+            formData.append('attachment', file);
+            formData.append('deviceId', currentDevice.device_id);
+
+            try {
+                const res = await fetch(`${API_BASE}/upload/attachment`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || '上传失败');
+
+                console.log('[handleAttachmentUpload] 上传成功:', file.name);
+                // 刷新附件列表
+                if (currentDevice.device_id) {
+                    await loadDeviceAttachments(currentDevice.device_id);
+                }
+            } catch (err) {
+                console.error('[handleAttachmentUpload] 上传失败:', err);
+                alert('上传失败: ' + err.message);
+                if (list) {
+                    list.innerHTML = '<div style="font-size:12px;color:#dc3545;padding:4px 0;">上传失败</div>';
+                }
+            }
+
+            // 清空 input，允许重复上传同一文件
+            input.value = '';
+        }
+
+        // 删除附件
+        async function deleteAttachmentFile(btn, deviceId, encodedFilename) {
+            console.log('[deleteAttachmentFile] 开始删除:', deviceId, encodedFilename);
+            if (!confirm('确定要删除此附件吗？')) return;
+
+            // 加载动画：按钮内显示 spinner
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="width:14px;height:14px;border-width:2px;"></span>';
+            btn.disabled = true;
+
+            try {
+                // encodedFilename 已由 onclick 中的 encodeURIComponent 编码，直接传入 URL
+                const res = await fetch(`${API_BASE}/attachments/${deviceId}/${encodedFilename}`, {
+                    method: 'DELETE',
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                console.log('[deleteAttachmentFile] 删除成功:', encodedFilename);
+                loadDeviceAttachments(deviceId);
+            } catch (err) {
+                console.error('[deleteAttachmentFile] 删除失败:', err);
+                alert('删除失败: ' + err.message);
+                // 恢复按钮
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        // 删除设备
+        async function deleteDevice(id, name) {
+            if (!confirm(`确定要删除设备"${name}"吗？`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    throw new Error('删除失败');
+                }
+                alert('删除成功');
+                window.location.href = 'index.html';
+            } catch (e) {
+                console.error('删除失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 页面加载时获取设备详情
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPublicConfig();
+            loadDeviceDetail();
+        });
+    </script>
+</body>
+</html>
