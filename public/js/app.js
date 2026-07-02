@@ -21,6 +21,7 @@ let warehouseShowAll = false; // 仓库列表"显示更多"
 const COLUMN_DEFS = [
     { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
     { key: 'name',        label: '设备名称', dataCol: 'name' },
+    { key: 'warehouse',   label: '所属仓库', dataCol: 'warehouse' },
     { key: 'serialNumber',label: '序列号',   dataCol: 'serial-number', defaultVisible: false },
     { key: 'specModel',   label: '规格型号', dataCol: 'spec-model' },
     { key: 'source',      label: '来源',     dataCol: 'source' },
@@ -36,7 +37,7 @@ const COLUMN_DEFS = [
     { key: 'actions',     label: '操作',     dataCol: 'actions' },
 ];
 
-const COLUMN_VERSION = 4;
+const COLUMN_VERSION = 5;
 let columnVisibility = (() => {
     try {
         const savedVersion = localStorage.getItem('dms_column_version');
@@ -62,8 +63,17 @@ let columnOrder = (() => {
             const parsed = JSON.parse(saved);
             // 仅保留当前 COLUMN_DEFS 中存在的 key
             const valid = parsed.filter(k => ORDERABLE_KEYS.includes(k));
-            // 补上新增的 key
-            ORDERABLE_KEYS.forEach(k => { if (!valid.includes(k)) valid.push(k); });
+            // 补上新增的 key，按 COLUMN_DEFS 顺序插入正确位置
+            ORDERABLE_KEYS.forEach(k => {
+                if (!valid.includes(k)) {
+                    const defIdx = ORDERABLE_KEYS.indexOf(k);
+                    let insertAt = valid.length;
+                    for (let i = 0; i < valid.length; i++) {
+                        if (ORDERABLE_KEYS.indexOf(valid[i]) > defIdx) { insertAt = i; break; }
+                    }
+                    valid.splice(insertAt, 0, k);
+                }
+            });
             if (valid.length > 0) return valid;
         }
     } catch (e) {}
@@ -1351,13 +1361,20 @@ async function loadWarehouses() {
 async function loadDevices() {
     try {
         let url = API_BASE + '/devices';
-        if (currentWarehouse) url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+        // "未指定"仓库：加载全部设备，后续客户端过滤
+        if (currentWarehouse && currentWarehouse.id !== '__unassigned__') {
+            url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+        }
         const r = await fetch(url);
         const data = await r.json();
         allDevices = Array.isArray(data) ? data : [];
+        // 加载全部设备或"未指定"时，从前端数据重新计算各仓库在库数量
+        if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
+        // 客户端过滤"未指定"仓库的设备
+        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
+            allDevices = allDevices.filter(d => !d.warehouse_name);
+        }
         applySort();
-        // 加载全部设备时，从前端数据重新计算各仓库在库数量（避免后端查询不稳定）
-        if (!currentWarehouse) updateWarehouseCounts();
         renderDevices();
         updateStats();
         loadExpiringDevices();
@@ -1382,7 +1399,12 @@ async function loadExpiringDevices() {
     try {
         const r = await fetch(API_BASE + '/devices/expiring');
         const data = await r.json();
-        expiringDevicesAll = Array.isArray(data) ? data : [];
+        let list = Array.isArray(data) ? data : [];
+        // 未指定仓库时，仅显示未分配仓库的临期设备
+        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
+            list = list.filter(d => !d.warehouse_name);
+        }
+        expiringDevicesAll = list;
         if (!expiringShowAll) {
             renderExpiringList(expiringDevicesAll.slice(0, 5));
         } else {
@@ -1394,10 +1416,15 @@ async function loadExpiringDevices() {
 async function loadTagStats() {
     try {
         let url = API_BASE + '/devices';
-        if (currentWarehouse) url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+        if (currentWarehouse && currentWarehouse.id !== '__unassigned__') {
+            url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+        }
         const r = await fetch(url);
         const devices = await r.json();
-        const all = Array.isArray(devices) ? devices : [];
+        let all = Array.isArray(devices) ? devices : [];
+        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
+            all = all.filter(d => !d.warehouse_name);
+        }
         const map = {};
         all.forEach(d => {
             let tags = [];
@@ -1582,7 +1609,8 @@ function renderTable(devices) {
         const cellMap = {
             deviceId:     `<td data-col="device-id" data-label="设备ID">${d.device_id ? `<span class="device-id-badge${noWarehouse ? ' device-id-badge-no-warehouse' : ''}" title="${noWarehouse ? '未指定仓库' : ''}" onclick="event.stopPropagation()">${escapeHtml(d.device_id)}</span>` : '<span class="text-muted">-</span>'}</td>`,
             name:         `<td data-col="name" data-label="名称" class="device-name-cell"${d.name ? ` title="${escapeAttr(d.name)}"` : ''}><strong>${d.name}</strong></td>`,
-            serialNumber: `<td data-col="serial-number" data-label="序列号">${d.serial_number || '<span class="text-muted">-</span>'}</td>`,
+            warehouse:    `<td data-col="warehouse" data-label="所属仓库">${d.warehouse_name || '<span style="color:var(--danger);font-weight:600;">未指定</span>'}</td>`,
+            serialNumber: `<td data-col="serial-number" data-label="序列号"${d.serial_number ? ` title="${escapeAttr(d.serial_number)}"` : ''}>${d.serial_number || '<span class="text-muted">-</span>'}</td>`,
             specModel:    `<td data-col="spec-model" data-label="规格型号"${d.spec_model ? ` title="${escapeAttr(d.spec_model)}"` : ''}>${d.spec_model || '<span class="text-muted">-</span>'}</td>`,
             source:       `<td data-col="source" data-label="来源"${d.source ? ` title="${escapeAttr(d.source)}"` : ''}>${d.source || '<span class="text-muted">-</span>'}</td>`,
             quantity:     `<td data-col="quantity" data-label="数量">${d.quantity || 1}</td>`,
@@ -1669,6 +1697,14 @@ function renderWarehouseList() {
     let html = `<li class="${!currentWarehouse ? 'active' : ''}" onclick="selectWarehouse(null)">
         <i class="bi bi-grid-fill warehouse-dot" style="color:#2C2C2C;"></i><span>全部仓库</span>
         <span style="${countStyle}">${totalCount}</span></li>`;
+    // 未指定仓库的设备计数
+    const unassignedCount = allDevices.filter(d => !d.warehouse_name).length;
+    if (unassignedCount > 0) {
+        const isActive = currentWarehouse && currentWarehouse.id === '__unassigned__';
+        html += `<li class="${isActive ? 'active' : ''}" onclick="selectWarehouse('__unassigned__')">
+            <i class="bi bi-question-circle-fill warehouse-dot" style="color:var(--warning);"></i><span>未指定</span>
+            <span style="${countStyle}">${unassignedCount}</span></li>`;
+    }
     const displayWarehouses = warehouseShowAll ? warehouses : warehouses.slice(0, 5);
     html += displayWarehouses.map(w => `<li class="${currentWarehouse && currentWarehouse.id===w.id?'active':''}" onclick="selectWarehouse(${w.id},'${escapeAttr(w.name)}')">
         <i class="bi bi-bucket-fill warehouse-dot" style="color:#909090;"></i><span>${escapeHtml(w.name)}</span>
@@ -1736,7 +1772,9 @@ function parseTags(field) {
 
 // ===== 交互 =====
 function selectWarehouse(id, name) {
-    if (id === null) { currentWarehouse = null; currentTagFilter = null; } else { currentWarehouse = { id, name }; currentTagFilter = null; }
+    if (id === null) { currentWarehouse = null; currentTagFilter = null; }
+    else if (id === '__unassigned__') { currentWarehouse = { id: '__unassigned__', name: '__unassigned__' }; currentTagFilter = null; }
+    else { currentWarehouse = { id, name }; currentTagFilter = null; }
     currentTab = 'all';
     updateStatHighlight();
 
@@ -2196,7 +2234,7 @@ async function deleteWarehouse(id, name) {
 async function exportDevices() {
     try {
         let url = API_BASE + '/devices/export';
-        if (currentWarehouse) url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+        if (currentWarehouse && currentWarehouse.id !== '__unassigned__') url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
         const r = await fetch(url);
         if (!r.ok) throw new Error(await r.text());
         const blob = await r.blob();
@@ -2240,6 +2278,7 @@ function openImportModal() {
         </div>
     `;
     document.getElementById('importModal').style.display = 'flex';
+    switchImportTab('paste');
 }
 
 function switchImportTab(tab) {
@@ -2267,7 +2306,7 @@ async function doImport() {
     if (!file) { showToast('请选择文件', 'warning'); return; }
     const formData = new FormData();
     formData.append('file', file);
-    if (currentWarehouse) formData.append('warehouseName', currentWarehouse.name);
+    if (currentWarehouse && currentWarehouse.id !== '__unassigned__') formData.append('warehouseName', currentWarehouse.name);
     try {
         const r = await fetch(API_BASE + '/devices/import', { method: 'POST', body: formData });
         const data = await r.json();
@@ -2352,7 +2391,7 @@ function insertJsonExample() {
     const d200 = new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10);
     document.getElementById('batchPasteText').value = `[
   {
-    "warehouse_name": "工作仓库",
+    "warehouse_name": "37",
     "name": "联想ThinkPad X1 Carbon",
     "spec_model": "ThinkPad X1 Carbon Gen 11 / i7-1365U / 16GB / 512GB SSD",
     "serial_number": "SN-THINKPAD-X1C-20260501",
@@ -2366,7 +2405,7 @@ function insertJsonExample() {
     "expiry_date": "${d6}"
   },
   {
-    "warehouse_name": "工作仓库",
+    "warehouse_name": "34",
     "name": "华为AX6路由器",
     "spec_model": "华为路由 AX6 / Wi-Fi 6+ / 7200Mbps",
     "serial_number": "SN-HUAWEI-AX6-20260315",
@@ -2380,7 +2419,7 @@ function insertJsonExample() {
     "expiry_date": "${d29}"
   },
   {
-    "warehouse_name": "家居仓库",
+    "warehouse_name": "工作",
     "name": "佳能激光打印机",
     "spec_model": "Canon LBP2900+ / A4黑白激光 / 14ppm",
     "serial_number": "SN-CANON-LBP2900-20260110",
@@ -2418,7 +2457,7 @@ async function startBatchImport() {
         const res = await fetch(API_BASE + '/devices/import-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data, warehouseName: currentWarehouse?.name || '' }),
+            body: JSON.stringify({ data, warehouseName: (currentWarehouse && currentWarehouse.id !== '__unassigned__') ? currentWarehouse.name : '' }),
         });
         const result = await res.json();
         if (result.errors && result.errors.length) {
@@ -2723,7 +2762,7 @@ async function backfillDeviceCodes() {
 
 // ===== 清空当前仓库 =====
 async function clearCurrentWarehouse() {
-    const isAll = !currentWarehouse;
+    const isAll = !currentWarehouse || currentWarehouse.id === '__unassigned__';
     const label = isAll ? '全部设备' : `仓库【${currentWarehouse.name}】`;
 
     if (!confirm(`确定要清空 ${label} 下的所有设备吗？\n\n此操作不可撤销！`)) return;

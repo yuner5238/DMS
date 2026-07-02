@@ -426,7 +426,7 @@ a:hover { color: var(--primary); }
 
 /* Header Bar */
 .content-header {
-    padding: 12px 32px 0;
+    padding: 12px 32px 8px;
     flex-shrink: 0;
 }
 
@@ -511,9 +511,9 @@ a:hover { color: var(--primary); }
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1 1 180px;
-    max-width: 320px;
-    min-width: 140px;
+    flex: 1 1 220px;
+    max-width: 420px;
+    min-width: 160px;
 }
 
 .search-filter-btn {
@@ -540,6 +540,8 @@ a:hover { color: var(--primary); }
     position: relative;
     display: flex;
     align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .search-input-wrapper .bi-search {
@@ -1042,6 +1044,7 @@ tr.batch-selected:hover { background-color: #E5E5E5 !important; }
 th[data-col="batch-check"] { width: 2.5%; }
 th[data-col="device-id"]   { width: 5.5%; }
 th[data-col="name"]        { width: 12%; }
+th[data-col="warehouse"]   { width: 5%; }
 th[data-col="serial-number"] { width: 7%; }
 th[data-col="spec-model"]  { width: 10%; }
 th[data-col="source"]      { width: 7%; }
@@ -1056,8 +1059,9 @@ th[data-col="checkin"]     { width: 5%; }
 th[data-col="remark"]      { width: 2.5%; text-align: center; }
 th[data-col="actions"]     { width: 6.5%; text-align: center; }
 
-/* 标签列全局禁止换行 */
+/* 标签列全局禁止换行（hover +n 时允许 tooltip 溢出） */
 td[data-col="tags"] { white-space: nowrap; overflow: hidden; }
+td[data-col="tags"]:has(.tag-more:hover) { overflow: visible; }
 
 /* ≤1500px：标签显示数从2→1，列宽同步缩减释放空间 */
 @media (max-width: 1500px) {
