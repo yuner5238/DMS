@@ -21,9 +21,9 @@ let warehouseShowAll = false; // 仓库列表"显示更多"
 const COLUMN_DEFS = [
     { key: 'deviceId',    label: '设备ID',   dataCol: 'device-id' },
     { key: 'name',        label: '设备名称', dataCol: 'name' },
+    { key: 'specModel',   label: '规格型号', dataCol: 'spec-model' },
     { key: 'warehouse',   label: '所属仓库', dataCol: 'warehouse' },
     { key: 'serialNumber',label: '序列号',   dataCol: 'serial-number', defaultVisible: false },
-    { key: 'specModel',   label: '规格型号', dataCol: 'spec-model' },
     { key: 'source',      label: '来源',     dataCol: 'source' },
     { key: 'quantity',    label: '数量',     dataCol: 'quantity' },
     { key: 'tags',        label: '标签',     dataCol: 'tags' },
@@ -37,7 +37,7 @@ const COLUMN_DEFS = [
     { key: 'actions',     label: '操作',     dataCol: 'actions' },
 ];
 
-const COLUMN_VERSION = 5;
+const COLUMN_VERSION = 7;
 let columnVisibility = (() => {
     try {
         const savedVersion = localStorage.getItem('dms_column_version');
@@ -58,8 +58,10 @@ let columnVisibility = (() => {
 const ORDERABLE_KEYS = COLUMN_DEFS.filter(c => c.key !== 'actions' && c.key !== 'batch-check').map(c => c.key);
 let columnOrder = (() => {
     try {
+        const savedVersion = localStorage.getItem('dms_column_order_version');
         const saved = localStorage.getItem('dms_column_order');
-        if (saved) {
+        // 版本匹配时才使用缓存的列顺序
+        if (saved && savedVersion && Number(savedVersion) === COLUMN_VERSION) {
             const parsed = JSON.parse(saved);
             // 仅保留当前 COLUMN_DEFS 中存在的 key
             const valid = parsed.filter(k => ORDERABLE_KEYS.includes(k));
@@ -74,9 +76,13 @@ let columnOrder = (() => {
                     valid.splice(insertAt, 0, k);
                 }
             });
-            if (valid.length > 0) return valid;
+            if (valid.length > 0) {
+                localStorage.setItem('dms_column_order_version', COLUMN_VERSION);
+                return valid;
+            }
         }
     } catch (e) {}
+    localStorage.setItem('dms_column_order_version', COLUMN_VERSION);
     return [...ORDERABLE_KEYS];
 })();
 
@@ -1718,18 +1724,26 @@ function renderList(devices) {
         const tags = parseTags(d.tag_names || d.tag_name || '');
         const isOut = d.location_status === 'checked_out';
         const isChecked = selectedDeviceIds.has(d.id);
-        // 标签：最多显示2个，多余收起
+        // 标签：最多显示2个，多余收起（点击展开隐藏标签）
         const visibleTags = tags.slice(0, 2);
+        const hiddenTags = tags.slice(2);
         const tagsHtml = visibleTags.map(t => `<span class="device-card-tag">${escapeHtml(t)}</span>`).join('')
-            + (tags.length > 2
-                ? `<span class="tag-more device-card-tag-more">+${tags.length - 2}<span class="tag-more-tip">${tags.slice(2).map(t => `<span class="tag-item-inline">${escapeHtml(t)}</span>`).join('')}</span></span>`
+            + (hiddenTags.length > 0
+                ? `<span class="tag-more device-card-tag-more" onclick="event.stopPropagation();this.classList.toggle('expanded')">+${hiddenTags.length}<span class="tag-more-tip">${hiddenTags.map(t => `<span class="tag-item-inline">${escapeHtml(t)}</span>`).join('')}</span></span>`
                 : '');
-        // 规格型号
-        const specHtml = d.spec_model ? `<div class="device-card-spec">${escapeHtml(d.spec_model)}</div>` : '';
+        // 设备ID（取后6位）
+        const deviceIdHtml = d.device_id ? `<span class="device-card-id">${escapeHtml(d.device_id.slice(-6))}</span>` : '';
+        // 规格型号（行内）
+        const specInlineHtml = d.spec_model ? `<span class="device-card-spec-inline">${escapeHtml(d.spec_model)}</span>` : '';
         // 到期日期
         const expiryHtml = d.expiry_date ? `<span class="device-card-expiry-inline">${formatExpiryBadge(d.expiry_date)}</span>` : '';
-        // 备注
-        const remarkHtml = d.remark ? `<div class="device-card-remark"><i class="bi bi-chat-left-text"></i> ${escapeHtml(d.remark)}</div>` : '';
+        // 位置/去向
+        const locText = isOut ? (d.destination || '已出库') : (d.storage_location || '在库');
+        const locationHtml = `<div class="device-card-location"><i class="bi bi-geo-alt"></i> ${escapeHtml(locText)}</div>`;
+        // 备注（点击打开弹窗，不跳转详情）
+        const remarkHtml = d.remark
+            ? `<div class="device-card-remark" onclick="event.stopPropagation();showRemarkPreview(${d.id},'${escapeOnClick(d.name)}')"><i class="bi bi-chat-left-text"></i> ${escapeHtml(d.remark)}</div>`
+            : '';
         // 批量模式：悬浮 Pill 标签 + 禁止点击跳转
         const pillHtml = batchSelectMode
             ? `<div class="batch-card-pill${isChecked ? ' selected' : ''}" onclick="event.stopPropagation();toggleDeviceSelect(${d.id});const c=this.closest('.device-card');c.classList.toggle('batch-selected');this.classList.toggle('selected')" data-device-id="${d.id}">${isChecked ? '已选' : '选择'}</div>`
@@ -1741,12 +1755,17 @@ function renderList(devices) {
         const cardCursor = 'cursor:pointer;';
         return `<div class="${cardClass}" data-device-id="${d.id}" ${cardClick} style="${cardCursor}">
             ${pillHtml}
-            <div class="device-card-name-row">
-                <div class="device-card-name">${escapeHtml(d.name)}${d.quantity > 1 ? `<span class="device-card-qty">×${d.quantity}</span>` : ''}</div>
+            <div class="device-card-top-row">
+                ${deviceIdHtml}
+                ${tagsHtml ? `<div class="device-card-tags">${tagsHtml}</div>` : ''}
+                ${expiryHtml}
                 <span class="status-badge ${isOut?'checked-out':'in-stock'}">${isOut?'已出库':'在库'}</span>
             </div>
-            ${tagsHtml || expiryHtml ? `<div class="device-card-tags-row">${tagsHtml ? `<div class="device-card-tags">${tagsHtml}</div>` : ''}${expiryHtml}</div>` : ''}
-            ${specHtml}
+            <div class="device-card-name-row">
+                <div class="device-card-name">${escapeHtml(d.name)}${d.quantity > 1 ? `<span class="device-card-qty">×${d.quantity}</span>` : ''}</div>
+                ${specInlineHtml}
+            </div>
+            ${locationHtml}
             ${remarkHtml}
         </div>`;
     }).join('');

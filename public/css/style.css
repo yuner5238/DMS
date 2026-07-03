@@ -1296,6 +1296,8 @@ td[data-col="actions"] { text-align: center; }
     padding: 10px 16px;
     border-bottom: 1px solid var(--border-light);
     vertical-align: middle;
+    position: relative;
+    top: -1px;
 }
 
 /* 表格内容溢出截断 + 省略号（长文本列统一处理） */
@@ -1324,6 +1326,8 @@ td[data-col="checkin"] {
     cursor: pointer;
     transition: color var(--transition-fast);
     vertical-align: middle;
+    position: relative;
+    top: -1px;
 }
 
 .device-name-cell:hover { opacity: 0.7; }
@@ -1615,10 +1619,23 @@ td[data-col="checkin"] {
     box-shadow: 0 2px 8px rgba(0,0,0,.06);
 }
 
+.device-card-top-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+.device-card-top-row .device-card-tags {
+    flex: 1;
+    min-width: 0;
+}
+
 .device-card-name-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .device-card-name {
@@ -1626,21 +1643,29 @@ td[data-col="checkin"] {
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.4;
+    flex: 0 0 calc(50% - 3px);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .device-card-qty {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 16px;
+    min-width: 16px;
+    height: 15px;
     padding: 0 4px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #fff;
-    margin-left: 6px;
-    background: var(--primary);
+    background: #555;
     border-radius: 99px;
+    margin-left: 4px;
+    vertical-align: middle;
+    position: relative;
+    top: -2px;
 }
 
 .device-card .status-badge {
@@ -1682,23 +1707,76 @@ td[data-col="checkin"] {
 }
 
 .device-card-remark {
-    margin-left: -16px;
-    margin-right: -16px;
-    padding: 6px 16px;
-    background: var(--bg-hover);
-    border-radius: 0;
     font-size: var(--text-xs);
     color: var(--text-secondary);
     line-height: 1.5;
     display: flex;
     align-items: flex-start;
     gap: 4px;
+    margin-top: 2px;
 }
 .device-card-remark i {
     font-size: var(--text-xs);
     opacity: .5;
     margin-top: 1px;
     flex-shrink: 0;
+}
+
+/* 设备卡片 — 设备ID徽章 */
+.device-card-id {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-hover);
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+/* 设备卡片 — 规格型号行内 */
+.device-card-spec-inline {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    flex: 0 0 calc(50% - 3px);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+/* 设备卡片 — 位置/去向 */
+.device-card-location {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+.device-card-location i {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* 标签展开 — 点击 +N 后显示全部隐藏标签 */
+.device-card-tag-more.expanded .tag-more-tip {
+    display: flex;
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    background: transparent;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.device-card-tag-more.expanded {
+    background: var(--border-light);
+    border-color: var(--text-muted);
 }
 
 /* Empty State */
@@ -2250,9 +2328,24 @@ td[data-col="checkin"] {
         background: #FFF;
         border-radius: 10px;
         padding: 14px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-        border: 1px solid #EEEEEE;
     }
+
+    .table-card {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+    }
+    .table-card-header {
+        padding: 12px 16px 3px;
+        border-bottom: none;
+        align-items: flex-end;
+    }
+
+    /* 移动端卡片备注 — 去掉背景色，点击打开弹窗 */
+    .device-card-remark { background: none; }
+
+    /* 移动端标签 +N 气泡 — 点击展开而非导航 */
+    .device-card-tag-more { cursor: pointer; }
 
     /* 移动端标题栏：浮在遮罩上方 */
     .mobile-top-bar { 
@@ -2309,12 +2402,10 @@ td[data-col="checkin"] {
 
     .table tbody tr {
         display: block;
-        padding: 10px 8px;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg-card);
-        border-radius: var(--radius);
-        margin-bottom: 6px;
-        border: 1px solid var(--border-light);
+        padding: 14px;
+        background: #FFF;
+        border-radius: 10px;
+        margin-bottom: 8px;
     }
 
     .table tbody td {
