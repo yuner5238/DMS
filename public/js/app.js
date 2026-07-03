@@ -1576,15 +1576,17 @@ function handleMobileMenuToggle(e) {
     }
 }
 
-// 点击外部关闭
+// 点击外部关闭（移动端 topBar 区域不触发关闭，防止误触）
 document.addEventListener('click', e => {
     const dropdown = document.getElementById('annDropdown');
     if (!dropdown || dropdown.style.display !== 'block') return;
     const mobileBell = document.getElementById('mobileBellBtn');
     const desktopBell = document.getElementById('desktopBellBtn');
+    const mobileTopBar = document.getElementById('mobileTopBar');
     if (!dropdown.contains(e.target) && 
         !(mobileBell && mobileBell.contains(e.target)) &&
-        !(desktopBell && desktopBell.contains(e.target))) {
+        !(desktopBell && desktopBell.contains(e.target)) &&
+        !(mobileTopBar && mobileTopBar.contains(e.target))) {
         closeAnnDropdown();
     }
 });
