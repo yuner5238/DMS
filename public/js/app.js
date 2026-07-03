@@ -1631,6 +1631,14 @@ function renderDevices() {
     document.getElementById('deviceCount').textContent = devices.length;
     const tabLabels = { all: '全部设备', in: '在库设备', out: '已出库', expiring: '临期设备' };
     document.getElementById('deviceTabLabel').textContent = tabLabels[currentTab] || '设备列表';
+    // 仓库名（第二位）
+    const whEl = document.getElementById('deviceWarehouseLabel');
+    if (currentWarehouse) {
+        whEl.textContent = '/ ' + (currentWarehouse.id === '__unassigned__' ? '未分配' : currentWarehouse.name);
+    } else {
+        whEl.textContent = '/ 全部仓库';
+    }
+    whEl.style.display = '';
 
     if (devices.length === 0) {
         document.getElementById('tableViewContainer').style.display = 'none';
