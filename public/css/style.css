@@ -535,6 +535,43 @@ a:hover { color: var(--primary); }
     gap: 4px;
 }
 
+/* 移动端 actions 翻转槽位 */
+.mobile-actions-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+.mobile-actions-default {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.4s cubic-bezier(.4,0,.2,1), opacity 0.35s cubic-bezier(.4,0,.2,1);
+}
+.mobile-actions-ann {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(110%);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(.4,0,.2,1), opacity 0.35s cubic-bezier(.4,0,.2,1);
+}
+.mobile-top-bar.ann-open .mobile-actions-default {
+    transform: translateY(-110%);
+    opacity: 0;
+    pointer-events: none;
+}
+.mobile-top-bar.ann-open .mobile-actions-ann {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+
+
+
 .mobile-bell-btn,
 .mobile-avatar-btn {
     position: relative;
@@ -960,7 +997,7 @@ a:hover { color: var(--primary); }
     margin-top: 5px; flex-shrink: 0;
     user-select: none; pointer-events: none;
 }
-.ann-dropdown-item:first-child .bullet { background: var(--text-primary); }
+.ann-dropdown-item.selected .bullet { background: var(--text-primary); }
 .ann-dropdown-item .body { flex: 1; min-width: 0; }
 .ann-dropdown-item .content { font-size: 13px; line-height: 1.65; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
 .ann-dropdown-item .time { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
@@ -991,11 +1028,6 @@ a:hover { color: var(--primary); }
 
 @media (max-width: 640px) {
     .ann-dropdown-item { padding: 10px 16px; }
-}
-
-/* 移动端隐藏公告遮罩 */
-@media (max-width: 768px) {
-    .ann-overlay { display: none !important; }
 }
 
 /* ---- Device Content Area ---- */
@@ -2345,21 +2377,25 @@ td[data-col="checkin"] {
     /* 移动端标签 +N 气泡 — 点击展开而非导航 */
     .device-card-tag-more { cursor: pointer; }
 
-    /* 移动端标题栏：浮在遮罩上方 */
+    /* 移动端标题栏：保持在 dropdown 上方 */
     .mobile-top-bar { 
         display: flex; 
         background: #fff;
         position: relative;
-        z-index: 100;
+        z-index: 107;
     }
 
-    /* 移动端公告下拉 */
+    /* 移动端公告下拉：顶栏下方展开，不覆盖顶栏 */
     .ann-dropdown {
+        position: fixed;
+        top: 50px;
+        left: 0; right: 0;
+        z-index: 106;
         border-radius: 0 0 16px 16px;
         background: #fff;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
-        box-shadow: none;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
         max-height: calc(100vh - 50px);
     }
 
@@ -2368,6 +2404,9 @@ td[data-col="checkin"] {
         background: #fff;
         border-bottom-color: transparent;
     }
+
+    /* 移动端隐藏公告下拉面板内的 header（标题/新增按钮已集成在顶栏） */
+    .ann-dropdown-header { display: none; }
 
     /* 列布局：搜索 / 工具栏 纵向排列 */
     .header-row { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -3463,6 +3502,11 @@ td[data-col="checkin"] {
 /* 打开时 + 旋转为 × */
 .fab-container.open .fab-icon {
     transform: rotate(45deg);
+}
+
+/* 公告展开时隐藏主 FAB */
+.fab-container.hide {
+    display: none !important;
 }
 
 /* FAB 遮罩 */

@@ -1492,8 +1492,8 @@ function renderDropdown() {
         return;
     }
     announcementsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    inner.innerHTML = announcementsData.map(a => `
-        <div class="ann-dropdown-item" data-id="${a.id}">
+    inner.innerHTML = announcementsData.map((a, i) => `
+        <div class="ann-dropdown-item${i === 0 ? ' selected' : ''}" data-id="${a.id}" onclick="selectAnnouncementItem(this)">
             <span class="bullet"></span>
             <div class="body">
                 <div class="content">${escapeHtml(a.content)}</div>
@@ -1504,6 +1504,13 @@ function renderDropdown() {
             </button>
         </div>
     `).join('');
+}
+
+// 选中公告条目，切换黑点
+function selectAnnouncementItem(el) {
+    const items = document.querySelectorAll('.ann-dropdown-item');
+    items.forEach(item => item.classList.remove('selected'));
+    el.classList.add('selected');
 }
 
 function toggleAnnDropdown() {
@@ -1523,6 +1530,10 @@ function toggleAnnDropdown() {
     const menuToggle = document.getElementById('menuToggle');
     if (topBar) topBar.classList.add('ann-open');
     if (menuToggle) menuToggle.classList.add('active');
+
+    // 移动端：隐藏主 FAB
+    const fabContainer = document.getElementById('fabContainer');
+    if (fabContainer) fabContainer.classList.add('hide');
 }
 
 function closeAnnDropdown() {
@@ -1538,6 +1549,10 @@ function closeAnnDropdown() {
     const menuToggle = document.getElementById('menuToggle');
     if (topBar) topBar.classList.remove('ann-open');
     if (menuToggle) menuToggle.classList.remove('active');
+
+    // 移动端：恢复主 FAB
+    const fabContainer = document.getElementById('fabContainer');
+    if (fabContainer) fabContainer.classList.remove('hide');
 
     // 关闭动画
     if (dropdown.style.display === 'block') {
@@ -2746,13 +2761,19 @@ async function deleteAnnouncement(id) {
     } catch(e) { showToast('删除失败', 'error'); }
 }
 
-// 显示新增公告表单（在 dropdown 顶部）
+// 显示新增公告表单（在 dropdown 顶部，最多一个）
 function showAddAnnouncement() {
     const dropdown = document.getElementById('annDropdown');
     if (dropdown.style.display !== 'block') {
         toggleAnnDropdown();
     }
     const inner = document.getElementById('annDropdownInner');
+    // 已存在输入框则聚焦，不重复创建
+    const existing = inner.querySelector('.announcement-add-form');
+    if (existing) {
+        document.getElementById('newAnnouncementInput')?.focus();
+        return;
+    }
     const addForm = document.createElement('div');
     addForm.className = 'announcement-add-form';
     addForm.innerHTML = `
