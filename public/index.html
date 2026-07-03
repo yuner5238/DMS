@@ -104,9 +104,6 @@
     <!-- 移动端侧边栏遮罩 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
-    <!-- 公告下拉遮罩（桌面/移动端通用） -->
-    <div class="ann-overlay" id="annOverlay" onclick="closeAnnDropdown()"></div>
-
     <!-- ==================== MAIN CONTENT ==================== -->
     <main class="main-content" id="mainContent">
         <!-- 移动端顶部标题栏 -->
@@ -135,24 +132,17 @@
             </div>
         </header>
 
-        <!-- 公告栏（内联下拉方案） -->
-        <div class="ann-bar-wrap" id="annBarWrap">
-            <div class="ann-bar" id="annBar" onclick="toggleAnnDropdown()">
-                <i class="bi bi-megaphone ann-bar-icon"></i>
-                <span class="ann-bar-text-slot">
-                    <span class="ann-bar-text ann-bar-text-title">系统公告</span>
-                    <span class="ann-bar-text ann-bar-text-content" id="annBarText">暂无公告</span>
-                </span>
-                <span class="ann-bar-badge" id="annBarBadge" onclick="handleBadgeClick(event)">
-                    <span class="ann-bar-badge-count" id="annBarBadgeCount">0</span>
-                    <span class="ann-bar-badge-add"><i class="bi bi-plus-lg"></i> 新增</span>
-                </span>
-                <i class="bi bi-chevron-down ann-bar-chevron"></i>
+        <!-- 公告下拉遮罩（桌面端） -->
+        <div class="ann-overlay" id="annOverlay" onclick="closeAnnDropdown()"></div>
+
+        <!-- 公告下拉面板 -->
+        <div class="ann-dropdown" id="annDropdown">
+            <div class="ann-dropdown-header">
+                <span class="ann-dropdown-title">系统公告</span>
+                <button class="ann-dropdown-add-btn" onclick="event.stopPropagation();showAddAnnouncement()">+ 新增</button>
             </div>
-            <div class="ann-dropdown" id="annDropdown">
-                <div class="ann-dropdown-inner" id="annDropdownInner">
-                    <div class="ann-dropdown-loading">加载中...</div>
-                </div>
+            <div class="ann-dropdown-inner" id="annDropdownInner">
+                <div class="ann-dropdown-loading">加载中...</div>
             </div>
         </div>
 
@@ -198,6 +188,15 @@
                     </div>
                 </div>
                 <div class="sort-dropdown" id="sortDropdown" style="display:none;"></div>
+                <div class="header-actions">
+                    <button class="header-bell-btn" id="desktopBellBtn" onclick="toggleAnnDropdown()" title="公告" aria-label="公告">
+                        <i class="bi bi-bell"></i>
+                        <span class="header-bell-badge" id="desktopBellBadge">0</span>
+                    </button>
+                    <button class="header-avatar-btn" title="用户" aria-label="用户">
+                        <i class="bi bi-person-circle"></i>
+                    </button>
+                </div>
             </div>
         </header>
 

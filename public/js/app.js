@@ -1457,29 +1457,30 @@ async function loadAnnouncements() {
             updateAnnBar();
         }
     } catch(e) {
-        const barText = document.getElementById('annBarText');
-        if (barText) barText.textContent = '公告加载失败';
+        console.error('加载公告失败:', e);
     }
 }
 
 function updateAnnBar() {
-    const barText = document.getElementById('annBarText');
-    const barBadge = document.getElementById('annBarBadge');
-    const barBadgeCount = document.getElementById('annBarBadgeCount');
     const mobileBellBadge = document.getElementById('mobileBellBadge');
+    const desktopBellBadge = document.getElementById('desktopBellBadge');
     if (announcementsData.length > 0) {
-        barText.textContent = announcementsData[0].content;
-        barBadgeCount.textContent = announcementsData.length;
         if (mobileBellBadge) {
             mobileBellBadge.textContent = announcementsData.length;
             mobileBellBadge.classList.add('has-badge');
         }
+        if (desktopBellBadge) {
+            desktopBellBadge.textContent = announcementsData.length;
+            desktopBellBadge.classList.add('has-badge');
+        }
     } else {
-        barText.textContent = '暂无公告';
-        barBadgeCount.textContent = '0';
         if (mobileBellBadge) {
             mobileBellBadge.textContent = '0';
             mobileBellBadge.classList.remove('has-badge');
+        }
+        if (desktopBellBadge) {
+            desktopBellBadge.textContent = '0';
+            desktopBellBadge.classList.remove('has-badge');
         }
     }
 }
@@ -1507,14 +1508,13 @@ function renderDropdown() {
 
 function toggleAnnDropdown() {
     const dropdown = document.getElementById('annDropdown');
-    const annBar = document.getElementById('annBar');
+    if (!dropdown) return;
     if (dropdown.style.display === 'block') { closeAnnDropdown(); return; }
     renderDropdown();
     dropdown.classList.remove('closing');
     dropdown.style.display = 'block';
-    annBar.classList.add('open');
 
-    // 遮罩层
+    // 桌面端遮罩
     const overlay = document.getElementById('annOverlay');
     if (overlay) overlay.classList.add('show');
 
@@ -1527,10 +1527,9 @@ function toggleAnnDropdown() {
 
 function closeAnnDropdown() {
     const dropdown = document.getElementById('annDropdown');
-    const annBar = document.getElementById('annBar');
-    annBar.classList.remove('open');
+    if (!dropdown) return;
 
-    // 遮罩层
+    // 桌面端遮罩
     const overlay = document.getElementById('annOverlay');
     if (overlay) overlay.classList.remove('show');
 
@@ -1562,23 +1561,15 @@ function handleMobileMenuToggle(e) {
     }
 }
 
-// badge 变形为新增按钮后的点击处理
-function handleBadgeClick(e) {
-    const annBar = document.getElementById('annBar');
-    if (annBar.classList.contains('open')) {
-        e.stopPropagation();
-        showAddAnnouncement();
-    }
-    // 未展开：事件冒泡到 annBar，触发 toggleAnnDropdown()
-}
-
 // 点击外部关闭
 document.addEventListener('click', e => {
     const dropdown = document.getElementById('annDropdown');
     if (!dropdown || dropdown.style.display !== 'block') return;
-    const wrap = document.getElementById('annBarWrap');
     const mobileBell = document.getElementById('mobileBellBtn');
-    if (wrap && !wrap.contains(e.target) && !(mobileBell && mobileBell.contains(e.target))) {
+    const desktopBell = document.getElementById('desktopBellBtn');
+    if (!dropdown.contains(e.target) && 
+        !(mobileBell && mobileBell.contains(e.target)) &&
+        !(desktopBell && desktopBell.contains(e.target))) {
         closeAnnDropdown();
     }
 });

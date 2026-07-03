@@ -142,22 +142,6 @@ a:hover { color: var(--primary); }
     position: relative;
 }
 
-/* 公告下拉展开时全页面遮罩（毛玻璃） */
-.ann-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.25);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 98;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.ann-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
-}
 
 /* ==========================================================================
    SIDEBAR — 极简亮色
@@ -612,6 +596,60 @@ a:hover { color: var(--primary); }
     gap: 12px;
 }
 
+/* ---- 桌面端 header 右侧按钮 ---- */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.header-bell-btn,
+.header-avatar-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.15rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.header-bell-btn:hover,
+.header-avatar-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.header-bell-badge {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 10px;
+    border: 2px solid var(--bg-card);
+    box-sizing: border-box;
+}
+
+.header-bell-badge.has-badge {
+    display: block;
+}
+
 /* ---- Sidebar Stats ---- */
 .sidebar-stats {
     padding: 2px 0;
@@ -834,127 +872,80 @@ a:hover { color: var(--primary); }
     color: var(--primary, #1a73e8);
 }
 
-/* ========== 公告栏（内联下拉方案） ========== */
-.ann-bar-wrap { position: relative; z-index: 101; }
-.ann-bar { 
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 32px; cursor: pointer; user-select: none;
-    font-size: 13px; color: var(--text-secondary);
-    background: var(--bg-card); border-bottom: 1px solid var(--border);
-    transition: color 0.15s;
-}
-.ann-bar:hover { color: var(--text-primary); }
-.ann-bar-icon { font-size: 15px; color: var(--primary); flex-shrink: 0; }
-/* 双文本层翻转槽位 */
-.ann-bar-text-slot {
-    position: relative;
-    flex: 1; min-width: 0;
-    height: 1.4em;
-    overflow: hidden;
-}
-.ann-bar-text {
-    position: absolute;
-    top: 0; left: 0; width: 100%;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.3s cubic-bezier(.4,0,.2,1);
-}
-/* 默认：标题隐藏在上方，公告内容可见 */
-.ann-bar-text-title {
-    transform: translateY(-110%);
+/* ========== 公告下拉遮罩（桌面端） ========== */
+.ann-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    background: rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none;
     opacity: 0;
-    font-weight: 600;
+    transition: opacity 0.3s ease;
 }
-.ann-bar-text-content {
-    transform: translateY(0);
+.ann-overlay.show {
+    display: block;
     opacity: 1;
 }
-/* 展开：标题滑入，公告内容滑出 */
-.ann-bar.open .ann-bar-text-title {
-    transform: translateY(0);
-    opacity: 1;
-}
-.ann-bar.open .ann-bar-text-content {
-    transform: translateY(110%);
-    opacity: 0;
-}
-.ann-bar-badge {
-    flex-shrink: 0; background: var(--text-primary); color: #fff;
-    font-size: 10px; font-weight: 600; min-width: 20px; height: 20px;
-    line-height: 20px; text-align: center; border-radius: 10px; padding: 0 6px;
-    position: relative; overflow: hidden;
-    transition: height 0.35s cubic-bezier(.4,0,.2,1),
-                min-width 0.35s cubic-bezier(.4,0,.2,1),
-                padding 0.35s cubic-bezier(.4,0,.2,1),
-                border-radius 0.35s cubic-bezier(.4,0,.2,1),
-                background 0.3s,
-                font-size 0.3s,
-                line-height 0.35s;
-}
-.ann-bar .ann-bar-badge-count,
-.ann-bar .ann-bar-badge-add {
-    transition: opacity 0.25s cubic-bezier(.4,0,.2,1),
-                transform 0.3s cubic-bezier(.4,0,.2,1);
-}
-.ann-bar .ann-bar-badge-add {
-    position: absolute; left: 0; right: 0; top: 0;
-    line-height: 20px; text-align: center;
-    opacity: 0; transform: scale(0.8);
-    pointer-events: none; white-space: nowrap;
-}
-/* 展开：badge 撑大为新增按钮 */
-.ann-bar.open .ann-bar-badge {
-    height: 28px; min-width: 76px;
-    padding: 0 14px; line-height: 28px;
-    border-radius: 6px;
-    background: var(--primary); cursor: pointer;
-    font-size: 12px;
-}
-.ann-bar.open .ann-bar-badge:hover { background: var(--primary-hover); }
-.ann-bar.open .ann-bar-badge-count {
-    opacity: 0; transform: scale(0.6);
-    position: absolute; left: 0; right: 0;
-}
-.ann-bar.open .ann-bar-badge-add {
-    opacity: 1; transform: scale(1);
-    pointer-events: auto; line-height: 28px;
-    font-size: 12px; font-weight: 500;
-}
-.ann-bar-chevron { font-size: 11px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.25s; }
-.ann-bar.open .ann-bar-chevron { transform: rotate(180deg); }
 
-/* ---- 下拉面板（毛玻璃） ---- */
+/* ========== 公告下拉面板（fixed 定位） ========== */
 .ann-dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    position: fixed;
+    top: 0;
+    left: 0; right: 0;
+    z-index: 106;
     background: rgba(255,255,255,0.70);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(0,0,0,0.06);
-    border-top: none;
+    border-bottom: 1px solid var(--border);
     border-radius: 0 0 12px 12px;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.08);
-    max-height: 420px; overflow: hidden; display: none;
-    transform-origin: top center;
-    animation: annDropIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    max-height: 420px;
+    overflow: hidden;
+    display: none;
+    animation: annDropIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes annDropIn {
-    from { opacity: 0; transform: translateY(-12px) scaleY(0.95); }
-    to { opacity: 1; transform: translateY(0) scaleY(1); }
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .ann-dropdown.closing {
-    animation: annDropOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: annDropOut 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes annDropOut {
-    from { opacity: 1; transform: translateY(0) scaleY(1); }
-    to { opacity: 0; transform: translateY(-6px) scaleY(0.97); }
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-8px); }
 }
-.ann-dropdown::before {
-    content: ''; position: absolute; top: -6px; left: 50px;
-    width: 12px; height: 12px; background: rgba(255,255,255,0.70);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    transform: rotate(45deg);
-    border-left: 1px solid rgba(0,0,0,0.06); border-top: 1px solid rgba(0,0,0,0.06);
+
+.ann-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-light);
 }
+.ann-dropdown-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+.ann-dropdown-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border: none;
+    background: var(--text-primary);
+    color: #fff;
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+}
+.ann-dropdown-add-btn:hover { background: var(--text-secondary); }
 
 .ann-dropdown-inner { padding: 8px 0; max-height: 340px; overflow-y: auto; }
 
@@ -999,8 +990,12 @@ a:hover { color: var(--primary); }
 }
 
 @media (max-width: 640px) {
-    .ann-dropdown { left: 8px; right: 8px; top: calc(100% + 6px); }
     .ann-dropdown-item { padding: 10px 16px; }
+}
+
+/* 移动端隐藏公告遮罩 */
+@media (max-width: 768px) {
+    .ann-overlay { display: none !important; }
 }
 
 /* ---- Device Content Area ---- */
@@ -2358,22 +2353,15 @@ td[data-col="checkin"] {
         z-index: 100;
     }
 
-    /* 移动端隐藏公告条，改为顶部铃铛下拉 */
-    .ann-bar { display: none; }
-    .ann-bar-wrap { position: relative; z-index: 100; }
+    /* 移动端公告下拉 */
     .ann-dropdown {
-        position: absolute;
-        top: 0;
-        left: 0; right: 0;
         border-radius: 0 0 16px 16px;
-        border-top: none;
         background: #fff;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
         box-shadow: none;
         max-height: calc(100vh - 50px);
     }
-    .ann-dropdown::before { display: none; }
 
     /* 标题栏展开时去掉底部边框，与下拉融为一体 */
     .mobile-top-bar.ann-open {
@@ -2388,6 +2376,7 @@ td[data-col="checkin"] {
     #searchInput { border-radius: var(--radius-lg); }
     /* 移动端隐藏 toolbar，由右下角 FAB 按钮替代全部操作 */
     .toolbar { display: none !important; }
+    .header-actions { display: none; }
     #sortBtn { display: none; }
 
     .content-header { padding: 10px 12px 0; }
@@ -3263,7 +3252,7 @@ td[data-col="checkin"] {
         top: 0;
         left: 0;
         height: 100%;
-        z-index: 103;           /* 高于 ann-bar-wrap (101)，不被公告栏遮挡 */
+        z-index: 103;
         transform: translateX(-100%);
         transition: transform 0.3s ease;
     }
