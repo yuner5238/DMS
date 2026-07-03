@@ -9,7 +9,7 @@ let allDevices = [];
 let warehouses = [];
 let currentWarehouse = null; // { id, name }  null=全部
 let currentTagFilter = null;
-let currentTab = 'all'; // 'all' | 'in' | 'out' | 'expiring'
+let currentTab = 'in'; // 'all' | 'in' | 'out' | 'expiring'
 let viewMode = 'table';
 let autoSwitchedToCard = false;  // 记录是否由 resize 自动切换到卡片视图
 let deviceModalId = null; // 编辑时不为 null
@@ -1460,12 +1460,21 @@ function updateAnnBar() {
     const barText = document.getElementById('annBarText');
     const barBadge = document.getElementById('annBarBadge');
     const barBadgeCount = document.getElementById('annBarBadgeCount');
+    const mobileBellBadge = document.getElementById('mobileBellBadge');
     if (announcementsData.length > 0) {
         barText.textContent = announcementsData[0].content;
         barBadgeCount.textContent = announcementsData.length;
+        if (mobileBellBadge) {
+            mobileBellBadge.textContent = announcementsData.length;
+            mobileBellBadge.classList.add('has-badge');
+        }
     } else {
         barText.textContent = '暂无公告';
         barBadgeCount.textContent = '0';
+        if (mobileBellBadge) {
+            mobileBellBadge.textContent = '0';
+            mobileBellBadge.classList.remove('has-badge');
+        }
     }
 }
 
@@ -1495,15 +1504,56 @@ function toggleAnnDropdown() {
     const annBar = document.getElementById('annBar');
     if (dropdown.style.display === 'block') { closeAnnDropdown(); return; }
     renderDropdown();
+    dropdown.classList.remove('closing');
     dropdown.style.display = 'block';
     annBar.classList.add('open');
+
+    // 遮罩层
+    const overlay = document.getElementById('annOverlay');
+    if (overlay) overlay.classList.add('show');
+
+    // 移动端：标题栏面板状态
+    const topBar = document.getElementById('mobileTopBar');
+    const menuToggle = document.getElementById('menuToggle');
+    if (topBar) topBar.classList.add('ann-open');
+    if (menuToggle) menuToggle.classList.add('active');
 }
 
 function closeAnnDropdown() {
     const dropdown = document.getElementById('annDropdown');
     const annBar = document.getElementById('annBar');
-    dropdown.style.display = 'none';
     annBar.classList.remove('open');
+
+    // 遮罩层
+    const overlay = document.getElementById('annOverlay');
+    if (overlay) overlay.classList.remove('show');
+
+    // 移动端：恢复标题栏状态
+    const topBar = document.getElementById('mobileTopBar');
+    const menuToggle = document.getElementById('menuToggle');
+    if (topBar) topBar.classList.remove('ann-open');
+    if (menuToggle) menuToggle.classList.remove('active');
+
+    // 关闭动画
+    if (dropdown.style.display === 'block') {
+        dropdown.classList.add('closing');
+        dropdown.addEventListener('animationend', function handler() {
+            dropdown.style.display = 'none';
+            dropdown.classList.remove('closing');
+            dropdown.removeEventListener('animationend', handler);
+        }, { once: true });
+    }
+}
+
+// 移动端 menuToggle：下拉展开时关闭下拉，否则打开侧边栏
+function handleMobileMenuToggle(e) {
+    const dropdown = document.getElementById('annDropdown');
+    if (dropdown && dropdown.style.display === 'block') {
+        e.stopPropagation();
+        closeAnnDropdown();
+    } else {
+        toggleSidebar();
+    }
 }
 
 // badge 变形为新增按钮后的点击处理
@@ -1521,7 +1571,10 @@ document.addEventListener('click', e => {
     const dropdown = document.getElementById('annDropdown');
     if (!dropdown || dropdown.style.display !== 'block') return;
     const wrap = document.getElementById('annBarWrap');
-    if (wrap && !wrap.contains(e.target)) closeAnnDropdown();
+    const mobileBell = document.getElementById('mobileBellBtn');
+    if (wrap && !wrap.contains(e.target) && !(mobileBell && mobileBell.contains(e.target))) {
+        closeAnnDropdown();
+    }
 });
 
 // ===== 渲染 =====
@@ -1664,6 +1717,7 @@ function renderList(devices) {
     const html = devices.map(d => {
         const tags = parseTags(d.tag_names || d.tag_name || '');
         const isOut = d.location_status === 'checked_out';
+        const isChecked = selectedDeviceIds.has(d.id);
         // 标签：最多显示2个，多余收起
         const visibleTags = tags.slice(0, 2);
         const tagsHtml = visibleTags.map(t => `<span class="device-card-tag">${escapeHtml(t)}</span>`).join('')
@@ -1676,7 +1730,17 @@ function renderList(devices) {
         const expiryHtml = d.expiry_date ? `<span class="device-card-expiry-inline">${formatExpiryBadge(d.expiry_date)}</span>` : '';
         // 备注
         const remarkHtml = d.remark ? `<div class="device-card-remark"><i class="bi bi-chat-left-text"></i> ${escapeHtml(d.remark)}</div>` : '';
-        return `<div class="device-card" onclick="goDeviceDetail('${d.device_id || d.id}')">
+        // 批量模式：悬浮 Pill 标签 + 禁止点击跳转
+        const pillHtml = batchSelectMode
+            ? `<div class="batch-card-pill${isChecked ? ' selected' : ''}" onclick="event.stopPropagation();toggleDeviceSelect(${d.id});const c=this.closest('.device-card');c.classList.toggle('batch-selected');this.classList.toggle('selected')" data-device-id="${d.id}">${isChecked ? '已选' : '选择'}</div>`
+            : '';
+        const cardClass = `device-card${batchSelectMode ? ' batch-mode' : ''}${batchSelectMode && isChecked ? ' batch-selected' : ''}`;
+        const cardClick = batchSelectMode
+            ? `onclick="toggleDeviceSelect(${d.id});const pill=this.querySelector('.batch-card-pill');if(pill){pill.classList.toggle('selected');pill.textContent=pill.classList.contains('selected')?'已选':'选择'};this.classList.toggle('batch-selected')"`
+            : `onclick="goDeviceDetail('${escapeOnClick(d.device_id || d.id)}')"`;
+        const cardCursor = 'cursor:pointer;';
+        return `<div class="${cardClass}" data-device-id="${d.id}" ${cardClick} style="${cardCursor}">
+            ${pillHtml}
             <div class="device-card-name-row">
                 <div class="device-card-name">${escapeHtml(d.name)}${d.quantity > 1 ? `<span class="device-card-qty">×${d.quantity}</span>` : ''}</div>
                 <span class="status-badge ${isOut?'checked-out':'in-stock'}">${isOut?'已出库':'在库'}</span>
@@ -1687,13 +1751,14 @@ function renderList(devices) {
         </div>`;
     }).join('');
     document.getElementById('listViewContainer').innerHTML = html;
+    if (batchSelectMode) initDragSelect();
 }
 
 function renderWarehouseList() {
     const ul = document.getElementById('warehouseList');
     const btn = document.getElementById('warehouseShowMore');
     const totalCount = warehouses.reduce((sum, w) => sum + (w.device_count || 0), 0);
-    const countStyle = 'color:var(--success);font-weight:700;font-size:var(--text-sm);opacity:0.85;margin-left:auto;';
+    const countStyle = 'color:#999;font-weight:700;font-size:var(--text-sm);margin-left:auto;';
     let html = `<li class="${!currentWarehouse ? 'active' : ''}" onclick="selectWarehouse(null)">
         <i class="bi bi-grid-fill warehouse-dot" style="color:#2C2C2C;"></i><span>全部仓库</span>
         <span style="${countStyle}">${totalCount}</span></li>`;
@@ -1775,7 +1840,7 @@ function selectWarehouse(id, name) {
     if (id === null) { currentWarehouse = null; currentTagFilter = null; }
     else if (id === '__unassigned__') { currentWarehouse = { id: '__unassigned__', name: '__unassigned__' }; currentTagFilter = null; }
     else { currentWarehouse = { id, name }; currentTagFilter = null; }
-    currentTab = 'all';
+    currentTab = 'in';
     updateStatHighlight();
 
     renderWarehouseList();
@@ -2569,6 +2634,80 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ===== FAB 浮动操作按钮 =====
+function toggleFabMenu() {
+    const container = document.getElementById('fabContainer');
+    const menu = document.getElementById('fabMenu');
+    const overlay = document.getElementById('fabOverlay');
+    const isOpen = container.classList.contains('open');
+    if (isOpen) {
+        closeFabMenu();
+    } else {
+        container.classList.add('open');
+        menu.classList.add('show');
+        overlay.classList.add('show');
+    }
+}
+
+function closeFabMenu() {
+    const container = document.getElementById('fabContainer');
+    const menu = document.getElementById('fabMenu');
+    const sortMenu = document.getElementById('fabSortMenu');
+    const overlay = document.getElementById('fabOverlay');
+    container.classList.remove('open', 'flipped');
+    menu.classList.remove('show');
+    overlay.classList.remove('show');
+    // 清理 sort menu 子项，避免残留 DOM 影响下次打开
+    if (sortMenu) sortMenu.innerHTML = '';
+}
+
+// 从主菜单翻转到排序子菜单
+function showFabSortMenu() {
+    const container = document.getElementById('fabContainer');
+    const sortMenu = document.getElementById('fabSortMenu');
+    if (!container || !sortMenu) return;
+
+    const currentField = sortField;
+    const currentAsc = sortAsc;
+
+    // 排序选项（1-5）+ 返回按钮（6th，末尾，与主菜单"排序"位置重合）
+    sortMenu.innerHTML = SORT_FIELDS.map(f => {
+        const active = f.key === currentField;
+        const arrow = active ? (currentAsc ? ' ↑' : ' ↓') : '';
+        return `<button class="fab-menu-item fab-sort-item${active ? ' active' : ''}" onclick="event.stopPropagation();selectSortFieldFromFab('${f.key}')">
+            <span class="fab-menu-label">${f.label}</span>
+            <span class="fab-sort-arrow">${arrow}</span>
+        </button>`;
+    }).join('') + `
+        <button class="fab-menu-item fab-back-item" onclick="backToFabMenu()">
+            <span class="fab-menu-icon"><i class="bi bi-arrow-left"></i></span>
+            <span class="fab-menu-label">返回</span>
+        </button>
+    `;
+
+    container.classList.add('flipped');
+}
+
+// 从排序子菜单翻转回主菜单
+function backToFabMenu() {
+    const container = document.getElementById('fabContainer');
+    if (container) container.classList.remove('flipped');
+}
+
+// 在 FAB 排序子菜单中选中排序字段
+function selectSortFieldFromFab(field) {
+    if (field === sortField) {
+        sortAsc = !sortAsc;
+    } else {
+        sortField = field;
+        sortAsc = sortField === 'checkin_time' || sortField === 'expiry_date' ? false : true;
+    }
+    applySort();
+    renderDevices();
+    updateSortBtnIcon();
+    closeFabMenu();
+}
+
 // ===== 公告 =====
 
 // 删除公告
@@ -2666,7 +2805,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 按钮事件绑定
     document.getElementById('addDeviceBtn').addEventListener('click', () => openDeviceModal(null));
-    document.getElementById('exportBtn').addEventListener('click', exportDevices);
     updateSortBtnIcon();
 
     // 点击模态框外部关闭
@@ -2810,8 +2948,10 @@ document.addEventListener('click', (e) => {
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('menuToggle');
     sidebar.classList.toggle('show');
     if (overlay) overlay.classList.toggle('show');
+    if (toggle) toggle.classList.toggle('active');
 }
 
 // ===== 显示补全按钮 =====

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMS — 仓库资产管理系统</title>
-    <link rel="stylesheet" href="css/style.css?v=50">
+    <link rel="stylesheet" href="css/style.css?v=74">
     <link rel="stylesheet" href="css/bootstrap-icons.css">
 </head>
 <body>
@@ -18,6 +18,10 @@
     <aside class="sidebar" id="sidebar">
         <!-- Header -->
         <div class="sidebar-header">
+            <button class="sidebar-close-btn" onclick="toggleSidebar()" aria-label="关闭菜单">
+                <span class="close-line"></span>
+                <span class="close-line"></span>
+            </button>
             <div class="sidebar-logo">
                 <div class="sidebar-logo-icon">
                     <i class="bi bi-boxes"></i>
@@ -33,7 +37,7 @@
         <nav class="sidebar-nav">
             <!-- Stats Overview -->
             <div class="sidebar-section" id="sidebarStatsSection">
-                <div class="sidebar-section-title">统计概览</div>
+                <div class="sidebar-section-title"><i class="bi bi-bar-chart"></i>统计概览</div>
                 <div class="sidebar-stats">
                     <div class="sidebar-stat-item" id="statTotal" onclick="switchDeviceTab('all')">
                         <span class="sidebar-stat-dot"></span>
@@ -60,7 +64,7 @@
 
             <!-- Warehouses -->
             <div class="sidebar-section">
-                <div class="sidebar-section-title">仓库</div>
+                <div class="sidebar-section-title"><i class="bi bi-building"></i>仓库</div>
                 <ul id="warehouseList">
                     <li class="active" data-warehouse="all">
                         <i class="bi bi-grid-fill warehouse-dot" style="color:#2C2C2C;"></i>
@@ -74,14 +78,14 @@
 
             <!-- Expiring Soon -->
             <div class="sidebar-section">
-                <div class="sidebar-section-title">临期提醒</div>
+                <div class="sidebar-section-title"><i class="bi bi-clock"></i>临期提醒</div>
                 <ul id="expiringList"></ul>
                 <button class="expiring-more-btn" id="expiringMoreBtn" onclick="toggleExpiringMore()" style="display:none;">更多</button>
             </div>
 
             <!-- Tags -->
             <div class="sidebar-section">
-                <div class="sidebar-section-title">标签</div>
+                <div class="sidebar-section-title"><i class="bi bi-tag"></i>标签</div>
                 <div id="tagSection">
                     <div class="tag-list" id="tagList"></div>
                 </div>
@@ -91,7 +95,7 @@
         <!-- Footer -->
         <div class="sidebar-footer">
             <button class="sidebar-footer-btn" onclick="openWarehouseModal()">
-                <i class="bi bi-plus-circle"></i>
+                <i class="bi bi-gear"></i>
                 <span>管理仓库</span>
             </button>
         </div>
@@ -100,8 +104,37 @@
     <!-- 移动端侧边栏遮罩 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
+    <!-- 公告下拉遮罩（桌面/移动端通用） -->
+    <div class="ann-overlay" id="annOverlay" onclick="closeAnnDropdown()"></div>
+
     <!-- ==================== MAIN CONTENT ==================== -->
     <main class="main-content" id="mainContent">
+        <!-- 移动端顶部标题栏 -->
+        <header class="mobile-top-bar" id="mobileTopBar">
+            <button class="sidebar-toggle-btn" id="menuToggle" onclick="handleMobileMenuToggle(event)" title="打开菜单" aria-label="打开菜单">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+            <div class="mobile-top-title" id="mobileTopTitle">
+                <div class="mobile-title-slot">
+                    <span class="mobile-title-text mobile-title-main">
+                        <i class="bi bi-boxes"></i>
+                        <span>DMS 设备管理系统</span>
+                    </span>
+                    <span class="mobile-title-text mobile-title-ann">系统公告</span>
+                </div>
+            </div>
+            <div class="mobile-top-actions">
+                <button class="mobile-bell-btn" id="mobileBellBtn" onclick="toggleAnnDropdown()" title="公告" aria-label="公告">
+                    <i class="bi bi-bell"></i>
+                    <span class="mobile-bell-badge" id="mobileBellBadge">0</span>
+                </button>
+                <button class="mobile-avatar-btn" title="用户" aria-label="用户">
+                    <i class="bi bi-person-circle"></i>
+                </button>
+            </div>
+        </header>
+
         <!-- 公告栏（内联下拉方案） -->
         <div class="ann-bar-wrap" id="annBarWrap">
             <div class="ann-bar" id="annBar" onclick="toggleAnnDropdown()">
@@ -126,29 +159,19 @@
         <!-- Header -->
         <header class="content-header">
             <div class="header-row">
-                <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="打开菜单">
-                    <i class="bi bi-list"></i>
-                </button>
-
                 <div class="search-container">
                     <div class="search-input-wrapper">
                         <i class="bi bi-search"></i>
                         <input type="text" id="searchInput" placeholder="搜索设备名称、型号、备注...">
                     </div>
                     <button class="search-filter-btn" id="searchFilterBtn" title="排序" onclick="toggleSort(event)">
-                        <i class="bi bi-sliders"></i>
+                        <i class="bi bi-funnel"></i>
                     </button>
                 </div>
 
                 <div class="toolbar">
                     <button class="toolbar-btn" id="sortBtn" title="排序" onclick="toggleSort(event)">
                         <i class="bi bi-sort-down"></i> 排序
-                    </button>
-                    <button class="toolbar-btn" id="importBtn" title="导入" onclick="openImportModal()">
-                        <i class="bi bi-upload"></i> 导入
-                    </button>
-                    <button class="toolbar-btn" id="exportBtn" title="导出" onclick="exportDevices()">
-                        <i class="bi bi-download"></i> 导出
                     </button>
                     <button class="toolbar-btn toolbar-btn-outline" id="btnBackfillCodes" onclick="backfillDeviceCodes()" style="display:none;" title="为旧设备补全设备ID码">
                         <i class="bi bi-qr-code-scan"></i> 补全ID
@@ -229,6 +252,37 @@
         </div>
     </main>
 </div>
+
+<!-- ==================== FAB 浮动操作按钮 ==================== -->
+<div class="fab-container" id="fabContainer">
+    <div class="fab-menu-stage">
+        <div class="fab-menu" id="fabMenu">
+            <button class="fab-menu-item" onclick="openDeviceModal(null);closeFabMenu();">
+                <span class="fab-menu-icon"><i class="bi bi-plus-lg"></i></span>
+                <span class="fab-menu-label">添加设备</span>
+            </button>
+            <button class="fab-menu-item" onclick="openImportModal();closeFabMenu();">
+                <span class="fab-menu-icon"><i class="bi bi-upload"></i></span>
+                <span class="fab-menu-label">导入</span>
+            </button>
+            <button class="fab-menu-item" onclick="exportDevices();closeFabMenu();">
+                <span class="fab-menu-icon"><i class="bi bi-download"></i></span>
+                <span class="fab-menu-label">导出</span>
+            </button>
+            <button class="fab-menu-item" onclick="showFabSortMenu()">
+                <span class="fab-menu-icon"><i class="bi bi-sort-down"></i></span>
+                <span class="fab-menu-label">排序</span>
+            </button>
+        </div>
+        <div class="fab-menu fab-sort-menu" id="fabSortMenu"></div>
+    </div>
+    <button class="fab-btn" id="fabBtn" onclick="toggleFabMenu()" title="操作" aria-label="操作菜单">
+        <span class="fab-icon"><i class="bi bi-plus-lg"></i></span>
+    </button>
+</div>
+
+<!-- FAB 遮罩 -->
+<div class="fab-overlay" id="fabOverlay" onclick="closeFabMenu()"></div>
 
 <!-- ============================================================
      MODALS
@@ -485,7 +539,7 @@
 <!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script src="js/app.js?v=37"></script>
+<script src="js/app.js?v=53"></script>
 
 </body>
 </html>
