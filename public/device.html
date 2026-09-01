@@ -611,8 +611,7 @@
         <input type="file" id="attachmentFileInput" style="display:none;" onchange="handleAttachmentUpload(this)">
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS 已移除：本页未使用任何 Bootstrap JS 组件，移除以避免离线/被墙时阻塞加载 -->
 
     <!-- ================================================================
          APPLICATION LOGIC (fully self-contained for detail page)
@@ -657,6 +656,58 @@
             return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
         }
 
+        // 富文本 HTML 白名单消毒：只放行编辑器支持的标签与安全属性，杜绝事件属性/脚本注入
+        function sanitizeRichTextHtml(html) {
+            if (!html) return '';
+            const tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            const ALLOWED = new Set(['B','I','U','S','BR','DIV','P','FONT','SPAN','IMG','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH']);
+            const REMOVE_ENTIRELY = new Set(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','INPUT','BUTTON','TEXTAREA','SELECT','VIDEO','AUDIO','SVG','MATH','FRAME','FRAMESET']);
+            const cleanColor = v => (/^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]{1,20}$/.test(v) ? v : null);
+            const cleanNode = (el) => {
+                Array.from(el.children).forEach(cleanNode);
+                const tag = el.tagName;
+                if (REMOVE_ENTIRELY.has(tag)) { el.remove(); return; }
+                if (!ALLOWED.has(tag)) { el.replaceWith(...el.childNodes); return; }
+                Array.from(el.attributes).forEach(attr => {
+                    if (attr.name.toLowerCase().startsWith('on') || attr.name.toLowerCase() === 'srcdoc' || attr.name.toLowerCase() === 'formaction') {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+                if (tag === 'IMG') {
+                    const src = el.getAttribute('src') || '';
+                    if (!/^(\/api\/images\/|https?:\/\/)/.test(src)) { el.remove(); return; }
+                    const cls = (el.getAttribute('class') || '').trim();
+                    Array.from(el.attributes).forEach(a => { if (a.name !== 'src') el.removeAttribute(a.name); });
+                    if (/^img-size-(small|medium|large)$/.test(cls)) el.setAttribute('class', cls);
+                    else el.setAttribute('class', 'img-size-large');
+                } else if (tag === 'FONT') {
+                    Array.from(el.attributes).forEach(a => { if (a.name !== 'color' && a.name !== 'size') el.removeAttribute(a.name); });
+                    const c = el.getAttribute('color'); if (c !== null && !cleanColor(c)) el.removeAttribute('color');
+                    const s = el.getAttribute('size'); if (s !== null && !/^[1-7]$/.test(s)) el.removeAttribute('size');
+                } else if (tag === 'SPAN') {
+                    const style = el.getAttribute('style') || '';
+                    const m = style.match(/background-color\s*:\s*([^;]+)/i);
+                    el.removeAttribute('style');
+                    if (m) { const c = cleanColor(m[1].trim()); if (c) el.setAttribute('style', `background-color:${c};`); }
+                } else if (tag === 'DIV' || tag === 'P') {
+                    const style = el.getAttribute('style') || '';
+                    const m = style.match(/text-align\s*:\s*(left|center|right|justify)/i);
+                    el.removeAttribute('style');
+                    el.removeAttribute('align');
+                    if (m) el.setAttribute('style', `text-align:${m[1]};`);
+                } else if (tag === 'UL' || tag === 'OL') {
+                    Array.from(el.attributes).forEach(a => { if (a.name !== 'type' && a.name !== 'start') el.removeAttribute(a.name); });
+                } else if (tag === 'TABLE') {
+                    Array.from(el.attributes).forEach(a => { if (a.name !== 'border' && a.name !== 'cellpadding' && a.name !== 'cellspacing') el.removeAttribute(a.name); });
+                } else if (tag === 'TD' || tag === 'TH') {
+                    Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
+                }
+            };
+            cleanNode(tpl.content);
+            return tpl.innerHTML;
+        }
+
         function decodeRichText(text) {
             if (!text) return '';
             let html = text.replace(/\n/g, '<br>');
@@ -668,9 +719,11 @@
             html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
             html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
             html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
-            html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
+            // 白名单消毒：事件属性、非白名单标签（script 等）、非本站图片一律清除
+            html = sanitizeRichTextHtml(html);
+            // 为图片补充加载失败提示（此 onerror 为本代码注入的可信内容，在消毒之后追加）
             html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-                return `<img${attrs} onerror="this.style.display='none'; this.insertAdjacentHTML('afterend','<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>');">`;
+                return `<img${attrs} onerror="this.style.display=\'none\'; this.insertAdjacentHTML(\'afterend\',\'<span style=color:#dc3545;font-size:12px;>[图片加载失败]</span>\');">`;
             });
             return html;
         }
@@ -751,9 +804,12 @@
                     </div>
                 </div>`;
             container.innerHTML = html;
-            container.addEventListener('dblclick', function(e) {
-                if (e.target.tagName === 'IMG') { e.preventDefault(); showImageFullscreen(e.target.src); }
-            });
+            if (!container._dblclickInited) { // 只绑定一次，避免反复渲染累积监听器
+                container._dblclickInited = true;
+                container.addEventListener('dblclick', function(e) {
+                    if (e.target.tagName === 'IMG') { e.preventDefault(); showImageFullscreen(e.target.src); }
+                });
+            }
             if (device.device_id) loadDeviceAttachments(device.device_id);
         }
 
@@ -793,9 +849,9 @@
             try {
                 const res = await fetch(`${API_BASE}/warehouses`);
                 const warehouses = await res.json();
-                warehouseOptions += warehouses.map(w => `<option value="${w.name}" ${w.name === device.warehouse_name ? 'selected' : ''}>${w.name}</option>`).join('');
+                warehouseOptions += warehouses.map(w => `<option value="${escapeAttr(w.name)}" ${w.name === device.warehouse_name ? 'selected' : ''}>${escapeHtml(w.name)}</option>`).join('');
             } catch (e) {
-                warehouseOptions += device.warehouse_name ? `<option value="${device.warehouse_name}" selected>${device.warehouse_name}</option>` : '';
+                warehouseOptions += device.warehouse_name ? `<option value="${escapeAttr(device.warehouse_name)}" selected>${escapeHtml(device.warehouse_name)}</option>` : '';
             }
             let tagStr = '';
             if (device.tag_names) {
@@ -806,22 +862,22 @@
             const isCheckedOut = device.location_status === 'checked_out';
             const header = card.querySelector('.dp-card-header h4');
             if (header) {
-                header.innerHTML = `<input type="text" id="editDeviceName" value="${escapeHtml(device.name || '')}" placeholder="设备名称">`;
+                header.innerHTML = `<input type="text" id="editDeviceName" value="${escapeAttr(device.name || '')}" placeholder="设备名称">`;
             }
             const body = card.querySelector('.dp-card-body');
             body.innerHTML = `
-                <div class="dp-edit-field"><div class="dp-edit-label">设备ID</div><div class="dp-field-value"><span class="dp-id-badge">${device.device_id || '-'}</span><small style="color:var(--text-muted);margin-left:8px;">（不可修改）</small></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">设备ID</div><div class="dp-field-value"><span class="dp-id-badge">${escapeHtml(device.device_id || '-')}</span><small style="color:var(--text-muted);margin-left:8px;">（不可修改）</small></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">所属仓库</div><div class="dp-field-value"><select id="editWarehouse" class="dp-edit-select">${warehouseOptions}</select></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">设备标签</div><div class="dp-field-value"><input type="text" id="editTags" class="dp-edit-input" value="${escapeHtml(tagStr)}" placeholder="多个标签用逗号分隔"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">设备数量</div><div class="dp-field-value"><input type="number" id="editQuantity" class="dp-edit-input" value="${device.quantity || 1}" min="1"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">所属路径</div><div class="dp-field-value"><input type="text" id="editDepartmentPath" class="dp-edit-input" value="${escapeHtml(device.department_path || '')}" placeholder="公司或部门"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">规格型号</div><div class="dp-field-value"><input type="text" id="editSpecModel" class="dp-edit-input" value="${escapeHtml(device.spec_model || '')}" placeholder="例如：联想 E14"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">来源</div><div class="dp-field-value"><input type="text" id="editSource" class="dp-edit-input" value="${escapeHtml(device.source || '')}" placeholder="例如：淘宝采购"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">序列号</div><div class="dp-field-value"><input type="text" id="editSerialNumber" class="dp-edit-input" value="${escapeHtml(device.serial_number || '')}" placeholder="设备序列号"></div></div>
-                <div class="dp-edit-field"><div class="dp-edit-label">负责人</div><div class="dp-field-value"><input type="text" id="editResponsiblePerson" class="dp-edit-input" value="${escapeHtml(device.responsible_person || '')}"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">设备标签</div><div class="dp-field-value"><input type="text" id="editTags" class="dp-edit-input" value="${escapeAttr(tagStr)}" placeholder="多个标签用逗号分隔"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">设备数量</div><div class="dp-field-value"><input type="number" id="editQuantity" class="dp-edit-input" value="${Number(device.quantity) || 1}" min="1"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">所属路径</div><div class="dp-field-value"><input type="text" id="editDepartmentPath" class="dp-edit-input" value="${escapeAttr(device.department_path || '')}" placeholder="公司或部门"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">规格型号</div><div class="dp-field-value"><input type="text" id="editSpecModel" class="dp-edit-input" value="${escapeAttr(device.spec_model || '')}" placeholder="例如：联想 E14"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">来源</div><div class="dp-field-value"><input type="text" id="editSource" class="dp-edit-input" value="${escapeAttr(device.source || '')}" placeholder="例如：淘宝采购"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">序列号</div><div class="dp-field-value"><input type="text" id="editSerialNumber" class="dp-edit-input" value="${escapeAttr(device.serial_number || '')}" placeholder="设备序列号"></div></div>
+                <div class="dp-edit-field"><div class="dp-edit-label">负责人</div><div class="dp-field-value"><input type="text" id="editResponsiblePerson" class="dp-edit-input" value="${escapeAttr(device.responsible_person || '')}"></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">设备状态</div><div class="dp-field-value"><select id="editStatus" class="dp-edit-select"><option value="正常" ${device.status==='正常'?'selected':''}>正常</option><option value="异常" ${device.status==='异常'?'selected':''}>异常</option><option value="维修中" ${device.status==='维修中'?'selected':''}>维修中</option></select></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">存放位置</div><div class="dp-field-value"><select id="editLocationStatus" class="dp-edit-select" onchange="toggleDestination()"><option value="in_stock" ${device.location_status==='in_stock'?'selected':''}>库存</option><option value="checked_out" ${device.location_status==='checked_out'?'selected':''}>已出库</option></select></div></div>
-                <div class="dp-edit-field" id="editDestinationRow" style="${isCheckedOut?'':'display:none;'}"><div class="dp-edit-label">去向</div><div class="dp-field-value"><input type="text" id="editDestination" class="dp-edit-input" value="${escapeHtml(device.destination || '')}" placeholder="出库去向"></div></div>
+                <div class="dp-edit-field" id="editDestinationRow" style="${isCheckedOut?'':'display:none;'}"><div class="dp-edit-label">去向</div><div class="dp-field-value"><input type="text" id="editDestination" class="dp-edit-input" value="${escapeAttr(device.destination || '')}" placeholder="出库去向"></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">入库时间</div><div class="dp-field-value"><input type="date" id="editCheckinTime" class="dp-edit-input" value="${device.checkin_time ? formatDateForInput(device.checkin_time) : ''}"></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">到期日期</div><div class="dp-field-value"><input type="date" id="editExpiryDate" class="dp-edit-input" value="${device.expiry_date ? formatDateForInput(device.expiry_date) : ''}"></div></div>
                 <div class="dp-edit-field"><div class="dp-edit-label">创建时间</div><div class="dp-field-value"><span style="color:var(--text-muted);font-size:var(--text-sm);">${device.created_at ? formatDateTime(device.created_at) : '-'}</span></div></div>
@@ -836,7 +892,7 @@
                 <div class="dp-edit-field" style="align-items:start;">
                     <div class="dp-edit-label">备注</div>
                     <div class="dp-field-value">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="openRichTextEditorForDevice('${device.device_id}', '${escapeOnClick(device.name)}')" style="margin-bottom:8px;"><i class="bi bi-pencil-square"></i> 富文本编辑</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openRichTextEditorForDevice('${escapeAttr(device.device_id)}', '${escapeOnClick(device.name)}')" style="margin-bottom:8px;"><i class="bi bi-pencil-square"></i> 编辑备注</button>
                         <textarea id="editRemark" class="dp-edit-textarea" rows="4">${escapeHtml(device.remark || '')}</textarea>
                     </div>
                 </div>`;
@@ -899,7 +955,8 @@
             } catch (e) { alert('保存失败: ' + e.message); }
         }
 
-        function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+        function escapeHtml(str) { return String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
+        function escapeAttr(str) { return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
         function escapeOnClick(str) { return String(str || '').replace(/\\/g,'\\\\').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,"\\'"); }
 
         function openRichTextEditorForDevice(deviceIdCode, deviceName) {

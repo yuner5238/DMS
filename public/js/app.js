@@ -51,6 +51,7 @@ let columnVisibility = (() => {
     const defaults = {};
     COLUMN_DEFS.forEach(c => defaults[c.key] = c.defaultVisible !== false);
     localStorage.setItem('dms_column_version', COLUMN_VERSION);
+    localStorage.setItem('dms_column_visibility', JSON.stringify(defaults)); // 版本重置时立即落盘，避免旧配置在第二个会话复活
     return defaults;
 })();
 
@@ -83,6 +84,7 @@ let columnOrder = (() => {
         }
     } catch (e) {}
     localStorage.setItem('dms_column_order_version', COLUMN_VERSION);
+    localStorage.setItem('dms_column_order', JSON.stringify([...ORDERABLE_KEYS])); // 同上：立即落盘默认顺序
     return [...ORDERABLE_KEYS];
 })();
 
@@ -249,7 +251,8 @@ const DRAG_SELECT_THRESHOLD = 5;
 
 function initDragSelect() {
     const tbody = document.getElementById('deviceTableBody');
-    if (!tbody) return;
+    if (!tbody || tbody._dragSelectInited) return; // 防止重渲染后重复挂载监听器（重复挂载会导致点选两次互相抵消）
+    tbody._dragSelectInited = true;
 
     tbody.addEventListener('pointerdown', (e) => {
         if (!batchSelectMode) return;
@@ -416,7 +419,7 @@ async function executeBatchDelete() {
 }
 
 // ===== 工具函数 =====
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
 function escapeAttr(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
 function escapeOnClick(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'"); }
 
@@ -426,6 +429,9 @@ function formatDate(s) {
     if (isNaN(d.getTime())) return s;
     return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
+
+// 临期统一口径：30 天内到期（含已过期），tab/统计/侧边栏列表共用
+const EXPIRING_WINDOW_DAYS = 30;
 
 // 计算到期剩余天数，无法解析返回 null
 function getExpiryRemainingDays(dateStr) {
@@ -629,6 +635,59 @@ function encodeRichText(html) {
     return text.trim();
 }
 
+// 富文本 HTML 白名单消毒：只放行编辑器支持的标签与安全属性，杜绝事件属性/脚本注入
+function sanitizeRichTextHtml(html) {
+    if (!html) return '';
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const ALLOWED = new Set(['B','I','U','S','BR','DIV','P','FONT','SPAN','IMG','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH']);
+    const REMOVE_ENTIRELY = new Set(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','INPUT','BUTTON','TEXTAREA','SELECT','VIDEO','AUDIO','SVG','MATH','FRAME','FRAMESET']);
+    const cleanColor = v => (/^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]{1,20}$/.test(v) ? v : null);
+    const cleanNode = (el) => {
+        Array.from(el.children).forEach(cleanNode);
+        const tag = el.tagName;
+        if (REMOVE_ENTIRELY.has(tag)) { el.remove(); return; }
+        if (!ALLOWED.has(tag)) { el.replaceWith(...el.childNodes); return; }
+        // 删除所有事件属性
+        Array.from(el.attributes).forEach(attr => {
+            if (attr.name.toLowerCase().startsWith('on') || attr.name.toLowerCase() === 'srcdoc' || attr.name.toLowerCase() === 'formaction') {
+                el.removeAttribute(attr.name);
+            }
+        });
+        if (tag === 'IMG') {
+            const src = el.getAttribute('src') || '';
+            if (!/^(\/api\/images\/|https?:\/\/)/.test(src)) { el.remove(); return; }
+            const cls = (el.getAttribute('class') || '').trim();
+            Array.from(el.attributes).forEach(a => { if (a.name !== 'src') el.removeAttribute(a.name); });
+            if (/^img-size-(small|medium|large)$/.test(cls)) el.setAttribute('class', cls);
+            else el.setAttribute('class', 'img-size-large');
+        } else if (tag === 'FONT') {
+            Array.from(el.attributes).forEach(a => { if (a.name !== 'color' && a.name !== 'size') el.removeAttribute(a.name); });
+            const c = el.getAttribute('color'); if (c !== null && !cleanColor(c)) el.removeAttribute('color');
+            const s = el.getAttribute('size'); if (s !== null && !/^[1-7]$/.test(s)) el.removeAttribute('size');
+        } else if (tag === 'SPAN') {
+            const style = el.getAttribute('style') || '';
+            const m = style.match(/background-color\s*:\s*([^;]+)/i);
+            el.removeAttribute('style');
+            if (m) { const c = cleanColor(m[1].trim()); if (c) el.setAttribute('style', `background-color:${c};`); }
+        } else if (tag === 'DIV' || tag === 'P') {
+            const style = el.getAttribute('style') || '';
+            const m = style.match(/text-align\s*:\s*(left|center|right|justify)/i);
+            el.removeAttribute('style');
+            el.removeAttribute('align');
+            if (m) el.setAttribute('style', `text-align:${m[1]};`);
+        } else if (tag === 'UL' || tag === 'OL') {
+            Array.from(el.attributes).forEach(a => { if (a.name !== 'type' && a.name !== 'start') el.removeAttribute(a.name); });
+        } else if (tag === 'TABLE') {
+            Array.from(el.attributes).forEach(a => { if (a.name !== 'border' && a.name !== 'cellpadding' && a.name !== 'cellspacing') el.removeAttribute(a.name); });
+        } else if (tag === 'TD' || tag === 'TH') {
+            Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
+        }
+    };
+    cleanNode(tpl.content);
+    return tpl.innerHTML;
+}
+
 function decodeRichText(text) {
     if (!text) return '';
     // 先还原 literal \\n（如果有的话），再按实际换行分割段落
@@ -652,15 +711,11 @@ function decodeRichText(text) {
         return processed ? '<div>' + processed + '</div>' : '<div><br></div>';
     }).join('');
     html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
-    html = html.replace(/\s*onerror\s*=\s*(?:"[^"]*"|'[^']*'|\S+)/gi, '');
+    // 白名单消毒：事件属性、非白名单标签（script 等）、非本站图片一律清除
+    html = sanitizeRichTextHtml(html);
+    // 为图片补充加载失败提示（此 onerror 为本代码注入的可信内容，在消毒之后追加）
     html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-        let newAttrs = attrs + ' onerror="this.style.display=\'none\'; this.insertAdjacentHTML(\'afterend\',\'<span style=color:var(--danger);font-size:12px;>[图片加载失败]</span>\');"';
-        if (!attrs.includes('img-size-')) {
-            if (newAttrs.includes('class="')) newAttrs = newAttrs.replace('class="', 'class="img-size-large ');
-            else if (newAttrs.includes("class='")) newAttrs = newAttrs.replace("class='", "class='img-size-large ");
-            else newAttrs += ' class="img-size-large"';
-        }
-        return '<img' + newAttrs + '>';
+        return `<img${attrs} onerror="this.style.display=\'none\'; this.insertAdjacentHTML(\'afterend\',\'<span style=color:var(--danger);font-size:12px;>[图片加载失败]</span>\');">`;
     });
     return html;
 }
@@ -677,7 +732,7 @@ function decodeRichTextToSingleLine(text) {
     html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
     html = html.replace(/\[图片:[^\]]+\]/g, '').replace(/<img[^>]*>/gi, '');
     html = html.replace(/\s+/g, ' ').trim();
-    return html;
+    return sanitizeRichTextHtml(html);
 }
 
 // ----- 编辑命令 -----
@@ -1186,19 +1241,19 @@ function renderImageGrid(images) {
     container.innerHTML = `<div class="image-grid">
         ${images.map(img => {
             const isUsed = usedFilenames.has(img.filename);
-            return `<div class="image-grid-item ${isUsed ? 'img-used' : ''}" data-filename="${escapeHtml(img.filename)}"
-                 title="${isUsed ? '已在备注中使用' : '未使用'}" onclick="toggleImageSelection('${escapeHtml(img.filename)}')">
-                <img src="${img.url}" alt="${escapeHtml(img.filename)}" loading="lazy"
+            return `<div class="image-grid-item ${isUsed ? 'img-used' : ''}" data-filename="${escapeAttr(img.filename)}"
+                 title="${isUsed ? '已在备注中使用' : '未使用'}" onclick="toggleImageSelection('${escapeOnClick(img.filename)}')">
+                <img src="${escapeAttr(img.url)}" alt="${escapeAttr(img.filename)}" loading="lazy"
                      onerror="this.parentElement.style.display='none'">
                 <button class="delete-btn" title="删除此图片"
-                        onclick="event.stopPropagation();deleteSingleImage('${escapeHtml(img.filename)}')">
+                        onclick="event.stopPropagation();deleteSingleImage('${escapeOnClick(img.filename)}')">
                     <i class="bi bi-x"></i>
                 </button>
                 <div class="select-check"><i class="bi bi-check-lg"></i></div>
                 <span class="usage-badge">${isUsed ? '已用' : '未用'}</span>
                 <div class="file-info">
-                    <span class="file-name">${truncateFilename(img.filename, 18)}</span>
-                    <span class="file-size">${formatFileSize(img.size)}</span>
+                    <span class="file-name">${escapeHtml(truncateFilename(img.filename, 18))}</span>
+                    <span class="file-size">${escapeHtml(formatFileSize(img.size))}</span>
                 </div>
             </div>`;
         }).join('')}
@@ -1364,7 +1419,9 @@ async function loadWarehouses() {
     }
 }
 
+let _loadDevicesSeq = 0; // 请求序号：快速切换仓库时丢弃过期响应
 async function loadDevices() {
+    const seq = ++_loadDevicesSeq;
     try {
         let url = API_BASE + '/devices';
         // "未指定"仓库：加载全部设备，后续客户端过滤
@@ -1373,6 +1430,7 @@ async function loadDevices() {
         }
         const r = await fetch(url);
         const data = await r.json();
+        if (seq !== _loadDevicesSeq) return; // 已有更新的请求，丢弃本次结果
         allDevices = Array.isArray(data) ? data : [];
         // 加载全部设备或"未指定"时，从前端数据重新计算各仓库在库数量
         if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
@@ -1385,7 +1443,16 @@ async function loadDevices() {
         updateStats();
         loadExpiringDevices();
         loadTagStats();
-    } catch(e) { console.error('加载设备失败:', e); allDevices = []; renderDevices(); }
+    } catch(e) {
+        console.error('加载设备失败:', e);
+        if (seq !== _loadDevicesSeq) return;
+        allDevices = [];
+        renderDevices();
+        updateStats();
+        loadExpiringDevices();
+        loadTagStats();
+        showToast('设备加载失败，请检查网络后重试', 'error');
+    }
 }
 
 function updateWarehouseCounts() {
@@ -1401,51 +1468,32 @@ function updateWarehouseCounts() {
 
 let expiringDevicesAll = [];
 let expiringShowAll = false;
-async function loadExpiringDevices() {
-    try {
-        const r = await fetch(API_BASE + '/devices/expiring');
-        const data = await r.json();
-        let list = Array.isArray(data) ? data : [];
-        // 未指定仓库时，仅显示未分配仓库的临期设备
-        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
-            list = list.filter(d => !d.warehouse_name);
-        }
-        expiringDevicesAll = list;
-        if (!expiringShowAll) {
-            renderExpiringList(expiringDevicesAll.slice(0, 5));
-        } else {
-            renderExpiringList(expiringDevicesAll);
-        }
-    } catch(e) { console.error('加载临期失败:', e); }
+// 临期列表改为基于内存 allDevices 前端计算：自动跟随当前仓库筛选，与服务端 7 天口径解耦
+function loadExpiringDevices() {
+    const list = allDevices
+        .filter(d => { const r = getExpiryRemainingDays(d.expiry_date); return r !== null && r <= EXPIRING_WINDOW_DAYS; })
+        .map(d => Object.assign({}, d, { remaining_days: getExpiryRemainingDays(d.expiry_date) }))
+        .sort((a, b) => a.remaining_days - b.remaining_days);
+    expiringDevicesAll = list;
+    renderExpiringList(expiringShowAll ? expiringDevicesAll : expiringDevicesAll.slice(0, 5));
 }
 
-async function loadTagStats() {
-    try {
-        let url = API_BASE + '/devices';
-        if (currentWarehouse && currentWarehouse.id !== '__unassigned__') {
-            url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+// 标签统计直接基于内存 allDevices 计算（loadDevices 已按仓库拉取并过滤），避免每次刷新重复全量请求
+function loadTagStats() {
+    const map = {};
+    allDevices.forEach(d => {
+        let tags = [];
+        const field = d.tag_names || d.tag_name || '';
+        if (field) {
+            try { tags = JSON.parse(field); } catch(e) { tags = field.split(',').map(t=>t.trim()).filter(Boolean); }
         }
-        const r = await fetch(url);
-        const devices = await r.json();
-        let all = Array.isArray(devices) ? devices : [];
-        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
-            all = all.filter(d => !d.warehouse_name);
-        }
-        const map = {};
-        all.forEach(d => {
-            let tags = [];
-            const field = d.tag_names || d.tag_name || '';
-            if (field) {
-                try { tags = JSON.parse(field); } catch(e) { tags = field.split(',').map(t=>t.trim()).filter(Boolean); }
-            }
-            tags.forEach(t => {
-                const n = t.trim();
-                if (n) { if (!map[n]) map[n] = 0; map[n] += d.quantity || 1; }
-            });
+        tags.forEach(t => {
+            const n = t.trim();
+            if (n) { if (!map[n]) map[n] = 0; map[n] += d.quantity || 1; }
         });
-        const stats = Object.entries(map).map(([name, total]) => ({ name, total })).sort((a,b)=>a.name.localeCompare(b.name));
-        renderTagList(stats);
-    } catch(e) { console.error('加载标签失败:', e); }
+    });
+    const stats = Object.entries(map).map(([name, total]) => ({ name, total })).sort((a,b)=>a.name.localeCompare(b.name));
+    renderTagList(stats);
 }
 
 async function loadAnnouncements() {
@@ -1596,9 +1644,7 @@ function updateStats() {
     const total = allDevices.length;
     const inStock = allDevices.filter(d => d.location_status !== 'checked_out').length;
     const checkedOut = allDevices.filter(d => d.location_status === 'checked_out').length;
-    const now = new Date();
-    const sevenDays = new Date(now.getTime() + 7*86400000);
-    const expiring = allDevices.filter(d => d.expiry_date && new Date(d.expiry_date) >= now && new Date(d.expiry_date) <= sevenDays).length;
+    const expiring = allDevices.filter(d => { const r = getExpiryRemainingDays(d.expiry_date); return r !== null && r <= EXPIRING_WINDOW_DAYS; }).length;
     document.getElementById('totalCount').textContent = total;
     document.getElementById('inStockCount').textContent = inStock;
     document.getElementById('checkedOutCount').textContent = checkedOut;
@@ -1618,9 +1664,7 @@ function getFilteredDevices() {
     if (currentTab === 'in') devices = devices.filter(d => d.location_status !== 'checked_out');
     if (currentTab === 'out') devices = devices.filter(d => d.location_status === 'checked_out');
     if (currentTab === 'expiring') {
-        const now = new Date();
-        const thirty = new Date(now.getTime()+30*86400000);
-        devices = devices.filter(d => d.expiry_date && new Date(d.expiry_date) <= thirty);
+        devices = devices.filter(d => { const r = getExpiryRemainingDays(d.expiry_date); return r !== null && r <= EXPIRING_WINDOW_DAYS; });
     }
     const q = document.getElementById('searchInput')?.value.trim().toLowerCase();
     if (q) {
@@ -1683,17 +1727,17 @@ function renderTable(devices) {
         // 按 key 构建单元格映射
         const cellMap = {
             deviceId:     `<td data-col="device-id" data-label="设备ID">${d.device_id ? `<span class="device-id-badge${noWarehouse ? ' device-id-badge-no-warehouse' : ''}" title="${noWarehouse ? '未指定仓库' : ''}" onclick="event.stopPropagation()">${escapeHtml(d.device_id)}</span>` : '<span class="text-muted">-</span>'}</td>`,
-            name:         `<td data-col="name" data-label="名称" class="device-name-cell"${d.name ? ` title="${escapeAttr(d.name)}"` : ''}><strong>${d.name}</strong></td>`,
-            warehouse:    `<td data-col="warehouse" data-label="所属仓库">${d.warehouse_name || '<span style="color:var(--danger);font-weight:600;">未指定</span>'}</td>`,
-            serialNumber: `<td data-col="serial-number" data-label="序列号"${d.serial_number ? ` title="${escapeAttr(d.serial_number)}"` : ''}>${d.serial_number || '<span class="text-muted">-</span>'}</td>`,
-            specModel:    `<td data-col="spec-model" data-label="规格型号"${d.spec_model ? ` title="${escapeAttr(d.spec_model)}"` : ''}>${d.spec_model || '<span class="text-muted">-</span>'}</td>`,
-            source:       `<td data-col="source" data-label="来源"${d.source ? ` title="${escapeAttr(d.source)}"` : ''}>${d.source || '<span class="text-muted">-</span>'}</td>`,
-            quantity:     `<td data-col="quantity" data-label="数量">${d.quantity || 1}</td>`,
+            name:         `<td data-col="name" data-label="名称" class="device-name-cell"${d.name ? ` title="${escapeAttr(d.name)}"` : ''}><strong>${escapeHtml(d.name)}</strong></td>`,
+            warehouse:    `<td data-col="warehouse" data-label="所属仓库">${d.warehouse_name ? escapeHtml(d.warehouse_name) : '<span style="color:var(--danger);font-weight:600;">未指定</span>'}</td>`,
+            serialNumber: `<td data-col="serial-number" data-label="序列号"${d.serial_number ? ` title="${escapeAttr(d.serial_number)}"` : ''}>${d.serial_number ? escapeHtml(d.serial_number) : '<span class="text-muted">-</span>'}</td>`,
+            specModel:    `<td data-col="spec-model" data-label="规格型号"${d.spec_model ? ` title="${escapeAttr(d.spec_model)}"` : ''}>${d.spec_model ? escapeHtml(d.spec_model) : '<span class="text-muted">-</span>'}</td>`,
+            source:       `<td data-col="source" data-label="来源"${d.source ? ` title="${escapeAttr(d.source)}"` : ''}>${d.source ? escapeHtml(d.source) : '<span class="text-muted">-</span>'}</td>`,
+            quantity:     `<td data-col="quantity" data-label="数量">${Number(d.quantity) || 1}</td>`,
             tags:         `<td data-col="tags" data-label="标签">${renderTagBadges(d, window.innerWidth < 1500 ? 1 : 2)}</td>`,
-            department:   `<td data-col="department" data-label="部门">${d.department_path || '<span class="text-muted">-</span>'}</td>`,
-            responsible:  `<td data-col="responsible" data-label="负责人">${d.responsible_person || '<span class="text-muted">-</span>'}</td>`,
+            department:   `<td data-col="department" data-label="部门">${d.department_path ? escapeHtml(d.department_path) : '<span class="text-muted">-</span>'}</td>`,
+            responsible:  `<td data-col="responsible" data-label="负责人">${d.responsible_person ? escapeHtml(d.responsible_person) : '<span class="text-muted">-</span>'}</td>`,
             location:     `<td data-col="location" data-label="位置/去向"${(isOut ? d.destination : d.storage_location) ? ` title="${escapeAttr(isOut ? d.destination : d.storage_location)}"` : ''}>${escapeHtml(isOut ? (d.destination || '已出库') : (d.storage_location || '在库'))}</td>`,
-            status:       `<td data-col="status" data-label="状态"><span class="status-badge ${statusClass[d.status] || ''}">${d.status || '-'}</span></td>`,
+            status:       `<td data-col="status" data-label="状态"><span class="status-badge ${statusClass[d.status] || ''}">${escapeHtml(d.status || '-')}</span></td>`,
             expiry:       `<td data-col="expiry" data-label="到期日">${formatExpiryBadge(d.expiry_date)}</td>`,
             checkin:      `<td data-col="checkin" data-label="入库时间">${d.checkin_time ? formatDate(d.checkin_time) : '<span class="text-muted">-</span>'}</td>`,
             remark:       `<td data-col="remark" data-label="备注">${d.remark
@@ -1806,7 +1850,7 @@ function renderWarehouseList() {
             <span style="${countStyle}">${unassignedCount}</span></li>`;
     }
     const displayWarehouses = warehouseShowAll ? warehouses : warehouses.slice(0, 5);
-    html += displayWarehouses.map(w => `<li class="${currentWarehouse && currentWarehouse.id===w.id?'active':''}" onclick="selectWarehouse(${w.id},'${escapeAttr(w.name)}')">
+    html += displayWarehouses.map(w => `<li class="${currentWarehouse && currentWarehouse.id===w.id?'active':''}" onclick="selectWarehouse(${w.id},'${escapeOnClick(w.name)}')">
         <i class="bi bi-bucket-fill warehouse-dot" style="color:#909090;"></i><span>${escapeHtml(w.name)}</span>
         <span style="${countStyle}">${w.device_count || 0}</span></li>`).join('');
     ul.innerHTML = html;
@@ -1826,7 +1870,7 @@ function renderTagList(stats) {
     if (!stats.length) { container.innerHTML = '<span style="font-size:var(--text-2xs);color:var(--text-muted);padding:4px 8px;">暂无标签</span>'; return; }
     container.innerHTML = stats.map(t => {
         const active = currentTagFilter === t.name;
-        return `<span class="tag-item${active?' active':''}" onclick="selectTag('${escapeAttr(t.name)}')">${escapeHtml(t.name)}<span class="tag-count">${t.total}</span></span>`;
+        return `<span class="tag-item${active?' active':''}" onclick="selectTag('${escapeOnClick(t.name)}')">${escapeHtml(t.name)}<span class="tag-count">${t.total}</span></span>`;
     }).join('');
 }
 
@@ -1840,9 +1884,9 @@ function renderExpiringList(list) {
     ul.innerHTML = list.map(d => {
         const days = d.remaining_days;
         const cs = getExpiryColorStyle(days);
-        return `<li onclick="goDeviceDetail('${d.device_id || d.id}')">
+        return `<li onclick="goDeviceDetail('${escapeOnClick(d.device_id || String(d.id))}')">
             <span>${escapeHtml(d.name)}</span>
-            <span class="expiring-badge-sidebar" style="background:${cs.bg};color:${cs.color};">${days}天</span>
+            <span class="expiring-badge-sidebar" style="background:${cs.bg};color:${cs.color};">${days < 0 ? '过期' + (-days) + '天' : days + '天'}</span>
         </li>`;
     }).join('');
     // 更多按钮
@@ -2127,7 +2171,9 @@ async function generateCode() {
     } catch(e) { showToast('生成设备ID失败', 'error'); }
 }
 
+let _submitLock = false; // 防重复提交锁：请求期间阻止再次触发（双击保存/导入等）
 async function saveDevice() {
+    if (_submitLock) return; _submitLock = true;
     const id = document.getElementById('frmDeviceId')?.value;
     const locStatus = document.getElementById('frmLocationStatus')?.value || 'in_stock';
     const dest = locStatus === 'checked_out' ? (document.getElementById('frmDestination')?.value || '') : '';
@@ -2153,7 +2199,7 @@ async function saveDevice() {
         spec_model: document.getElementById('frmSpecModel')?.value || '',
         source: document.getElementById('frmSource')?.value || ''
     };
-    if (!data.name) { showToast('请输入设备名称', 'warning'); return; }
+    if (!data.name) { showToast('请输入设备名称', 'warning'); _submitLock = false; return; }
     try {
         const url = id ? `${API_BASE}/devices/${id}` : `${API_BASE}/devices`;
         const method = id ? 'PUT' : 'POST';
@@ -2164,6 +2210,7 @@ async function saveDevice() {
         loadDevices();
         loadWarehouses();
     } catch(e) { showToast('保存失败: ' + e.message, 'error'); }
+    finally { _submitLock = false; }
 }
 
 function deleteDeviceFromModal() {
@@ -2203,6 +2250,7 @@ function openCheckoutModal(id, name) {
 }
 
 async function confirmCheckout() {
+    if (_submitLock) return; _submitLock = true;
     const dest = document.getElementById('checkoutDest')?.value || '';
     try {
         const r = await fetch(`${API_BASE}/devices/${checkoutDeviceId}`, {
@@ -2214,6 +2262,7 @@ async function confirmCheckout() {
         showToast('设备已出库', 'success');
         loadDevices();
     } catch(e) { showToast('出库失败: ' + e.message, 'error'); }
+    finally { _submitLock = false; }
 }
 
 function openCheckinModal(id, name) {
@@ -2227,6 +2276,7 @@ function openCheckinModal(id, name) {
 }
 
 async function confirmCheckin() {
+    if (_submitLock) return; _submitLock = true;
     try {
         const r = await fetch(`${API_BASE}/devices/${checkinDeviceId}`, {
             method: 'PUT', headers: {'Content-Type':'application/json'},
@@ -2237,6 +2287,7 @@ async function confirmCheckin() {
         showToast('设备已入库', 'success');
         loadDevices();
     } catch(e) { showToast('入库失败: ' + e.message, 'error'); }
+    finally { _submitLock = false; }
 }
 
 function closeCheckoutModal() { closeAllModals(); }
@@ -2253,8 +2304,8 @@ function openWarehouseModal() {
                 ${w.description ? `<div style="font-size:var(--text-xs);color:var(--text-muted);">${escapeHtml(w.description)}</div>` : ''}
             </div>
             <div style="display:flex;gap:4px;">
-                <button class="btn btn-secondary btn-sm" onclick="editWarehouseInline(${w.id},'${escapeAttr(w.name)}','${escapeAttr(w.description||'')}')"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="deleteWarehouse(${w.id},'${escapeAttr(w.name)}')"><i class="bi bi-trash"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="editWarehouseInline(${w.id},'${escapeOnClick(w.name)}','${escapeOnClick(w.description||'')}')"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="deleteWarehouse(${w.id},'${escapeOnClick(w.name)}')"><i class="bi bi-trash"></i></button>
             </div>
         </div>
     `).join('');
@@ -2326,6 +2377,7 @@ async function deleteWarehouse(id, name) {
         showToast('仓库已删除', 'success');
         if (currentWarehouse && currentWarehouse.id === id) selectWarehouse(null);
         loadWarehouses();
+        loadDevices(); // 刷新设备列表，清除被级联删除的"幽灵设备"
         openWarehouseModal();
     } catch(e) { showToast('删除失败: ' + e.message, 'error'); }
 }
@@ -2537,6 +2589,7 @@ function insertJsonExample() {
 
 // 批量粘贴导入
 async function startBatchImport() {
+    if (_submitLock) return;
     const text = document.getElementById('batchPasteText').value.trim();
     if (!text) { showToast('请粘贴设备数据', 'warning'); return; }
 
@@ -2548,6 +2601,8 @@ async function startBatchImport() {
         showToast('JSON 格式错误: ' + e.message + '\n\n请检查括号和引号是否匹配。', 'error');
         return;
     }
+
+    _submitLock = true;
 
     const resultEl = document.getElementById('importBatchResult');
     resultEl.style.display = 'block';
@@ -2568,7 +2623,7 @@ async function startBatchImport() {
         if (result.success > 0) { loadDevices(); loadWarehouses(); }
     } catch (e) {
         resultEl.innerHTML = `<div style="color:var(--danger);font-size:var(--text-sm);">导入失败: ${escapeHtml(e.message)}</div>`;
-    }
+    } finally { _submitLock = false; }
 }
 
 // ===== 排序 =====
@@ -2795,6 +2850,7 @@ async function saveNewAnnouncement() {
     if (!input) return;
     const content = input.value.trim();
     if (!content) { showToast('公告内容不能为空', 'error'); return; }
+    if (_submitLock) return; _submitLock = true;
     try {
         const r = await fetch(`${API_BASE}/announcements`, {
             method: 'POST',
@@ -2811,6 +2867,7 @@ async function saveNewAnnouncement() {
             showToast(data.error || '发布失败', 'error');
         }
     } catch(e) { showToast('发布失败', 'error'); }
+    finally { _submitLock = false; }
 }
 
 // ===== 图片全屏 =====
@@ -2828,29 +2885,39 @@ function showImageFullscreen(src) {
 
 
 // ===== 键盘事件 =====
+// Esc 只关闭最上层弹窗（如在设备表单中打开的备注编辑器，避免误关整个表单丢失数据）
+function closeTopModal() {
+    const visible = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
+    if (!visible.length) return;
+    const top = visible[visible.length - 1];
+    if (top.id === 'remarkPreviewModal') { closeRemarkModal(); return; }
+    top.style.display = 'none';
+}
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeAllModals();
+    if (e.key === 'Escape') closeTopModal();
 });
 
 // ===== 搜索 =====
 document.addEventListener('DOMContentLoaded', async function() {
-    // 搜索实时过滤
+    // 搜索实时过滤（250ms 防抖，避免每敲一个字符全量重建表格）
+    let _searchDebounceTimer = null;
     document.getElementById('searchInput').addEventListener('input', function() {
-        renderDevices();
+        clearTimeout(_searchDebounceTimer);
+        _searchDebounceTimer = setTimeout(renderDevices, 250);
     });
 
-    // 搜索回车
+    // 搜索回车：立即渲染并取消未执行的防抖
     document.getElementById('searchInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') renderDevices();
+        if (e.key === 'Enter') { clearTimeout(_searchDebounceTimer); renderDevices(); }
     });
 
     // 按钮事件绑定
     document.getElementById('addDeviceBtn').addEventListener('click', () => openDeviceModal(null));
     updateSortBtnIcon();
 
-    // 点击模态框外部关闭
+    // 点击模态框外部关闭（只关最上层，保护底层表单数据）
     document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('modal-overlay')) closeAllModals();
+        if (e.target.classList.contains('modal-overlay')) closeTopModal();
     });
 
     // 加载数据
@@ -2900,9 +2967,9 @@ function applyViewByWidth(isInit) {
             switchView('list', true);
         }
     } else {
-        // ≥1366: 表格视图（宽度恢复后始终切回）
+        // ≥1366: 恢复宽度后切回表格视图；仅当当前卡片视图是系统自动切换的（用户手动选的卡片视图不动）
         document.body.classList.remove('is-mobile');
-        if (viewMode === 'list') {
+        if (autoSwitchedToCard && viewMode === 'list') {
             autoSwitchedToCard = false;
             switchView('table', true);
         }
