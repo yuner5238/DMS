@@ -23,8 +23,6 @@ const getConfig = (type) => ({
     ...(type === 'TiDB' ? { ssl: { rejectUnauthorized: false } } : {})
 });
 
-console.log('[DEBUG] DB_ACTIVE:', active);
-console.log('[DEBUG] DB_HOST:', getEnv(`DB_${active}_HOST`, ''));
-console.log('[DEBUG] DB Config:', getConfig(active));
+console.log('[DB] active:', active, '| host:', getEnv(`DB_${active}_HOST`, ''));
 
 module.exports = { active, dbConfig: getConfig(active) };

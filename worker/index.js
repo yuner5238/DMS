@@ -79,10 +79,6 @@ export default {
                 return await importBatchDevices(request, env);
             }
 
-            // ===== 标签统计 API =====
-            if (path === '/api/tag-stats' && method === 'GET') {
-                return await getTagStats(request, env);
-            }
 
             // ===== 临期设备 API =====
             if (path === '/api/devices/expiring' && method === 'GET') {
@@ -535,53 +531,6 @@ async function importBatchDevices(request, env) {
         total: data.length,
         errors: errors.length ? errors : undefined
     });
-}
-
-// ============ 标签统计 ============
-
-async function getTagStats(request, env) {
-    const url = new URL(request.url);
-    const warehouseName = url.searchParams.get('warehouseName');
-
-    let sql = `SELECT tag_names, quantity FROM devices WHERE tag_names IS NOT NULL AND tag_names != ''`;
-    let params = [];
-
-    if (warehouseName) {
-        sql += ' AND warehouse_name=?';
-        params = [warehouseName];
-    }
-
-    const rows = params.length > 0
-        ? await env.DB.prepare(sql).bind(...params).all()
-        : await env.DB.prepare(sql).all();
-
-    // 拆分 JSON 数组格式的标签并聚合
-    const tagCountMap = {};
-    (rows.results || []).forEach(row => {
-        if (row.tag_names) {
-            let tags = [];
-            try {
-                tags = JSON.parse(row.tag_names);
-            } catch (e) {
-                // 兼容旧的逗号分隔格式
-                tags = row.tag_names.split(',').map(t => t.trim()).filter(t => t);
-            }
-            tags.forEach(tag => {
-                const name = tag.trim();
-                if (name) {
-                    if (!tagCountMap[name]) {
-                        tagCountMap[name] = { name, device_count: 0, total_count: 0 };
-                    }
-                    tagCountMap[name].device_count += 1;
-                    tagCountMap[name].total_count += row.quantity || 1;
-                }
-            });
-        }
-    });
-
-    const result = Object.values(tagCountMap).sort((a, b) => b.total_count - a.total_count);
-
-    return jsonResponse(result);
 }
 
 // ============ 临期设备 ============

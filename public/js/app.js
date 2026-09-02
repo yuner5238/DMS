@@ -409,7 +409,10 @@ async function executeBatchDelete() {
             batchSelectMode = false;
             updateBatchBtnUI();
             renderBatchToolbarHTML();
-            await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
+            // 局部更新：从内存移除选中设备（标签统计/临期列表已含在局部刷新内）
+            if (!applyDeviceRemove(ids)) {
+                await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
+            }
         } else {
             alert('批量删除失败: ' + (result.error || '未知错误'));
         }
@@ -477,12 +480,6 @@ function formatDateInput(s) {
     const d = new Date(s);
     if (isNaN(d.getTime())) return '';
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function parseDateInput(v) {
-    if (!v) return null;
-    const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
 }
 
 // ===== 富文本备注模块 =====
@@ -580,6 +577,9 @@ async function saveRemarkFromPreview() {
             body: JSON.stringify({ remark })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json().catch(() => null);
+        // 局部更新：仅刷新该设备，不再全量拉取
+        if (!(result && result.data && applyDeviceUpsert(result.data))) await loadDevices();
         _remarkOriginalContent = content;
         updateRemarkPreviewStatus();
         closeRemarkModal();
@@ -684,7 +684,8 @@ function sanitizeRichTextHtml(html) {
             Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
         }
     };
-    cleanNode(tpl.content);
+    // 注意：tpl.content 是 DocumentFragment，没有 replaceWith，不能整体传给 cleanNode，只遍历其子元素
+    Array.from(tpl.content.children).forEach(cleanNode);
     return tpl.innerHTML;
 }
 
@@ -718,21 +719,6 @@ function decodeRichText(text) {
         return `<img${attrs} onerror="this.style.display=\'none\'; this.insertAdjacentHTML(\'afterend\',\'<span style=color:var(--danger);font-size:12px;>[图片加载失败]</span>\');">`;
     });
     return html;
-}
-
-function decodeRichTextToSingleLine(text) {
-    if (!text) return '';
-    let html = text.replace(/\n/g, ' ');
-    html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
-    html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
-    html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
-    html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
-    html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
-    html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
-    html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
-    html = html.replace(/\[图片:[^\]]+\]/g, '').replace(/<img[^>]*>/gi, '');
-    html = html.replace(/\s+/g, ' ').trim();
-    return sanitizeRichTextHtml(html);
 }
 
 // ----- 编辑命令 -----
@@ -1365,14 +1351,6 @@ function truncateFilename(name, maxLen) {
     return name.slice(0, maxLen - 2) + '..';
 }
 
-function formatFileSize(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let i = 0, size = bytes;
-    while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
-    return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
-}
-
 // ----- 初始化备注编辑器事件 -----
 (function bindRemarkEditorEvents() {
     const rc = document.getElementById('remarkContent');
@@ -1455,6 +1433,44 @@ async function loadDevices() {
     }
 }
 
+// ===== 局部更新（性能优化）：写操作后只刷新受影响设备，不再全量拉取 =====
+function refreshAllViews() {
+    applySort();
+    renderDevices();
+    updateStats();
+    loadExpiringDevices();
+    loadTagStats();
+}
+
+// 用服务端返回的完整记录更新内存并重渲染；返回 false 时调用方应兜底全量刷新
+function applyDeviceUpsert(device) {
+    if (!device || !device.id) return false;
+    const idx = allDevices.findIndex(d => d.id == device.id);
+    if (idx >= 0) {
+        allDevices[idx] = device;
+    } else {
+        // 新增设备：仅当当前视图能看到它（全部/未指定/同仓库）才加入内存
+        const w = currentWarehouse;
+        if (w && w.id !== '__unassigned__' && w.name !== device.warehouse_name) return false;
+        allDevices.push(device);
+    }
+    // 与 loadDevices 同口径：仅全部/未指定视图重算各仓库计数
+    if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
+    refreshAllViews();
+    return true;
+}
+
+// 从内存移除设备并重渲染；返回 false（未命中）时调用方应兜底全量刷新
+function applyDeviceRemove(ids) {
+    const idSet = new Set((ids || []).map(String));
+    const before = allDevices.length;
+    allDevices = allDevices.filter(d => !idSet.has(String(d.id)));
+    if (allDevices.length === before && idSet.size > 0) return false;
+    if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
+    refreshAllViews();
+    return true;
+}
+
 function updateWarehouseCounts() {
     const counts = {};
     allDevices.forEach(d => {
@@ -1506,6 +1522,7 @@ async function loadAnnouncements() {
         }
     } catch(e) {
         console.error('加载公告失败:', e);
+        showToast('公告加载失败，请稍后刷新重试', 'error');
     }
 }
 
@@ -2131,7 +2148,6 @@ function openDeviceModal(id) {
             </div>
             <div class="modal-remark-editor rich-text-content" id="frmRemarkEditor" contenteditable="true" data-placeholder="其他说明（可选）">${device.remark ? decodeRichText(device.remark) : ''}</div>
             <textarea id="frmRemark" style="display:none;">${escapeHtml(device.remark || '')}</textarea>
-            <div id="frmRemarkPreview" style="display:none;"></div>
         </div>
     `;
 
@@ -2160,8 +2176,6 @@ function openDeviceModal(id) {
         });
     }
 }
-
-function closeDeviceModal() { closeAllModals(); }
 
 async function generateCode() {
     try {
@@ -2205,10 +2219,14 @@ async function saveDevice() {
         const method = id ? 'PUT' : 'POST';
         const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
         if (!r.ok) { const t = await r.text(); throw new Error(t); }
+        const result = await r.json().catch(() => null);
         closeAllModals();
         showToast(id ? '设备已更新' : '设备已添加', 'success');
-        loadDevices();
-        loadWarehouses();
+        // 局部更新：仅刷新该设备；当前视图看不到时（如新设备在别的仓库）兜底全量
+        if (!(result && result.data && applyDeviceUpsert(result.data))) {
+            loadDevices();
+            loadWarehouses();
+        }
     } catch(e) { showToast('保存失败: ' + e.message, 'error'); }
     finally { _submitLock = false; }
 }
@@ -2227,8 +2245,11 @@ async function deleteDevice(id, name) {
         if (!r.ok) throw new Error(await r.text());
         closeAllModals();
         showToast('设备已删除', 'success');
-        loadDevices();
-        loadWarehouses();
+        // 局部更新：从内存移除该设备；未命中时兜底全量
+        if (!applyDeviceRemove([id])) {
+            loadDevices();
+            loadWarehouses();
+        }
     } catch(e) { showToast('删除失败: ' + e.message, 'error'); }
 }
 
@@ -2258,9 +2279,11 @@ async function confirmCheckout() {
             body: JSON.stringify({ location_status: 'checked_out', destination: dest, checkout_time: new Date().toISOString() })
         });
         if (!r.ok) throw new Error(await r.text());
+        const result = await r.json().catch(() => null);
         closeAllModals();
         showToast('设备已出库', 'success');
-        loadDevices();
+        // 局部更新：仅刷新该设备
+        if (!(result && result.data && applyDeviceUpsert(result.data))) loadDevices();
     } catch(e) { showToast('出库失败: ' + e.message, 'error'); }
     finally { _submitLock = false; }
 }
@@ -2283,14 +2306,14 @@ async function confirmCheckin() {
             body: JSON.stringify({ location_status: 'in_stock', destination: '', checkin_time: new Date().toISOString() })
         });
         if (!r.ok) throw new Error(await r.text());
+        const result = await r.json().catch(() => null);
         closeAllModals();
         showToast('设备已入库', 'success');
-        loadDevices();
+        // 局部更新：仅刷新该设备
+        if (!(result && result.data && applyDeviceUpsert(result.data))) loadDevices();
     } catch(e) { showToast('入库失败: ' + e.message, 'error'); }
     finally { _submitLock = false; }
 }
-
-function closeCheckoutModal() { closeAllModals(); }
 
 // ===== 仓库管理 =====
 function openWarehouseModal() {
@@ -2332,8 +2355,6 @@ function openWarehouseModal() {
     `;
     document.getElementById('warehouseModal').style.display = 'flex';
 }
-
-function closeWarehouseModal() { closeAllModals(); }
 
 async function addWarehouse() {
     const name = document.getElementById('newWhName')?.value.trim();

@@ -9,7 +9,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObj
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
 const { s3Config } = require('./s3.config');
-const { marked } = require('marked');
+const { Marked } = require('marked');
 const XLSX = require('xlsx');
 
 
@@ -571,6 +571,53 @@ function parseDateTime(val) {
     return null;
 }
 
+// ★ 导入性能辅助：一次 IN 预查已存在的 device_id（分块防超长SQL），替代逐行 SELECT
+async function fetchExistingDeviceIds(ids) {
+    const unique = [...new Set(ids.filter(Boolean))];
+    const existing = new Set();
+    for (let i = 0; i < unique.length; i += 500) {
+        const chunk = unique.slice(i, i + 500);
+        const placeholders = chunk.map(() => '?').join(',');
+        const rows = await query(`SELECT device_id FROM devices WHERE device_id IN (${placeholders})`, chunk);
+        rows.forEach(r => existing.add(r.device_id));
+    }
+    return existing;
+}
+
+// ★ 导入性能辅助：分批多值 INSERT（每批100条）；整批失败时回退逐条插入，保留"失败跳过并报告"容错
+async function insertDevicesBatch(devices, onRowError) {
+    let inserted = 0;
+    const COLS = '(device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source)';
+    const ROW_PLACEHOLDER = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const toValues = d => [
+        d.device_id, d.warehouse_name, d.name,
+        d.tag_names || '', d.status || '正常', d.quantity || 1,
+        d.storage_location || '', d.destination || '', d.remark || '',
+        d.expiry_date || null, d.checkin_time || null, d.checkout_time || null,
+        d.responsible_person || null, d.department_path || null,
+        d.serial_number || null, d.spec_model || null, d.source || null
+    ];
+    for (let i = 0; i < devices.length; i += 100) {
+        const batch = devices.slice(i, i + 100);
+        try {
+            const placeholders = batch.map(() => ROW_PLACEHOLDER).join(', ');
+            await query(`INSERT INTO devices ${COLS} VALUES ${placeholders}`, batch.flatMap(toValues));
+            inserted += batch.length;
+        } catch (batchErr) {
+            // 整批失败（如个别行字段超长/非法）：回退为该批逐条插入，只跳过真正失败的行
+            for (const device of batch) {
+                try {
+                    await query(`INSERT INTO devices ${COLS} VALUES ${ROW_PLACEHOLDER}`, toValues(device));
+                    inserted++;
+                } catch (err) {
+                    onRowError(device, err);
+                }
+            }
+        }
+    }
+    return inserted;
+}
+
 // 4. 导入设备（文件上传）
 app.post('/api/devices/import', uploadImport.single('file'), async (req, res) => {
     try {
@@ -598,6 +645,11 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
             `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
         );
         let batchNextId = (maxRows[0]?.max_code || 0) + 1;
+
+        // ★ 一次性预查所有已存在的 device_id（替代逐行 SELECT，导入1000行省近千次往返）
+        const specifiedIds = rawRows.map(r => String(r['设备ID'] || '').trim()).filter(Boolean);
+        const existingIdSet = await fetchExistingDeviceIds(specifiedIds);
+        const batchIdSeen = new Set(); // 同批内重复检测
 
         // 校验每一行
         for (let i = 0; i < rawRows.length; i++) {
@@ -655,13 +707,13 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
                 device.warehouse_name = defaultWhName || null;
             }
 
-            // 校验 device_id 唯一性
+            // 校验 device_id 唯一性（内存集合判断，无数据库往返；含同批重复检测）
             if (device.device_id) {
-                const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
-                if (existing.length > 0) {
+                if (existingIdSet.has(device.device_id) || batchIdSeen.has(device.device_id)) {
                     errors.push(`第${rowNum}条: 设备ID「${device.device_id}」已存在，请修改或留空自动生成`);
                     continue;
                 }
+                batchIdSeen.add(device.device_id);
             }
 
             // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
@@ -681,28 +733,11 @@ app.post('/api/devices/import', uploadImport.single('file'), async (req, res) =>
             return res.json({ success: 0, total: rawRows.length, errors });
         }
 
-        // 批量插入（每条独立 INSERT，失败跳过）
-        let inserted = 0;
+        // 批量插入（分批多值 INSERT；整批失败自动回退逐条，失败跳过）
         const insertErrors = [];
-
-        for (const device of devices) {
-            try {
-                await query(
-                    `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        device.device_id, device.warehouse_name, device.name,
-                        device.tag_names || '', device.status || '正常', device.quantity || 1,
-                        device.storage_location || '', device.destination || '', device.remark || '',
-                        device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
-                        device.responsible_person || null, device.department_path || null,
-                        device.serial_number || null, device.spec_model || null, device.source || null
-                    ]
-                );
-                inserted++;
-            } catch (err) {
-                insertErrors.push(`设备「${device.name}」入库失败: ${err.message}`);
-            }
-        }
+        const inserted = await insertDevicesBatch(devices, (d, err) => {
+            insertErrors.push(`设备「${d.name}」入库失败: ${err.message}`);
+        });
 
         if (insertErrors.length) errors.push(...insertErrors);
 
@@ -742,6 +777,21 @@ app.post('/api/devices/import-batch', async (req, res) => {
             `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
         );
         let batchNextId = (maxRows[0]?.max_code || 0) + 1;
+
+        // ★ 一次性预查：仓库存在性 + device_id 唯一性（替代逐行 SELECT）
+        const whNamesToCheck = [...new Set(data
+            .map(r => String(r.warehouse_name || '').trim())
+            .filter(Boolean))];
+        const validWhNames = new Set();
+        for (let i = 0; i < whNamesToCheck.length; i += 500) {
+            const chunk = whNamesToCheck.slice(i, i + 500);
+            const placeholders = chunk.map(() => '?').join(',');
+            const whRows = await query(`SELECT name FROM warehouses WHERE name IN (${placeholders})`, chunk);
+            whRows.forEach(r => validWhNames.add(r.name));
+        }
+        const specifiedIds = data.map(r => String(r.device_id || '').trim()).filter(Boolean);
+        const existingIdSet = await fetchExistingDeviceIds(specifiedIds);
+        const batchIdSeen = new Set(); // 同批内重复检测
 
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
@@ -807,26 +857,23 @@ app.post('/api/devices/import-batch', async (req, res) => {
                 device.warehouse_name = defaultWhName || null;
             }
 
-            // 校验仓库是否存在（如果指定了仓库名）
-            if (device.warehouse_name) {
-                const whExists = await query('SELECT id FROM warehouses WHERE name=?', [device.warehouse_name]);
-                if (!whExists.length) {
-                    errors.push(`第${rowNum}条: 仓库「${device.warehouse_name}」不存在`);
-                    continue;
-                }
+            // 校验仓库是否存在（内存集合判断，无数据库往返）
+            if (device.warehouse_name && !validWhNames.has(device.warehouse_name)) {
+                errors.push(`第${rowNum}条: 仓库「${device.warehouse_name}」不存在`);
+                continue;
             }
 
             // 默认值
             device.status = device.status || '正常';
             device.quantity = device.quantity || 1;
 
-            // device_id 唯一性校验
+            // device_id 唯一性校验（内存集合判断，含同批重复检测）
             if (device.device_id) {
-                const existing = await query('SELECT id FROM devices WHERE device_id=?', [device.device_id]);
-                if (existing.length > 0) {
+                if (existingIdSet.has(device.device_id) || batchIdSeen.has(device.device_id)) {
                     errors.push(`第${rowNum}条: 设备ID「${device.device_id}」已存在`);
                     continue;
                 }
+                batchIdSeen.add(device.device_id);
             }
 
             // 自动生成 device_id（使用批次内递增计数器，防止同批设备 ID 重复）
@@ -846,27 +893,11 @@ app.post('/api/devices/import-batch', async (req, res) => {
             return res.json({ success: 0, total: data.length, errors });
         }
 
-        let inserted = 0;
+        // 批量插入（分批多值 INSERT；整批失败自动回退逐条，失败跳过）
         const insertErrors = [];
-
-        for (const device of devices) {
-            try {
-                await query(
-                    `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        device.device_id, device.warehouse_name, device.name,
-                        device.tag_names || '', device.status || '正常', device.quantity || 1,
-                        device.storage_location || '', device.destination || '', device.remark || '',
-                        device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
-                        device.responsible_person || null, device.department_path || null,
-                        device.serial_number || null, device.spec_model || null, device.source || null
-                    ]
-                );
-                inserted++;
-            } catch (err) {
-                insertErrors.push(`设备「${device.name}」入库失败: ${err.message}`);
-            }
-        }
+        const inserted = await insertDevicesBatch(devices, (d, err) => {
+            insertErrors.push(`设备「${d.name}」入库失败: ${err.message}`);
+        });
 
         if (insertErrors.length) errors.push(...insertErrors);
 
@@ -945,7 +976,9 @@ app.post('/api/devices', async (req, res) => {
             [finalDeviceId, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null]
         );
         
-        res.json({ id: result.insertId, warehouseName, name });
+        // 返回完整记录（前端局部更新用，免全量刷新）
+        const created = await query('SELECT * FROM devices WHERE id=?', [result.insertId]);
+        res.json({ id: result.insertId, warehouseName, name, data: created[0] || null });
     } catch (err) {
         console.error('添加设备失败:', err);
         res.status(500).json({ error: err.message });
@@ -1005,7 +1038,9 @@ app.put('/api/devices/:id', async (req, res) => {
 
         await query(sql, values);
 
-        res.json({ id: req.params.id, updatedFields: Object.keys(req.body).filter(k => req.body[k] !== undefined) });
+        // 返回更新后的完整记录（前端局部更新用，免全量刷新）
+        const updated = await query('SELECT * FROM devices WHERE id=?', [req.params.id]);
+        res.json({ id: req.params.id, updatedFields: Object.keys(req.body).filter(k => req.body[k] !== undefined), data: updated[0] || null });
     } catch (err) {
         console.error('更新设备失败:', err);
         res.status(500).json({ error: err.message });
@@ -1050,55 +1085,6 @@ app.post('/api/devices/clear-warehouse', async (req, res) => {
         }
         res.json({ success: true, deleted: result.affectedRows || 0 });
     } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ============ 标签统计 API（用于侧边栏）============
-app.get('/api/tag-stats', async (req, res) => {
-    try {
-        const { warehouseName } = req.query;
-        
-        // 获取设备和 tag_names，在应用层拆分多标签后聚合
-        let sql = `SELECT tag_names, quantity FROM devices WHERE tag_names IS NOT NULL AND tag_names != ''`;
-        let params = [];
-        
-        if (warehouseName) {
-            sql += ' AND warehouse_name=?';
-            params = [warehouseName];
-        }
-        
-        const rows = await query(sql, params);
-        
-        // 拆分 JSON 数组格式的标签并聚合
-        const tagCountMap = {};
-        rows.forEach(row => {
-            if (row.tag_names) {
-                let tags = [];
-                try {
-                    tags = JSON.parse(row.tag_names);
-                } catch (e) {
-                    // 兼容旧的逗号分隔格式
-                    tags = row.tag_names.split(',').map(t => t.trim()).filter(t => t);
-                }
-                tags.forEach(tag => {
-                    const name = tag.trim();
-                    if (name) {
-                        if (!tagCountMap[name]) {
-                            tagCountMap[name] = { name, device_count: 0, total_count: 0 };
-                        }
-                        tagCountMap[name].device_count += 1;
-                        tagCountMap[name].total_count += row.quantity || 1;
-                    }
-                });
-            }
-        });
-        
-        const result = Object.values(tagCountMap).sort((a, b) => b.total_count - a.total_count);
-        
-        res.json(result);
-    } catch (err) {
-        console.error('获取标签统计失败:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1352,45 +1338,6 @@ app.get('/api/images/:deviceId/:filename', async (req, res) => {
     }
 });
 
-// 诊断：检查 S3 中图片是否存在
-app.get('/api/test/image-check/:deviceId/:filename', async (req, res) => {
-    try {
-        const { deviceId, filename } = req.params;
-        const s3Key = `${s3Config.basePrefix}images/${deviceId}/${filename}`;
-        const proxyUrl = `/api/images/${deviceId}/${filename}`;
-
-        let info = {
-            s3Key,
-            proxyUrl: `http://localhost:${PORT}${proxyUrl}`,
-            exists: false,
-            error: null,
-            size: 0,
-            contentType: null,
-        };
-
-        try {
-            const s3Response = await s3.send(new GetObjectCommand({
-                Bucket: s3Config.bucket,
-                Key: s3Key,
-            }));
-            const chunks = [];
-            for await (const chunk of s3Response.Body) {
-                chunks.push(chunk);
-            }
-            const buffer = Buffer.concat(chunks);
-            info.exists = true;
-            info.size = buffer.length;
-            info.contentType = s3Response.ContentType || '未知';
-        } catch (err) {
-            info.error = err.name + ': ' + err.message;
-        }
-
-        res.json(info);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ============ 附件管理 API ============
 
 // 列出附件
@@ -1530,6 +1477,25 @@ app.post('/api/upload/attachment', uploadAttachment.single('attachment'), async 
     }
 });
 
+// .md 附件预览专用渲染器：附件内容不可信，内嵌 HTML/脚本一律按纯文本显示，
+// 链接与图片只放行安全协议（https/mailto/站内相对路径），拦截 javascript: 等伪协议
+const previewMarked = new Marked();
+previewMarked.use({
+    renderer: {
+        html(token) { return String(token.text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); },
+        link(token) {
+            const href = /^(https?:|mailto:|#|\/)/i.test(token.href || '') ? token.href : '#';
+            const title = token.title ? ` title="${token.title}"` : '';
+            const text = this.parser.parseInline(token.tokens || []);
+            return `<a href="${href}"${title}>${text}</a>`;
+        },
+        image(token) {
+            if (!/^(https?:|\/)/i.test(token.href || '')) return token.text || '';
+            return `<img src="${token.href}" alt="${token.text || ''}">`;
+        }
+    }
+});
+
 // 附件代理：通过服务器中转访问 S3
 app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
     try {
@@ -1549,10 +1515,10 @@ app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
         }
         const buffer = Buffer.concat(chunks);
 
-        // Markdown 文件转 HTML 预览
+        // Markdown 文件转 HTML 预览（经 previewMarked 消毒）
         if (/\.md$/i.test(filename)) {
             const mdContent = buffer.toString('utf8');
-            const htmlContent = marked.parse(mdContent);
+            const htmlContent = previewMarked.parse(mdContent);
             const page = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

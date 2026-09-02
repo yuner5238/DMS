@@ -613,14 +613,138 @@
 
     <!-- Bootstrap JS 已移除：本页未使用任何 Bootstrap JS 组件，移除以避免离线/被墙时阻塞加载 -->
 
+    <!-- ==================== 富文本备注编辑弹窗（与首页编辑设备一致） ==================== -->
+    <div class="modal-overlay" id="remarkEditorModal" style="display:none;">
+        <div class="modal modal-lg" style="max-width:900px;">
+            <div class="modal-header">
+                <span class="modal-title"><i class="bi bi-file-text"></i> 编辑备注</span>
+                <button class="modal-close" onclick="closeRemarkEditor()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div class="remark-device-name-bar">
+                    <label>设备名称</label>
+                    <div id="remarkEditorDeviceName"></div>
+                </div>
+                <!-- 工具栏 -->
+                <div class="remark-toolbar">
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('undo')" title="撤回">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('redo')" title="重做">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <span class="remark-toolbar-divider"></span>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('bold')" title="加粗">
+                        <i class="bi bi-type-bold"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('italic')" title="斜体">
+                        <i class="bi bi-type-italic"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('underline')" title="下划线">
+                        <i class="bi bi-type-underline"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('strikeThrough')" title="删除线">
+                        <i class="bi bi-type-strikethrough"></i>
+                    </button>
+                    <span class="remark-toolbar-divider"></span>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('insertUnorderedList')" title="无序列表">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('insertOrderedList')" title="有序列表">
+                        <i class="bi bi-list-ol"></i>
+                    </button>
+                    <span class="remark-toolbar-divider"></span>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('justifyLeft')" title="左对齐">
+                        <i class="bi bi-text-left"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('justifyCenter')" title="居中">
+                        <i class="bi bi-text-center"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('justifyRight')" title="右对齐">
+                        <i class="bi bi-text-right"></i>
+                    </button>
+                    <span class="remark-toolbar-divider"></span>
+                    <button type="button" class="remark-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleFontSizePanel(this)" title="字体大小">
+                        <span style="font-weight:600;font-size:13px;">A</span><i class="bi bi-caret-down-fill" style="font-size:8px;margin-left:-1px;vertical-align:bottom;"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this,'foreColor')" title="文字颜色">
+                        <span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1;gap:1px;">
+                            <span style="font-weight:600;font-size:15px;">A</span>
+                            <span style="display:block;height:2.5px;background:var(--text-primary);border-radius:1px;width:14px;"></span>
+                        </span>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onmousedown="event.preventDefault();" onclick="toggleColorPanel(this,'hiliteColor')" title="突出显示">
+                        <span style="font-weight:600;font-size:14px;background:#ffff00;padding:0 2px;border-radius:2px;">A</span>
+                    </button>
+                    <span class="remark-toolbar-divider"></span>
+                    <button type="button" class="remark-toolbar-btn" onclick="showTablePicker(this)" title="插入表格">
+                        <i class="bi bi-table"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="insertImageToRemark()" title="插入图片">
+                        <i class="bi bi-image"></i>
+                    </button>
+                    <button type="button" class="remark-toolbar-btn" onclick="execCmd('removeFormat')" title="清除格式">
+                        <i class="bi bi-eraser"></i>
+                    </button>
+                </div>
+                <!-- 编辑区域 -->
+                <div id="remarkEditorContent" contenteditable="true" class="remark-editor"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRemarkEditor()">取消</button>
+                <button class="btn btn-primary" onclick="saveRemarkEditor()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 色板选择器 -->
+    <div id="colorSwatchPopover" class="color-swatch-popover">
+        <div class="swatch-title" id="swatchTitle">文字颜色</div>
+        <div class="color-swatch-grid" id="colorSwatchGrid"></div>
+    </div>
+
+    <!-- 字体大小弹出面板 -->
+    <div id="fontSizePopover" class="font-size-popover">
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('1')">小</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('3')">中</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('5')">大</div>
+        <div class="font-size-item" onmousedown="event.preventDefault();" onclick="applyFontSize('7')">特大</div>
+    </div>
+
+    <!-- 图片右键尺寸菜单 -->
+    <div id="imgSizeContextMenu" class="img-size-context-menu">
+        <div class="img-size-menu-item small" data-size="small" onclick="setImageSize('small')">
+            <span class="size-icon"></span>小
+        </div>
+        <div class="img-size-menu-item medium" data-size="medium" onclick="setImageSize('medium')">
+            <span class="size-icon"></span>中
+        </div>
+        <div class="img-size-menu-item large" data-size="large" onclick="setImageSize('large')">
+            <span class="size-icon"></span>大
+        </div>
+    </div>
+
+    <!-- 图片插入小弹窗（详情页支持上传新图片） -->
+    <div id="imageInsertPopup" style="display:none;position:fixed;z-index:2000;background:var(--bg-main);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:14px 18px;min-width:210px;border:1px solid var(--border);">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;">
+            <button type="button" class="image-popup-btn" onclick="triggerImageUpload();closeImageInsertPopup();" title="上传新图片"
+                    style="display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:transparent;cursor:pointer;padding:8px 14px;border-radius:8px;transition:background 0.15s;"
+                    onmouseenter="this.style.background='var(--primary-bg)'" onmouseleave="this.style.background='transparent'">
+                <i class="bi bi-cloud-arrow-up" style="font-size:20px;color:var(--primary);"></i>
+                <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">上传新图片</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 隐藏的图片上传输入 -->
+    <input type="file" id="imagePickerFileInput" accept="image/*" style="display:none;" onchange="handleImagePickerUpload(event)">
+
     <!-- ================================================================
          APPLICATION LOGIC (fully self-contained for detail page)
          ================================================================ -->
     <script>
         // ===== API 配置 =====
-        const API_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-            ? '/api'
-            : '/api';
+        const API_BASE = '/api';
 
         // ===== 公开配置 =====
         window.S3_PUBLIC_URL = '';
@@ -637,12 +761,6 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const deviceId = urlParams.get('device_id');
-
-        function formatDate(timeStr) {
-            if (!timeStr) return '-';
-            const date = new Date(timeStr);
-            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
-        }
 
         function formatDateTime(timeStr) {
             if (!timeStr) return '-';
@@ -704,20 +822,33 @@
                     Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
                 }
             };
-            cleanNode(tpl.content);
+            // 注意：tpl.content 是 DocumentFragment，没有 replaceWith，不能整体传给 cleanNode，只遍历其子元素
+            Array.from(tpl.content.children).forEach(cleanNode);
             return tpl.innerHTML;
         }
 
         function decodeRichText(text) {
             if (!text) return '';
-            let html = text.replace(/\n/g, '<br>');
-            html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
-            html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
-            html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
-            html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
-            html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
-            html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
-            html = html.replace(/(<br>\s*){2,}/g, '<br><br>');
+            // 先还原 literal \\n（如果有的话），再按实际换行分割段落
+            let raw = text.replace(/\\n/g, '\n');
+            // 按连续换行（段落分隔）拆分
+            const paragraphs = raw.split(/\n{2,}/);
+            const processInline = function(part) {
+                if (!part) return '';
+                let html = part.replace(/\n/g, '<br>');
+                html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
+                html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
+                html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
+                html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
+                html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
+                html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
+                html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
+                return html;
+            };
+            let html = paragraphs.map(p => {
+                const processed = processInline(p);
+                return processed ? '<div>' + processed + '</div>' : '<div><br></div>';
+            }).join('');
             html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
             // 白名单消毒：事件属性、非白名单标签（script 等）、非本站图片一律清除
             html = sanitizeRichTextHtml(html);
@@ -892,8 +1023,9 @@
                 <div class="dp-edit-field" style="align-items:start;">
                     <div class="dp-edit-label">备注</div>
                     <div class="dp-field-value">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="openRichTextEditorForDevice('${escapeAttr(device.device_id)}', '${escapeOnClick(device.name)}')" style="margin-bottom:8px;"><i class="bi bi-pencil-square"></i> 编辑备注</button>
-                        <textarea id="editRemark" class="dp-edit-textarea" rows="4">${escapeHtml(device.remark || '')}</textarea>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openRemarkEditor()" style="margin-bottom:8px;"><i class="bi bi-pencil-square"></i> 富文本编辑</button>
+                        <div class="modal-remark-editor rich-text-content" id="editRemarkEditor" contenteditable="true" data-placeholder="其他说明（可选）">${device.remark ? decodeRichText(device.remark) : ''}</div>
+                        <textarea id="editRemark" style="display:none;">${escapeHtml(device.remark || '')}</textarea>
                     </div>
                 </div>`;
             let actions = card.querySelector('.dp-card-actions');
@@ -902,6 +1034,14 @@
             actions.className = 'dp-edit-actions';
             actions.innerHTML = `<button class="btn btn-primary" onclick="saveDeviceInline()"><i class="bi bi-check-lg"></i> 保存</button><button class="btn btn-secondary" onclick="cancelEdit()">取消</button>`;
             if (device.device_id) loadDeviceAttachments(device.device_id);
+            // 备注区图片单击全屏 + 右键尺寸菜单（编辑器每次渲染都是新元素，需重新绑定）
+            const inlineRemarkEditor = document.getElementById('editRemarkEditor');
+            if (inlineRemarkEditor) {
+                inlineRemarkEditor.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'IMG') { e.preventDefault(); showImageFullscreen(e.target.src); }
+                });
+                setupImageContextMenu(inlineRemarkEditor);
+            }
         }
 
         function toggleDestination() {
@@ -934,7 +1074,7 @@
                 storage_location: currentDevice.storage_location || '',
                 location_status: locationStatus,
                 destination: destination,
-                remark: document.getElementById('editRemark')?.value || '',
+                remark: document.getElementById('editRemarkEditor')?.innerHTML ? encodeRichText(document.getElementById('editRemarkEditor').innerHTML) : (document.getElementById('editRemark')?.value || ''),
                 checkin_time: checkinDate ? checkinDate + ' 00:00:00' : null,
                 expiry_date: expiryDate || null,
                 responsible_person: document.getElementById('editResponsiblePerson')?.value || '',
@@ -959,13 +1099,422 @@
         function escapeAttr(str) { return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
         function escapeOnClick(str) { return String(str || '').replace(/\\/g,'\\\\').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,"\\'"); }
 
-        function openRichTextEditorForDevice(deviceIdCode, deviceName) {
-            // 直接滚动到备注文本框并聚焦
-            const textarea = document.getElementById('editRemark');
-            if (textarea) {
-                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                textarea.focus();
+        // ==================== 富文本备注编辑（与首页编辑设备弹窗一致） ====================
+        function openRemarkEditor() {
+            const editor = document.getElementById('editRemarkEditor');
+            document.getElementById('remarkEditorDeviceName').textContent = currentDevice ? (currentDevice.name || '') : '';
+            document.getElementById('remarkEditorContent').innerHTML = editor ? editor.innerHTML : '';
+            document.getElementById('remarkEditorModal').style.display = 'flex';
+        }
+
+        function closeRemarkEditor() {
+            document.getElementById('remarkEditorModal').style.display = 'none';
+            const cp = document.getElementById('colorSwatchPopover'); if (cp) cp.style.display = 'none';
+            const fp = document.getElementById('fontSizePopover'); if (fp) fp.style.display = 'none';
+            closeImageInsertPopup();
+        }
+
+        function saveRemarkEditor() {
+            const content = document.getElementById('remarkEditorContent').innerHTML;
+            const editor = document.getElementById('editRemarkEditor');
+            const hidden = document.getElementById('editRemark');
+            if (editor) editor.innerHTML = content;
+            if (hidden) hidden.value = encodeRichText(content);
+            closeRemarkEditor();
+        }
+
+        // Esc 关闭富文本编辑弹窗
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const m = document.getElementById('remarkEditorModal');
+                if (m && m.style.display !== 'none') { e.stopPropagation(); closeRemarkEditor(); }
             }
+        }, true);
+
+        // ----- 富文本编码（编辑器 HTML → 存储格式，与 app.js 保持一致） -----
+        function encodeRichText(html) {
+            if (!html) return '';
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            function processNode(node) {
+                if (node.nodeType === 3) return node.textContent;
+                if (node.nodeType === 1) {
+                    const tag = node.tagName.toLowerCase();
+                    let content = '';
+                    for (let child of node.childNodes) content += processNode(child);
+                    switch (tag) {
+                        case 'b': case 'strong': return `[B]${content}[/B]`;
+                        case 'i': case 'em': return `[I]${content}[/I]`;
+                        case 'u': return `[U]${content}[/U]`;
+                        case 's': case 'strike': case 'del': return `[S]${content}[/S]`;
+                        case 'font':
+                            let color = node.getAttribute('color');
+                            let size = node.getAttribute('size');
+                            let fontBg = node.style.backgroundColor || (node.getAttribute('style')||'').match(/background-color:\s*([^;]+)/)?.[1]?.trim();
+                            if (fontBg) return `[HIGHLIGHT=${fontBg}]${content}[/HIGHLIGHT]`;
+                            if (color) return `[COLOR=${color}]${content}[/COLOR]`;
+                            if (size) return `[SIZE=${size}]${content}[/SIZE]`;
+                            return content;
+                        case 'span':
+                            let spanBg = node.style.backgroundColor || (node.getAttribute('style')||'').match(/background-color:\s*([^;]+)/)?.[1]?.trim();
+                            if (spanBg) return `[HIGHLIGHT=${spanBg}]${content}[/HIGHLIGHT]`;
+                            return content;
+                        case 'br': return '\n';
+                        case 'div': case 'p': return content + '\n';
+                        case 'img': case 'table': case 'thead': case 'tbody': case 'tfoot': case 'tr': case 'th': case 'td':
+                            return node.outerHTML;
+                        default: return content;
+                    }
+                }
+                return '';
+            }
+            let text = '';
+            for (let child of tempDiv.childNodes) text += processNode(child);
+            text = text.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+            text = text.replace(/\n{3,}/g, '\n\n');
+            return text.trim();
+        }
+
+        // ----- 编辑命令 -----
+        function execCmd(command, value) {
+            document.execCommand(command, false, value || null);
+        }
+
+        // ----- 表格插入 -----
+        let _tablePickerRows = 6, _tablePickerCols = 6, _tablePickerOutsideHandler = null;
+
+        function showTablePicker(btn) {
+            const existing = document.querySelector('.table-picker-popup');
+            if (existing) { existing.remove(); return; }
+            const rect = btn.getBoundingClientRect();
+            const popup = document.createElement('div');
+            popup.className = 'table-picker-popup';
+            popup.style.left = rect.left + 'px';
+            popup.style.top = (rect.bottom + 4) + 'px';
+            let h = '<div class="table-picker-label" id="tablePickerLabel">1 × 1 表格</div><div class="table-picker-grid">';
+            for (let r = 0; r < _tablePickerRows; r++)
+                for (let c = 0; c < _tablePickerCols; c++)
+                    h += `<div class="table-picker-cell" data-row="${r}" data-col="${c}"></div>`;
+            h += '</div>';
+            popup.innerHTML = h;
+            const cells = popup.querySelectorAll('.table-picker-cell');
+            const label = popup.querySelector('#tablePickerLabel');
+            cells.forEach(cell => {
+                cell.addEventListener('mouseenter', function() {
+                    const r = parseInt(this.dataset.row), c = parseInt(this.dataset.col);
+                    label.textContent = `${r + 1} × ${c + 1} 表格`;
+                    cells.forEach(c2 => {
+                        const r2 = parseInt(c2.dataset.row), c2c = parseInt(c2.dataset.col);
+                        c2.classList.toggle('active', r2 <= r && c2c <= c);
+                    });
+                });
+                cell.addEventListener('click', function() {
+                    const r = parseInt(this.dataset.row) + 1, c = parseInt(this.dataset.col) + 1;
+                    popup.remove();
+                    insertTableHtml(r, c);
+                    document.removeEventListener('click', _tablePickerOutsideHandler);
+                });
+            });
+            document.body.appendChild(popup);
+            _tablePickerOutsideHandler = function(e) {
+                if (!popup.contains(e.target) && e.target !== btn) {
+                    popup.remove();
+                    document.removeEventListener('click', _tablePickerOutsideHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', _tablePickerOutsideHandler), 0);
+        }
+
+        function insertTableHtml(rows, cols) {
+            let h = '<div style="overflow-x:auto;margin:8px 0;"><table style="border-collapse:collapse;width:100%;min-width:300px;border:1px solid var(--border);"><thead><tr>';
+            for (let c = 0; c < cols; c++) h += '<th style="border:1px solid var(--border);padding:6px 10px;background:var(--sidebar-bg);font-weight:600;text-align:left;min-width:60px;">&nbsp;</th>';
+            h += '</tr></thead><tbody>';
+            for (let r = 1; r < rows; r++) { h += '<tr>'; for (let c = 0; c < cols; c++) h += '<td style="border:1px solid var(--border);padding:6px 10px;min-width:60px;">&nbsp;</td>'; h += '</tr>'; }
+            h += '</tbody></table></div>';
+            execCmd('insertHTML', h);
+        }
+
+        // ----- 色板 -----
+        const SWATCH_COLORS = [
+            '#FFFFFF','#E6E6E6','#CCCCCC','#B3B3B3','#999999','#808080','#666666','#4D4D4D','#000000',
+            '#800000','#A52A2A','#B22222','#DC143C','#FF0000','#FF3333','#FF6666','#FF8C69','#FFA07A',
+            '#D2691E','#FF4500','#FF6600','#FF8C00','#FFA500','#FFD700','#FFCC00','#DAA520','#B8860B',
+            '#FFFF00','#CCCC00','#9ACD32','#7FFF00','#00FF00','#32CD32','#228B22','#008000','#006400',
+            '#00B050','#2E8B57','#3CB371','#66CDAA','#8FBC8F','#90EE90','#98FB98','#ADFF2F','#556B2F',
+            '#00FFFF','#00CED1','#20B2AA','#008B8B','#008080','#5F9EA0','#7FFFD4','#E0FFFF','#B0E0E6',
+            '#0070C0','#0000FF','#0000CD','#00008B','#1E90FF','#4169E1','#6495ED','#87CEEB','#B0C4DE',
+            '#8A2BE2','#9400D3','#800080','#4B0082','#6A5ACD','#BA55D3','#DA70D6','#DDA0DD','#E6E6FA',
+            '#8B4513','#CD853F','#DEB887','#F5DEB3','#FFE4B5','#FFDAB9','#FFE4E1','#FFC0CB','#FFB6C1'
+        ];
+
+        function toggleColorPanel(btn, command) {
+            const panel = document.getElementById('colorSwatchPopover');
+            const grid = document.getElementById('colorSwatchGrid');
+            const title = document.getElementById('swatchTitle');
+            if (!panel || !grid) return;
+            if (panel.style.display === 'block' && panel.dataset.command === command) {
+                panel.style.display = 'none'; return;
+            }
+            panel.dataset.command = command;
+            title.textContent = command === 'hiliteColor' ? '突出显示' : '文字颜色';
+            grid.innerHTML = SWATCH_COLORS.map(c =>
+                `<div class="color-swatch-item" style="background-color:${c};${c==='#FFFFFF'?'border-color:rgba(0,0,0,0.25);':''}" onmousedown="event.preventDefault();applyColor('${c}');" title="${c}"></div>`
+            ).join('');
+            const rect = btn.getBoundingClientRect();
+            panel.style.left = Math.min(rect.left, window.innerWidth - 256) + 'px';
+            panel.style.top = (rect.bottom + 6) + 'px';
+            panel.style.display = 'block';
+            setTimeout(() => document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true }), 0);
+        }
+        function closeColorPanelOnOutside(e) {
+            const panel = document.getElementById('colorSwatchPopover');
+            if (panel && !panel.contains(e.target)) panel.style.display = 'none';
+            else setTimeout(() => document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true }), 0);
+        }
+        function applyColor(color) {
+            const panel = document.getElementById('colorSwatchPopover');
+            const command = panel.dataset.command;
+            if (command) execCmd(command, color);
+            panel.style.display = 'none';
+        }
+
+        // ----- 字体大小 -----
+        function toggleFontSizePanel(btn) {
+            const panel = document.getElementById('fontSizePopover');
+            if (!panel) return;
+            if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+            const rect = btn.getBoundingClientRect();
+            panel.style.left = Math.min(rect.left, window.innerWidth - 120) + 'px';
+            panel.style.top = (rect.bottom + 6) + 'px';
+            panel.style.display = 'block';
+            setTimeout(() => document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true }), 0);
+        }
+        function closeFontSizePanelOnOutside(e) {
+            const panel = document.getElementById('fontSizePopover');
+            if (panel && !panel.contains(e.target)) panel.style.display = 'none';
+            else setTimeout(() => document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true }), 0);
+        }
+        function applyFontSize(size) {
+            execCmd('fontSize', size);
+            document.getElementById('fontSizePopover').style.display = 'none';
+        }
+
+        // ----- 图片插入与上传 -----
+        function insertImageToRemark() {
+            const fileInput = document.getElementById('imagePickerFileInput');
+            if (fileInput) fileInput.value = '';
+            const popup = document.getElementById('imageInsertPopup');
+            if (!popup) return;
+            const evt = (typeof event !== 'undefined') ? event : null;
+            const btn = (evt && evt.target && evt.target.closest('button')) || document.activeElement;
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                popup.style.display = ''; popup.style.visibility = 'hidden';
+                const popupH = popup.offsetHeight;
+                popup.style.visibility = '';
+                popup.style.left = (rect.left + rect.width / 2) + 'px';
+                popup.style.top = (rect.top - popupH - 8) + 'px';
+                popup.style.transform = 'translateX(-50%)';
+            }
+            popup.style.display = '';
+            setTimeout(() => document.addEventListener('click', _closeImagePopupOnOutside, { once: true }), 0);
+        }
+        function _closeImagePopupOnOutside(e) {
+            const popup = document.getElementById('imageInsertPopup');
+            if (popup && !popup.contains(e.target)) closeImageInsertPopup();
+            else if (popup) document.addEventListener('click', _closeImagePopupOnOutside, { once: true });
+        }
+        function closeImageInsertPopup() {
+            const popup = document.getElementById('imageInsertPopup');
+            if (popup) popup.style.display = 'none';
+        }
+        function triggerImageUpload() {
+            document.getElementById('imagePickerFileInput').click();
+        }
+        function convertImageUrl(url) {
+            if (!url) return '';
+            const match = url.match(/\/(\d+)\/([^/\s"'>]+?)(?:\?|$)/);
+            if (match) return `/api/images/${match[1]}/${decodeURIComponent(match[2])}`;
+            return url;
+        }
+
+        function handleImagePickerUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { alert('图片大小不能超过5MB'); event.target.value = ''; return; }
+            const editor = document.getElementById('remarkEditorContent');
+            const progressId = 'imgUploadProg_' + Date.now();
+            if (editor) {
+                const progressHtml = `<div id="${progressId}" class="img-upload-progress"><span class="img-upload-progress-bar-outer"><span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span></span><span id="${progressId}_text" class="img-upload-progress-text">0%</span></div>`;
+                insertHTMLAtCursor(editor, progressHtml);
+            }
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('deviceId', currentDevice?.device_id || '0');
+            xhr.open('POST', API_BASE + '/upload/image');
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    const bar = document.getElementById(progressId + '_bar');
+                    const text = document.getElementById(progressId + '_text');
+                    if (bar) bar.style.width = pct + '%';
+                    if (text) text.textContent = pct + '%';
+                }
+            };
+            xhr.onload = function() {
+                const progEl = document.getElementById(progressId);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        const imgTag = `<img src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
+                        if (progEl && progEl.parentNode) {
+                            const frag = document.createRange().createContextualFragment(imgTag);
+                            progEl.replaceWith(frag);
+                        } else insertHTMLAtCursor(editor, imgTag);
+                    } catch(_) {
+                        if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '解析失败'; t.className = 'img-upload-progress-error'; } }
+                    }
+                } else {
+                    if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '上传失败'; t.className = 'img-upload-progress-error'; } }
+                }
+            };
+            xhr.onerror = function() {
+                const progEl = document.getElementById(progressId);
+                if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '网络错误'; t.className = 'img-upload-progress-error'; } }
+            };
+            xhr.send(formData);
+            event.target.value = '';
+        }
+
+        function insertHTMLAtCursor(editor, html) {
+            editor.focus();
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                if (editor.contains(range.commonAncestorContainer)) {
+                    range.deleteContents();
+                    const fragment = range.createContextualFragment(html);
+                    range.insertNode(fragment);
+                    range.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    return;
+                }
+            }
+            editor.innerHTML += html;
+        }
+
+        // ----- 图片右键尺寸菜单 -----
+        let _imgSizeMenuTargetImg = null, _imgSizeMenuDocClick = null, _imgSizeMenuDocCtxMenu = null;
+
+        function setupImageContextMenu(editor) {
+            if (!editor) return;
+            editor.addEventListener('contextmenu', function(e) {
+                const img = e.target.closest('img');
+                if (img) {
+                    e.preventDefault(); e.stopPropagation();
+                    _imgSizeMenuTargetImg = img;
+                    const menu = document.getElementById('imgSizeContextMenu');
+                    if (!menu) return;
+                    menu.style.left = e.clientX + 'px';
+                    menu.style.top = e.clientY + 'px';
+                    menu.style.display = 'block';
+                    menu.querySelectorAll('.img-size-menu-item').forEach(item => {
+                        item.classList.toggle('active', img.classList.contains('img-size-' + item.dataset.size));
+                    });
+                    _removeDocListeners();
+                    _imgSizeMenuDocClick = () => _closeImgSizeMenu();
+                    _imgSizeMenuDocCtxMenu = (ev) => { ev.preventDefault(); _closeImgSizeMenu(); };
+                    document.addEventListener('click', _imgSizeMenuDocClick);
+                    document.addEventListener('contextmenu', _imgSizeMenuDocCtxMenu);
+                }
+            });
+        }
+        function _removeDocListeners() {
+            if (_imgSizeMenuDocClick) { document.removeEventListener('click', _imgSizeMenuDocClick); _imgSizeMenuDocClick = null; }
+            if (_imgSizeMenuDocCtxMenu) { document.removeEventListener('contextmenu', _imgSizeMenuDocCtxMenu); _imgSizeMenuDocCtxMenu = null; }
+        }
+        function _closeImgSizeMenu(e) {
+            const menu = document.getElementById('imgSizeContextMenu');
+            if (menu && (!e || !menu.contains(e.target))) { menu.style.display = 'none'; _removeDocListeners(); }
+        }
+        function setImageSize(size) {
+            const img = _imgSizeMenuTargetImg;
+            if (!img) return;
+            img.classList.remove('img-size-small', 'img-size-medium', 'img-size-large');
+            img.classList.add('img-size-' + size);
+            // 清除上传时写入的内联 max-width：内联样式优先级高于尺寸 class，不清除则小/中永远不生效
+            img.style.maxWidth = '';
+            _closeImgSizeMenu();
+        }
+
+        // ----- 粘贴截图上传 -----
+        function setupImagePaste(editor, getDeviceId) {
+            // 防重复绑定：编辑器是静态元素，监听器只应注册一次（多次注册会导致一次粘贴上传多张图）
+            if (!editor || editor._imagePasteBound) return;
+            editor._imagePasteBound = true;
+            editor.addEventListener('paste', function(e) {
+                const items = e.clipboardData && e.clipboardData.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.startsWith('image/')) {
+                        e.preventDefault();
+                        const blob = items[i].getAsFile();
+                        const deviceId = getDeviceId();
+                        if (!deviceId) { alert('无法确定设备ID'); return; }
+                        pasteAndUploadImage(blob, deviceId, editor);
+                        return;
+                    }
+                }
+            });
+            // 图片双击全屏（与首页一致）
+            editor.addEventListener('dblclick', function(e) {
+                if (e.target.tagName === 'IMG') { e.preventDefault(); showImageFullscreen(e.target.src); }
+            });
+        }
+        function pasteAndUploadImage(blob, deviceId, editor) {
+            if (blob.size > 5 * 1024 * 1024) { alert('图片大小不能超过5MB'); return; }
+            const progressId = 'imgPasteProg_' + Date.now();
+            const progressHtml = `<div id="${progressId}" class="img-upload-progress"><span class="img-upload-progress-bar-outer"><span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span></span><span id="${progressId}_text" class="img-upload-progress-text">0%</span></div>`;
+            insertHTMLAtCursor(editor, progressHtml);
+            const ext = blob.type === 'image/png' ? '.png' : blob.type === 'image/jpeg' ? '.jpg' : '.png';
+            const filename = 'paste_' + Date.now() + ext;
+            const file = new File([blob], filename, { type: blob.type });
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('deviceId', deviceId || '0');
+            xhr.open('POST', API_BASE + '/upload/image');
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    const bar = document.getElementById(progressId + '_bar');
+                    const text = document.getElementById(progressId + '_text');
+                    if (bar) bar.style.width = pct + '%';
+                    if (text) text.textContent = pct + '%';
+                }
+            };
+            xhr.onload = function() {
+                const progEl = document.getElementById(progressId);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        const imgTag = `<img src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
+                        if (progEl && progEl.parentNode) { const frag = document.createRange().createContextualFragment(imgTag); progEl.replaceWith(frag); }
+                        else insertHTMLAtCursor(editor, imgTag);
+                    } catch(_) {
+                        if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '解析失败'; t.className = 'img-upload-progress-error'; } }
+                    }
+                } else {
+                    if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '上传失败'; t.className = 'img-upload-progress-error'; } }
+                }
+            };
+            xhr.onerror = function() {
+                const progEl = document.getElementById(progressId);
+                if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '网络错误'; t.className = 'img-upload-progress-error'; } }
+            };
+            xhr.send(formData);
         }
 
         function formatFileSize(bytes) {
@@ -1075,6 +1624,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // 富文本编辑弹窗编辑器是静态元素：粘贴上传与右键菜单只绑一次，避免重复注册
+            setupImagePaste(document.getElementById('remarkEditorContent'), () => currentDevice?.device_id || '');
+            setupImageContextMenu(document.getElementById('remarkEditorContent'));
             await loadPublicConfig();
             loadDeviceDetail();
         });
