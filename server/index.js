@@ -9,7 +9,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObj
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { active, dbConfig } = require('./db.config');
 const { s3Config } = require('./s3.config');
-const { marked } = require('marked');
+const { Marked } = require('marked');
 const XLSX = require('xlsx');
 
 
@@ -1530,6 +1530,25 @@ app.post('/api/upload/attachment', uploadAttachment.single('attachment'), async 
     }
 });
 
+// .md 附件预览专用渲染器：附件内容不可信，内嵌 HTML/脚本一律按纯文本显示，
+// 链接与图片只放行安全协议（https/mailto/站内相对路径），拦截 javascript: 等伪协议
+const previewMarked = new Marked();
+previewMarked.use({
+    renderer: {
+        html(token) { return String(token.text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); },
+        link(token) {
+            const href = /^(https?:|mailto:|#|\/)/i.test(token.href || '') ? token.href : '#';
+            const title = token.title ? ` title="${token.title}"` : '';
+            const text = this.parser.parseInline(token.tokens || []);
+            return `<a href="${href}"${title}>${text}</a>`;
+        },
+        image(token) {
+            if (!/^(https?:|\/)/i.test(token.href || '')) return token.text || '';
+            return `<img src="${token.href}" alt="${token.text || ''}">`;
+        }
+    }
+});
+
 // 附件代理：通过服务器中转访问 S3
 app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
     try {
@@ -1549,10 +1568,10 @@ app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
         }
         const buffer = Buffer.concat(chunks);
 
-        // Markdown 文件转 HTML 预览
+        // Markdown 文件转 HTML 预览（经 previewMarked 消毒）
         if (/\.md$/i.test(filename)) {
             const mdContent = buffer.toString('utf8');
-            const htmlContent = marked.parse(mdContent);
+            const htmlContent = previewMarked.parse(mdContent);
             const page = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

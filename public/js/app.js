@@ -684,7 +684,8 @@ function sanitizeRichTextHtml(html) {
             Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
         }
     };
-    cleanNode(tpl.content);
+    // 注意：tpl.content 是 DocumentFragment，没有 replaceWith，不能整体传给 cleanNode，只遍历其子元素
+    Array.from(tpl.content.children).forEach(cleanNode);
     return tpl.innerHTML;
 }
 
@@ -1506,6 +1507,7 @@ async function loadAnnouncements() {
         }
     } catch(e) {
         console.error('加载公告失败:', e);
+        showToast('公告加载失败，请稍后刷新重试', 'error');
     }
 }
 
