@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2');
 const path = require('path');
@@ -17,6 +18,9 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// gzip/br 压缩：JS/CSS/JSON 等文本资源传输量降 70%+
+app.use(compression());
 
 // Multer：内存存储
 const upload = multer({
@@ -1561,7 +1565,16 @@ app.get('/api/attachments/:deviceId/:filename', async (req, res) => {
 });
 
 // 静态文件服务（放在最后以避免与API路由冲突）
-app.use(express.static(path.join(__dirname, '../public')));
+// 缓存策略：HTML 每次回源校验（改动即时生效）；其余资源（js/css/字体带 ?v= 版本号）长缓存 immutable
+app.use(express.static(path.join(__dirname, '../public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+        }
+    }
+}));
 
 // 旧版前端备份
 app.use('/backup', express.static(path.join(__dirname, '../public-backup')));

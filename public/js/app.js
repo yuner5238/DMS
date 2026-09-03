@@ -105,19 +105,25 @@ function applyColumnVisibility() {
             if (def) visibleCols.add(def.dataCol);
         }
     }
-    document.querySelectorAll('#deviceTable [data-col]').forEach(el => {
-        const col = el.getAttribute('data-col');
-        if (col === 'batch-check') return;
-        el.classList.toggle('d-none', !visibleCols.has(col));
-    });
-    // 同步 th 显隐
-    document.querySelectorAll('#deviceTableHead th[data-col]').forEach(th => {
-        const col = th.getAttribute('data-col');
-        if (col === 'batch-check') return;
-        th.classList.toggle('d-none', !visibleCols.has(col));
-    });
+    // 表格级 class + CSS 规则控制显隐（O(列数)），不再逐格遍历 td/th（O(单元格数)）
+    const table = document.getElementById('deviceTable');
+    if (table) {
+        table.classList.remove(...COLUMN_DEFS.map(d => 'hide-col-' + d.dataCol));
+        COLUMN_DEFS.forEach(d => {
+            if (!visibleCols.has(d.dataCol)) table.classList.add('hide-col-' + d.dataCol);
+        });
+    }
     localStorage.setItem('dms_column_visibility', JSON.stringify(columnVisibility));
 }
+
+// 列显隐 CSS 规则只需生成一次：#deviceTable.hide-col-x [data-col="x"]{display:none}
+(function initColumnVisibilityStyles() {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = COLUMN_DEFS.map(d =>
+        `#deviceTable.hide-col-${d.dataCol} th[data-col="${d.dataCol}"], #deviceTable.hide-col-${d.dataCol} td[data-col="${d.dataCol}"]{display:none!important;}`
+    ).join('\n');
+    document.head.appendChild(styleEl);
+})();
 
 // 动态渲染表头
 function renderTableHead() {
@@ -344,8 +350,8 @@ function toggleDeviceSelect(deviceId) {
 }
 
 function toggleSelectAll() {
-    const devices = getFilteredDevices();
-    const allIds = devices.map(d => d.id);
+    // 复用 renderDevices 缓存的过滤结果（切换全选只改选中状态，列表本身不变）
+    const allIds = getLastFilteredDevices().map(d => d.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
     if (allSelected) { allIds.forEach(id => selectedDeviceIds.delete(id)); }
     else { allIds.forEach(id => selectedDeviceIds.add(id)); }
@@ -357,7 +363,7 @@ function toggleSelectAll() {
 function updateBatchSelectUI() {
     const selectAllBox = document.getElementById('batchSelectAll');
     if (!selectAllBox) return;
-    const devices = getFilteredDevices();
+    const devices = getLastFilteredDevices();
     const allIds = devices.map(d => d.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
     const someSelected = allIds.some(id => selectedDeviceIds.has(id));
@@ -377,7 +383,7 @@ function renderBatchToolbarHTML() {
         toolbar.innerHTML = '';
         return;
     }
-    const devices = getFilteredDevices();
+    const devices = getLastFilteredDevices();
     const allIds = devices.map(d => d.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedDeviceIds.has(id));
     toolbar.style.display = 'flex';
@@ -421,17 +427,7 @@ async function executeBatchDelete() {
     }
 }
 
-// ===== 工具函数 =====
-function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
-function escapeAttr(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
-function escapeOnClick(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, "\\'"); }
-
-function formatDate(s) {
-    if (!s) return '-';
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return s;
-    return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
-}
+// ===== 工具函数（转义/格式化已抽至 common.js） =====
 
 // 临期统一口径：30 天内到期（含已过期），tab/统计/侧边栏列表共用
 const EXPIRING_WINDOW_DAYS = 30;
@@ -475,14 +471,7 @@ function renderTagBadges(device, maxVisible = 2) {
     return visible.map(t => `<span class="tag-item-inline">${escapeHtml(t)}</span>`).join('') + hidden;
 }
 
-function formatDateInput(s) {
-    if (!s) return '';
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return '';
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-// ===== 富文本备注模块 =====
+// ===== 富文本备注模块（编解码/工具栏/上传逻辑已抽至 common.js） =====
 
 let _remarkOriginalContent = '';
 let _remarkSourceMode = null; // 'modal' = 从编辑弹窗打开, 保存时回写到 textarea; null = 从表格打开, 正常保存到服务器
@@ -578,12 +567,11 @@ async function saveRemarkFromPreview() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json().catch(() => null);
-        // 局部更新：仅刷新该设备，不再全量拉取
+        // 局部更新：仅刷新该设备；失败时兜底全量拉取
         if (!(result && result.data && applyDeviceUpsert(result.data))) await loadDevices();
         _remarkOriginalContent = content;
         updateRemarkPreviewStatus();
         closeRemarkModal();
-        await loadDevices();
         showToast('备注已保存', 'success');
     } catch (e) {
         console.error('保存备注失败:', e);
@@ -591,497 +579,24 @@ async function saveRemarkFromPreview() {
     }
 }
 
-// ----- 富文本编解码 -----
-function encodeRichText(html) {
-    if (!html) return '';
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    function processNode(node) {
-        if (node.nodeType === 3) return node.textContent;
-        if (node.nodeType === 1) {
-            const tag = node.tagName.toLowerCase();
-            let content = '';
-            for (let child of node.childNodes) content += processNode(child);
-            switch (tag) {
-                case 'b': case 'strong': return `[B]${content}[/B]`;
-                case 'i': case 'em': return `[I]${content}[/I]`;
-                case 'u': return `[U]${content}[/U]`;
-                case 's': case 'strike': case 'del': return `[S]${content}[/S]`;
-                case 'font':
-                    let color = node.getAttribute('color');
-                    let size = node.getAttribute('size');
-                    let fontBg = node.style.backgroundColor || (node.getAttribute('style')||'').match(/background-color:\s*([^;]+)/)?.[1]?.trim();
-                    if (fontBg) return `[HIGHLIGHT=${fontBg}]${content}[/HIGHLIGHT]`;
-                    if (color) return `[COLOR=${color}]${content}[/COLOR]`;
-                    if (size) return `[SIZE=${size}]${content}[/SIZE]`;
-                    return content;
-                case 'span':
-                    let spanBg = node.style.backgroundColor || (node.getAttribute('style')||'').match(/background-color:\s*([^;]+)/)?.[1]?.trim();
-                    if (spanBg) return `[HIGHLIGHT=${spanBg}]${content}[/HIGHLIGHT]`;
-                    return content;
-                case 'br': return '\n';
-                case 'div': case 'p': return content + '\n';
-                case 'img': case 'table': case 'thead': case 'tbody': case 'tfoot': case 'tr': case 'th': case 'td':
-                    return node.outerHTML;
-                default: return content;
-            }
-        }
-        return '';
-    }
-    let text = '';
-    for (let child of tempDiv.childNodes) text += processNode(child);
-    text = text.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-    text = text.replace(/\n{3,}/g, '\n\n');
-    return text.trim();
+// ----- 编辑命令/表格插入/色板/字号均已抽至 common.js -----
+
+// ----- 图片插入/上传/粘贴/右键尺寸菜单均已抽至 common.js（RT 配置驱动） -----
+
+// ===== 图片浏览器（首页独有） =====
+function openImageBrowser() {
+    _selectedImages = new Set();
+    loadExistingImages(RT._uploadDeviceId);
+    document.getElementById('imageBrowserModal').style.display = 'flex';
 }
 
-// 富文本 HTML 白名单消毒：只放行编辑器支持的标签与安全属性，杜绝事件属性/脚本注入
-function sanitizeRichTextHtml(html) {
-    if (!html) return '';
-    const tpl = document.createElement('template');
-    tpl.innerHTML = html;
-    const ALLOWED = new Set(['B','I','U','S','BR','DIV','P','FONT','SPAN','IMG','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH']);
-    const REMOVE_ENTIRELY = new Set(['SCRIPT','STYLE','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM','INPUT','BUTTON','TEXTAREA','SELECT','VIDEO','AUDIO','SVG','MATH','FRAME','FRAMESET']);
-    const cleanColor = v => (/^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]{1,20}$/.test(v) ? v : null);
-    const cleanNode = (el) => {
-        Array.from(el.children).forEach(cleanNode);
-        const tag = el.tagName;
-        if (REMOVE_ENTIRELY.has(tag)) { el.remove(); return; }
-        if (!ALLOWED.has(tag)) { el.replaceWith(...el.childNodes); return; }
-        // 删除所有事件属性
-        Array.from(el.attributes).forEach(attr => {
-            if (attr.name.toLowerCase().startsWith('on') || attr.name.toLowerCase() === 'srcdoc' || attr.name.toLowerCase() === 'formaction') {
-                el.removeAttribute(attr.name);
-            }
-        });
-        if (tag === 'IMG') {
-            const src = el.getAttribute('src') || '';
-            if (!/^(\/api\/images\/|https?:\/\/)/.test(src)) { el.remove(); return; }
-            const cls = (el.getAttribute('class') || '').trim();
-            Array.from(el.attributes).forEach(a => { if (a.name !== 'src') el.removeAttribute(a.name); });
-            if (/^img-size-(small|medium|large)$/.test(cls)) el.setAttribute('class', cls);
-            else el.setAttribute('class', 'img-size-large');
-        } else if (tag === 'FONT') {
-            Array.from(el.attributes).forEach(a => { if (a.name !== 'color' && a.name !== 'size') el.removeAttribute(a.name); });
-            const c = el.getAttribute('color'); if (c !== null && !cleanColor(c)) el.removeAttribute('color');
-            const s = el.getAttribute('size'); if (s !== null && !/^[1-7]$/.test(s)) el.removeAttribute('size');
-        } else if (tag === 'SPAN') {
-            const style = el.getAttribute('style') || '';
-            const m = style.match(/background-color\s*:\s*([^;]+)/i);
-            el.removeAttribute('style');
-            if (m) { const c = cleanColor(m[1].trim()); if (c) el.setAttribute('style', `background-color:${c};`); }
-        } else if (tag === 'DIV' || tag === 'P') {
-            const style = el.getAttribute('style') || '';
-            const m = style.match(/text-align\s*:\s*(left|center|right|justify)/i);
-            el.removeAttribute('style');
-            el.removeAttribute('align');
-            if (m) el.setAttribute('style', `text-align:${m[1]};`);
-        } else if (tag === 'UL' || tag === 'OL') {
-            Array.from(el.attributes).forEach(a => { if (a.name !== 'type' && a.name !== 'start') el.removeAttribute(a.name); });
-        } else if (tag === 'TABLE') {
-            Array.from(el.attributes).forEach(a => { if (a.name !== 'border' && a.name !== 'cellpadding' && a.name !== 'cellspacing') el.removeAttribute(a.name); });
-        } else if (tag === 'TD' || tag === 'TH') {
-            Array.from(el.attributes).forEach(a => { if (a.name !== 'colspan' && a.name !== 'rowspan') el.removeAttribute(a.name); });
-        }
-    };
-    // 注意：tpl.content 是 DocumentFragment，没有 replaceWith，不能整体传给 cleanNode，只遍历其子元素
-    Array.from(tpl.content.children).forEach(cleanNode);
-    return tpl.innerHTML;
-}
-
-function decodeRichText(text) {
-    if (!text) return '';
-    // 先还原 literal \\n（如果有的话），再按实际换行分割段落
-    let raw = text.replace(/\\n/g, '\n');
-    // 按连续换行（段落分隔）拆分
-    const paragraphs = raw.split(/\n{2,}/);
-    const processInline = function(part) {
-        if (!part) return '';
-        let html = part.replace(/\n/g, '<br>');
-        html = html.replace(/\[B\]([\s\S]*?)\[\/B\]/gi, '<b>$1</b>');
-        html = html.replace(/\[I\]([\s\S]*?)\[\/I\]/gi, '<i>$1</i>');
-        html = html.replace(/\[U\]([\s\S]*?)\[\/U\]/gi, '<u>$1</u>');
-        html = html.replace(/\[S\]([\s\S]*?)\[\/S\]/gi, '<s>$1</s>');
-        html = html.replace(/\[COLOR=([^\]]+)\]([\s\S]*?)\[\/COLOR\]/gi, '<font color="$1">$2</font>');
-        html = html.replace(/\[HIGHLIGHT=([^\]]+)\]([\s\S]*?)\[\/HIGHLIGHT\]/gi, '<span style="background-color:$1;">$2</span>');
-        html = html.replace(/\[SIZE=([^\]]+)\]([\s\S]*?)\[\/SIZE\]/gi, '<font size="$1">$2</font>');
-        return html;
-    };
-    let html = paragraphs.map(p => {
-        const processed = processInline(p);
-        return processed ? '<div>' + processed + '</div>' : '<div><br></div>';
-    }).join('');
-    html = html.replace(/https?:\/\/[^"'\s>]*\/images\/(\d+)\/([^"'\s>]+)/gi, '/api/images/$1/$2');
-    // 白名单消毒：事件属性、非白名单标签（script 等）、非本站图片一律清除
-    html = sanitizeRichTextHtml(html);
-    // 为图片补充加载失败提示（此 onerror 为本代码注入的可信内容，在消毒之后追加）
-    html = html.replace(/<img([^>]*)>/gi, function(match, attrs) {
-        return `<img${attrs} onerror="this.style.display=\'none\'; this.insertAdjacentHTML(\'afterend\',\'<span style=color:var(--danger);font-size:12px;>[图片加载失败]</span>\');">`;
-    });
-    return html;
-}
-
-// ----- 编辑命令 -----
-function execCmd(command, value) {
-    document.execCommand(command, false, value || null);
-}
-
-// ----- 表格插入 -----
-let _tablePickerRows = 6, _tablePickerCols = 6, _tablePickerOutsideHandler = null;
-
-function showTablePicker(btn) {
-    const existing = document.querySelector('.table-picker-popup');
-    if (existing) { existing.remove(); return; }
-    const rect = btn.getBoundingClientRect();
-    const popup = document.createElement('div');
-    popup.className = 'table-picker-popup';
-    popup.style.left = rect.left + 'px';
-    popup.style.top = (rect.bottom + 4) + 'px';
-    let h = '<div class="table-picker-label" id="tablePickerLabel">1 × 1 表格</div><div class="table-picker-grid">';
-    for (let r = 0; r < _tablePickerRows; r++)
-        for (let c = 0; c < _tablePickerCols; c++)
-            h += `<div class="table-picker-cell" data-row="${r}" data-col="${c}"></div>`;
-    h += '</div>';
-    popup.innerHTML = h;
-    const cells = popup.querySelectorAll('.table-picker-cell');
-    const label = popup.querySelector('#tablePickerLabel');
-    let sr = 0, sc = 0;
-    cells.forEach(cell => {
-        cell.addEventListener('mouseenter', function() {
-            const r = parseInt(this.dataset.row), c = parseInt(this.dataset.col);
-            sr = r + 1; sc = c + 1;
-            label.textContent = `${sr} × ${sc} 表格`;
-            cells.forEach(c2 => {
-                const r2 = parseInt(c2.dataset.row), c2c = parseInt(c2.dataset.col);
-                c2.classList.toggle('active', r2 <= r && c2c <= c);
-            });
-        });
-        cell.addEventListener('click', function() {
-            const r = parseInt(this.dataset.row) + 1, c = parseInt(this.dataset.col) + 1;
-            popup.remove();
-            insertTableHtml(r, c);
-            document.removeEventListener('click', _tablePickerOutsideHandler);
-        });
-    });
-    document.body.appendChild(popup);
-    _tablePickerOutsideHandler = function(e) {
-        if (!popup.contains(e.target) && e.target !== btn) {
-            popup.remove();
-            document.removeEventListener('click', _tablePickerOutsideHandler);
-        }
-    };
-    setTimeout(() => document.addEventListener('click', _tablePickerOutsideHandler), 0);
-}
-
-function insertTableHtml(rows, cols) {
-    let h = '<div style="overflow-x:auto;margin:8px 0;"><table style="border-collapse:collapse;width:100%;min-width:300px;border:1px solid var(--border);"><thead><tr>';
-    for (let c = 0; c < cols; c++) h += '<th style="border:1px solid var(--border);padding:6px 10px;background:var(--sidebar-bg);font-weight:600;text-align:left;min-width:60px;">&nbsp;</th>';
-    h += '</tr></thead><tbody>';
-    for (let r = 1; r < rows; r++) { h += '<tr>'; for (let c = 0; c < cols; c++) h += '<td style="border:1px solid var(--border);padding:6px 10px;min-width:60px;">&nbsp;</td>'; h += '</tr>'; }
-    h += '</tbody></table></div>';
-    execCmd('insertHTML', h);
-}
-
-// ----- 色板 -----
-const SWATCH_COLORS = [
-    '#FFFFFF','#E6E6E6','#CCCCCC','#B3B3B3','#999999','#808080','#666666','#4D4D4D','#000000',
-    '#800000','#A52A2A','#B22222','#DC143C','#FF0000','#FF3333','#FF6666','#FF8C69','#FFA07A',
-    '#D2691E','#FF4500','#FF6600','#FF8C00','#FFA500','#FFD700','#FFCC00','#DAA520','#B8860B',
-    '#FFFF00','#CCCC00','#9ACD32','#7FFF00','#00FF00','#32CD32','#228B22','#008000','#006400',
-    '#00B050','#2E8B57','#3CB371','#66CDAA','#8FBC8F','#90EE90','#98FB98','#ADFF2F','#556B2F',
-    '#00FFFF','#00CED1','#20B2AA','#008B8B','#008080','#5F9EA0','#7FFFD4','#E0FFFF','#B0E0E6',
-    '#0070C0','#0000FF','#0000CD','#00008B','#1E90FF','#4169E1','#6495ED','#87CEEB','#B0C4DE',
-    '#8A2BE2','#9400D3','#800080','#4B0082','#6A5ACD','#BA55D3','#DA70D6','#DDA0DD','#E6E6FA',
-    '#8B4513','#CD853F','#DEB887','#F5DEB3','#FFE4B5','#FFDAB9','#FFE4E1','#FFC0CB','#FFB6C1'
-];
-
-function toggleColorPanel(btn, command) {
-    const panel = document.getElementById('colorSwatchPopover');
-    const grid = document.getElementById('colorSwatchGrid');
-    const title = document.getElementById('swatchTitle');
-    if (!panel || !grid) return;
-    if (panel.style.display === 'block' && panel.dataset.command === command) {
-        panel.style.display = 'none'; return;
-    }
-    panel.dataset.command = command;
-    title.textContent = command === 'hiliteColor' ? '突出显示' : '文字颜色';
-    grid.innerHTML = SWATCH_COLORS.map(c =>
-        `<div class="color-swatch-item" style="background-color:${c};${c==='#FFFFFF'?'border-color:rgba(0,0,0,0.25);':''}" onmousedown="event.preventDefault();applyColor('${c}');" title="${c}"></div>`
-    ).join('');
-    const rect = btn.getBoundingClientRect();
-    panel.style.left = Math.min(rect.left, window.innerWidth - 256) + 'px';
-    panel.style.top = (rect.bottom + 6) + 'px';
-    panel.style.display = 'block';
-    setTimeout(() => document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true }), 0);
-}
-function closeColorPanelOnOutside(e) {
-    const panel = document.getElementById('colorSwatchPopover');
-    if (panel && !panel.contains(e.target)) panel.style.display = 'none';
-    else setTimeout(() => document.addEventListener('mousedown', closeColorPanelOnOutside, { once: true }), 0);
-}
-function applyColor(color) {
-    const panel = document.getElementById('colorSwatchPopover');
-    const command = panel.dataset.command;
-    if (command) execCmd(command, color);
-    panel.style.display = 'none';
-}
-
-// ----- 字体大小 -----
-function toggleFontSizePanel(btn) {
-    const panel = document.getElementById('fontSizePopover');
-    if (!panel) return;
-    if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
-    const rect = btn.getBoundingClientRect();
-    panel.style.left = Math.min(rect.left, window.innerWidth - 120) + 'px';
-    panel.style.top = (rect.bottom + 6) + 'px';
-    panel.style.display = 'block';
-    setTimeout(() => document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true }), 0);
-}
-function closeFontSizePanelOnOutside(e) {
-    const panel = document.getElementById('fontSizePopover');
-    if (panel && !panel.contains(e.target)) panel.style.display = 'none';
-    else setTimeout(() => document.addEventListener('mousedown', closeFontSizePanelOnOutside, { once: true }), 0);
-}
-function applyFontSize(size) {
-    execCmd('fontSize', size);
-    document.getElementById('fontSizePopover').style.display = 'none';
-}
-
-// ----- 图片插入 -----
-let _imageUploadDeviceId = null;
-let _imageTargetEditorId = 'remarkContent';
-let _selectedImages = new Set();
-let _existingImages = [];
-
-function insertImageToRemark(deviceId, editorId) {
-    _imageUploadDeviceId = deviceId;
-    _imageTargetEditorId = editorId || 'remarkContent';
-    const fileInput = document.getElementById('imagePickerFileInput');
-    if (fileInput) fileInput.value = '';
-    const popup = document.getElementById('imageInsertPopup');
-    if (!popup) return;
-    const evt = (typeof event !== 'undefined') ? event : null;
-    const btn = (evt && evt.target && evt.target.closest('button')) || document.activeElement;
-    if (btn) {
-        const rect = btn.getBoundingClientRect();
-        popup.style.display = ''; popup.style.visibility = 'hidden';
-        const popupH = popup.offsetHeight;
-        popup.style.visibility = '';
-        popup.style.left = (rect.left + rect.width / 2) + 'px';
-        popup.style.top = (rect.top - popupH - 8) + 'px';
-        popup.style.transform = 'translateX(-50%)';
-    }
-    popup.style.display = '';
-    setTimeout(() => document.addEventListener('click', _closeImagePopupOnOutside, { once: true }), 0);
-}
-function _closeImagePopupOnOutside(e) {
-    const popup = document.getElementById('imageInsertPopup');
-    if (popup && !popup.contains(e.target)) closeImageInsertPopup();
-    else if (popup) document.addEventListener('click', _closeImagePopupOnOutside, { once: true });
-}
-function closeImageInsertPopup() {
-    const popup = document.getElementById('imageInsertPopup');
-    if (popup) popup.style.display = 'none';
-}
-function triggerImageUpload() {
-    document.getElementById('imagePickerFileInput').click();
-}
-function convertImageUrl(url) {
-    if (!url) return '';
-    const match = url.match(/\/(\d+)\/([^/\s"'>]+?)(?:\?|$)/);
-    if (match) return `/api/images/${match[1]}/${decodeURIComponent(match[2])}`;
-    return url;
-}
-
-function handleImagePickerUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { showToast('图片大小不能超过5MB', 'error'); event.target.value = ''; return; }
-    const editor = document.getElementById('remarkContent');
-    const progressId = 'imgUploadProg_' + Date.now();
-    if (editor) {
-        const progressHtml = `<div id="${progressId}" class="img-upload-progress"><span class="img-upload-progress-bar-outer"><span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span></span><span id="${progressId}_text" class="img-upload-progress-text">0%</span></div>`;
-        insertHTMLAtCursor(editor, progressHtml);
-    }
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('deviceId', _imageUploadDeviceId || '0');
-    xhr.open('POST', API_BASE + '/upload/image');
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            const bar = document.getElementById(progressId + '_bar');
-            const text = document.getElementById(progressId + '_text');
-            if (bar) bar.style.width = pct + '%';
-            if (text) text.textContent = pct + '%';
-        }
-    };
-    xhr.onload = function() {
-        const progEl = document.getElementById(progressId);
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                const data = JSON.parse(xhr.responseText);
-                const imgTag = `<img src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
-                if (progEl && progEl.parentNode) {
-                    const frag = document.createRange().createContextualFragment(imgTag);
-                    progEl.replaceWith(frag);
-                } else insertHTMLAtCursor(editor, imgTag);
-                updateRemarkPreviewStatus();
-            } catch(_) {
-                if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '解析失败'; t.className = 'img-upload-progress-error'; } }
-            }
-        } else {
-            if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '上传失败'; t.className = 'img-upload-progress-error'; } }
-        }
-    };
-    xhr.onerror = function() {
-        const progEl = document.getElementById(progressId);
-        if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '网络错误'; t.className = 'img-upload-progress-error'; } }
-    };
-    xhr.send(formData);
-    event.target.value = '';
-}
-
-function insertHTMLAtCursor(editor, html) {
-    editor.focus();
-    const sel = window.getSelection();
-    if (sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        if (editor.contains(range.commonAncestorContainer)) {
-            range.deleteContents();
-            const fragment = range.createContextualFragment(html);
-            range.insertNode(fragment);
-            range.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            return;
-        }
-    }
-    editor.innerHTML += html;
-}
-
-// ----- 粘贴截图上传 -----
-function setupImagePaste(editor, getDeviceId) {
-    editor.addEventListener('paste', function(e) {
-        const items = e.clipboardData && e.clipboardData.items;
-        if (!items) return;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.startsWith('image/')) {
-                e.preventDefault();
-                const blob = items[i].getAsFile();
-                const deviceId = getDeviceId();
-                if (!deviceId) { showToast('无法确定设备ID', 'error'); return; }
-                pasteAndUploadImage(blob, deviceId, editor);
-                return;
-            }
-        }
-    });
-}
-function pasteAndUploadImage(blob, deviceId, editor) {
-    if (blob.size > 5 * 1024 * 1024) { showToast('图片大小不能超过5MB', 'error'); return; }
-    const progressId = 'imgPasteProg_' + Date.now();
-    const progressHtml = `<div id="${progressId}" class="img-upload-progress"><span class="img-upload-progress-bar-outer"><span id="${progressId}_bar" class="img-upload-progress-bar-inner"></span></span><span id="${progressId}_text" class="img-upload-progress-text">0%</span></div>`;
-    insertHTMLAtCursor(editor, progressHtml);
-    const ext = blob.type === 'image/png' ? '.png' : blob.type === 'image/jpeg' ? '.jpg' : '.png';
-    const filename = 'paste_' + Date.now() + ext;
-    const file = new File([blob], filename, { type: blob.type });
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('deviceId', deviceId || '0');
-    xhr.open('POST', API_BASE + '/upload/image');
-    xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            const bar = document.getElementById(progressId + '_bar');
-            const text = document.getElementById(progressId + '_text');
-            if (bar) bar.style.width = pct + '%';
-            if (text) text.textContent = pct + '%';
-        }
-    };
-    xhr.onload = function() {
-        const progEl = document.getElementById(progressId);
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                const data = JSON.parse(xhr.responseText);
-                const imgTag = `<img src="${convertImageUrl(data.url)}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
-                if (progEl && progEl.parentNode) { const frag = document.createRange().createContextualFragment(imgTag); progEl.replaceWith(frag); }
-                else insertHTMLAtCursor(editor, imgTag);
-                updateRemarkPreviewStatus();
-            } catch(_) {
-                if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '解析失败'; t.className = 'img-upload-progress-error'; } }
-            }
-        } else {
-            if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '上传失败'; t.className = 'img-upload-progress-error'; } }
-        }
-    };
-    xhr.onerror = function() {
-        const progEl = document.getElementById(progressId);
-        if (progEl) { const t = progEl.querySelector('.img-upload-progress-text'); if (t) { t.textContent = '网络错误'; t.className = 'img-upload-progress-error'; } }
-    };
-    xhr.send(formData);
-}
-
-// ----- 图片右键尺寸菜单 -----
-let _imgSizeMenuTargetImg = null, _imgSizeMenuDocClick = null, _imgSizeMenuDocCtxMenu = null;
-
-function setupImageContextMenu(editor) {
-    editor.addEventListener('contextmenu', function(e) {
-        const img = e.target.closest('img');
-        if (img) {
-            e.preventDefault(); e.stopPropagation();
-            _imgSizeMenuTargetImg = img;
-            const menu = document.getElementById('imgSizeContextMenu');
-            if (!menu) return;
-            menu.style.left = e.clientX + 'px';
-            menu.style.top = e.clientY + 'px';
-            menu.style.display = 'block';
-            menu.querySelectorAll('.img-size-menu-item').forEach(item => {
-                item.classList.toggle('active', img.classList.contains('img-size-' + item.dataset.size));
-            });
-            _removeDocListeners();
-            _imgSizeMenuDocClick = () => _closeImgSizeMenu();
-            _imgSizeMenuDocCtxMenu = (ev) => { ev.preventDefault(); _closeImgSizeMenu(); };
-            document.addEventListener('click', _imgSizeMenuDocClick);
-            document.addEventListener('contextmenu', _imgSizeMenuDocCtxMenu);
-        }
-    });
-}
-function _removeDocListeners() {
-    if (_imgSizeMenuDocClick) { document.removeEventListener('click', _imgSizeMenuDocClick); _imgSizeMenuDocClick = null; }
-    if (_imgSizeMenuDocCtxMenu) { document.removeEventListener('contextmenu', _imgSizeMenuDocCtxMenu); _imgSizeMenuDocCtxMenu = null; }
-}
-function _closeImgSizeMenu(e) {
-    const menu = document.getElementById('imgSizeContextMenu');
-    if (menu && (!e || !menu.contains(e.target))) { menu.style.display = 'none'; _removeDocListeners(); }
-}
-function setImageSize(size) {
-    const img = _imgSizeMenuTargetImg;
-    if (!img) return;
-    img.classList.remove('img-size-small', 'img-size-medium', 'img-size-large');
-    img.classList.add('img-size-' + size);
-    _closeImgSizeMenu();
+function closeImageBrowser() {
+    document.getElementById('imageBrowserModal').style.display = 'none';
 }
 
 // ===== 附件管理（编辑设备弹窗中使用） =====
-
-function formatFileSize(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
-    const units = ['B','KB','MB','GB'];
-    let i = 0, size = bytes;
-    while (size >= 1024 && i < units.length-1) { size /= 1024; i++; }
-    return size.toFixed(i===0?0:1) + ' ' + units[i];
-}
-
-function getAttachmentIconClass(ext) {
-    if (ext==='pdf') return 'pdf';
-    if (/^docx?$/.test(ext)||ext==='doc') return 'doc';
-    if (/^xlsx?$/.test(ext)||/^csv$/.test(ext)) return 'xls';
-    if (/^(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(ext)) return 'img';
-    if (/^(zip|rar|7z|tar|gz)$/.test(ext)) return 'zip';
-    return 'other';
-}
+let _selectedImages = new Set();
+let _existingImages = [];
 
 async function loadDeviceAttachments(deviceIdCode) {
     const container = document.getElementById('modalAttachmentList_' + deviceIdCode);
@@ -1102,9 +617,9 @@ async function loadDeviceAttachments(deviceIdCode) {
             const iconClass = getAttachmentIconClass(ext);
             const abbr = ext.toUpperCase().slice(0,3);
             return `<div class="modal-attachment-item">
-                <div class="modal-attachment-icon ${iconClass}">${abbr}</div>
-                <div class="modal-attachment-info"><div class="modal-attachment-name"><a href="${a.url}" target="_blank" title="${a.displayName||a.filename}">${escapeHtml(a.displayName||a.filename)}</a></div><div class="modal-attachment-meta">${formatFileSize(a.size)}</div></div>
-                <div class="modal-attachment-actions"><button onclick="deleteAttachmentFile(this,'${deviceIdCode}','${encodeURIComponent(a.filename)}')" class="btn-attachment-delete"><i class="bi bi-trash3"></i> 删除</button></div>
+                <div class="modal-attachment-icon ${iconClass}">${escapeHtml(abbr)}</div>
+                <div class="modal-attachment-info"><div class="modal-attachment-name"><a href="${escapeAttr(a.url)}" target="_blank" title="${escapeAttr(a.displayName||a.filename)}">${escapeHtml(a.displayName||a.filename)}</a></div><div class="modal-attachment-meta">${formatFileSize(a.size)}</div></div>
+                <div class="modal-attachment-actions"><button onclick="deleteAttachmentFile(this,'${escapeAttr(deviceIdCode)}','${encodeURIComponent(a.filename)}')" class="btn-attachment-delete"><i class="bi bi-trash3"></i> 删除</button></div>
             </div>`;
         }).join('');
     } catch (err) {
@@ -1165,16 +680,6 @@ async function deleteAttachmentFile(btn, deviceIdCode, encodedFilename) {
 }
 
 // ----- 仓库已有图片浏览器 -----
-function openImageBrowser() {
-    _selectedImages = new Set();
-    loadExistingImages(_imageUploadDeviceId);
-    document.getElementById('imageBrowserModal').style.display = 'flex';
-}
-
-function closeImageBrowser() {
-    document.getElementById('imageBrowserModal').style.display = 'none';
-}
-
 async function loadExistingImages(deviceId) {
     const container = document.getElementById('imageGridContainer');
     if (!container) return;
@@ -1202,7 +707,7 @@ async function loadExistingImages(deviceId) {
 }
 
 function getUsedImageFilenames() {
-    const editor = document.getElementById(_imageTargetEditorId);
+    const editor = document.getElementById(RT._targetEditorId || 'remarkContent');
     if (!editor) return new Set();
     const html = editor.innerHTML || '';
     const used = new Set();
@@ -1276,12 +781,12 @@ function selectAllUnused() {
 
 function insertSelectedImages() {
     if (_selectedImages.size === 0) return;
-    const editor = document.getElementById(_imageTargetEditorId);
+    const editor = document.getElementById(RT._targetEditorId || 'remarkContent');
     if (!editor) return;
     _selectedImages.forEach(filename => {
         const img = _existingImages.find(i => i.filename === filename);
         if (img) {
-            const imgTag = `<img src="${img.url}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
+            const imgTag = `<img src="${escapeAttr(img.url)}" class="img-size-large" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px;border:1px solid var(--border);" />`;
             insertHTMLAtCursor(editor, imgTag);
         }
     });
@@ -1292,7 +797,7 @@ function insertSelectedImages() {
 async function deleteSingleImage(filename) {
     if (!confirm(`确定要删除图片 "${filename}" 吗？此操作不可撤销。`)) return;
     try {
-        const res = await fetch(`${API_BASE}/images/${_imageUploadDeviceId}/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/images/${RT._uploadDeviceId}/${encodeURIComponent(filename)}`, { method: 'DELETE' });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || '删除失败');
         _existingImages = _existingImages.filter(i => i.filename !== filename);
@@ -1311,7 +816,7 @@ async function deleteSelectedImages() {
     const toDelete = [..._selectedImages];
     for (const filename of toDelete) {
         try {
-            const res = await fetch(`${API_BASE}/images/${_imageUploadDeviceId}/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/images/${RT._uploadDeviceId}/${encodeURIComponent(filename)}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 _existingImages = _existingImages.filter(i => i.filename !== filename);
@@ -1352,27 +857,21 @@ function truncateFilename(name, maxLen) {
 }
 
 // ----- 初始化备注编辑器事件 -----
+// 首页注入公共富文本模块配置（common.js 的 RT 钩子）
+RT.getDeviceId = () => RT._uploadDeviceId || document.getElementById('remarkPreviewDeviceIdCode')?.value || '0';
+RT.getEditor = () => document.getElementById(RT._targetEditorId || 'remarkContent');
+RT.onImageInserted = updateRemarkPreviewStatus;
+
 (function bindRemarkEditorEvents() {
     const rc = document.getElementById('remarkContent');
     if (!rc) return;
     rc.addEventListener('input', updateRemarkPreviewStatus);
-    rc.addEventListener('dblclick', function(e) {
-        if (e.target.tagName === 'IMG') { e.preventDefault(); showImageFullscreen(e.target.src); }
-    });
+    // 双击全屏/右键尺寸菜单/粘贴上传均由 common.js 的 setupImagePaste / setupImageContextMenu 提供
     setupImageContextMenu(rc);
     setupImagePaste(rc, () => document.getElementById('remarkPreviewDeviceIdCode').value);
 })();
 
-function showToast(msg, type) {
-    type = type || 'info';
-    const c = document.getElementById('toastContainer');
-    const el = document.createElement('div');
-    el.className = 'toast toast-' + type;
-    const icons = { success: 'check-circle', error: 'x-circle', warning: 'exclamation-triangle', info: 'info-circle' };
-    el.innerHTML = `<i class="bi bi-${icons[type]||'info-circle'}"></i> ${escapeHtml(msg)}`;
-    c.appendChild(el);
-    setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; setTimeout(()=>el.remove(),300); }, 3000);
-}
+// showToast 已抽至 common.js
 
 // ===== 数据加载 =====
 async function loadWarehouses() {
@@ -1400,36 +899,46 @@ async function loadWarehouses() {
 let _loadDevicesSeq = 0; // 请求序号：快速切换仓库时丢弃过期响应
 async function loadDevices() {
     const seq = ++_loadDevicesSeq;
-    try {
-        let url = API_BASE + '/devices';
-        // "未指定"仓库：加载全部设备，后续客户端过滤
-        if (currentWarehouse && currentWarehouse.id !== '__unassigned__') {
-            url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+    // 与 loadWarehouses 口径一致：3 次重试，间隔 500ms
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            let url = API_BASE + '/devices';
+            // "未指定"仓库：加载全部设备，后续客户端过滤
+            if (currentWarehouse && currentWarehouse.id !== '__unassigned__') {
+                url += '?warehouseName=' + encodeURIComponent(currentWarehouse.name);
+            }
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            if (seq !== _loadDevicesSeq) return; // 已有更新的请求，丢弃本次结果
+            allDevices = Array.isArray(data) ? data : [];
+            // 加载全部设备或"未指定"时，从前端数据重新计算各仓库在库数量
+            if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
+            // 客户端过滤"未指定"仓库的设备
+            if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
+                allDevices = allDevices.filter(d => !d.warehouse_name);
+            }
+            applySort();
+            renderDevices();
+            updateStats();
+            loadExpiringDevices();
+            loadTagStats();
+            return;
+        } catch(e) {
+            if (seq !== _loadDevicesSeq) return; // 已有更新的请求，放弃重试
+            if (attempt < 2) {
+                console.warn(`[加载设备] 第 ${attempt + 1} 次失败，重试中:`, e.message);
+                await new Promise(res => setTimeout(res, 500));
+            } else {
+                console.error('加载设备失败:', e);
+                allDevices = [];
+                renderDevices();
+                updateStats();
+                loadExpiringDevices();
+                loadTagStats();
+                showToast('设备加载失败，请检查网络后重试', 'error');
+            }
         }
-        const r = await fetch(url);
-        const data = await r.json();
-        if (seq !== _loadDevicesSeq) return; // 已有更新的请求，丢弃本次结果
-        allDevices = Array.isArray(data) ? data : [];
-        // 加载全部设备或"未指定"时，从前端数据重新计算各仓库在库数量
-        if (!currentWarehouse || currentWarehouse.id === '__unassigned__') updateWarehouseCounts();
-        // 客户端过滤"未指定"仓库的设备
-        if (currentWarehouse && currentWarehouse.id === '__unassigned__') {
-            allDevices = allDevices.filter(d => !d.warehouse_name);
-        }
-        applySort();
-        renderDevices();
-        updateStats();
-        loadExpiringDevices();
-        loadTagStats();
-    } catch(e) {
-        console.error('加载设备失败:', e);
-        if (seq !== _loadDevicesSeq) return;
-        allDevices = [];
-        renderDevices();
-        updateStats();
-        loadExpiringDevices();
-        loadTagStats();
-        showToast('设备加载失败，请检查网络后重试', 'error');
     }
 }
 
@@ -1695,8 +1204,13 @@ function getFilteredDevices() {
     return devices;
 }
 
+// 渲染周期缓存：renderDevices 算一次，批量 UI 函数直接复用，避免同一周期重复过滤 3 次
+let _lastFilteredDevices = [];
+function getLastFilteredDevices() { return _lastFilteredDevices; }
+
 function renderDevices() {
     const devices = getFilteredDevices();
+    _lastFilteredDevices = devices;
     document.getElementById('deviceCount').textContent = devices.length;
     const tabLabels = { all: '全部设备', in: '在库设备', out: '已出库', expiring: '临期设备' };
     document.getElementById('deviceTabLabel').textContent = tabLabels[currentTab] || '设备列表';
@@ -2662,19 +2176,25 @@ let sortAsc = (() => {
 })();
 
 function applySort() {
-    const va = (a,b) => {
-        let va = a[sortField] || '', vb = b[sortField] || '';
+    // 比较器内变量与外层重名曾造成遮蔽，此处重命名消除
+    const cmp = (a, b) => {
+        let aVal = a[sortField] || '', bVal = b[sortField] || '';
         if (sortField === 'checkin_time' || sortField === 'expiry_date') {
-            va = va || '0000-00-00';
-            vb = vb || '0000-00-00';
+            aVal = aVal || '0000-00-00';
+            bVal = bVal || '0000-00-00';
         }
-        if (typeof va === 'string') va = va.toLowerCase();
-        if (typeof vb === 'string') vb = vb.toLowerCase();
-        if (va < vb) return sortAsc ? -1 : 1;
-        if (va > vb) return sortAsc ? 1 : -1;
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortAsc ? -1 : 1;
+        if (aVal > bVal) return sortAsc ? 1 : -1;
         return 0;
     };
-    allDevices.sort(va);
+    allDevices.sort(cmp);
+    // localStorage 只在排序条件变化时写入（persistSortState），纯重排不重复写盘
+}
+
+// 排序条件变化时持久化（selectSortField / selectSortFieldFromFab 调用）
+function persistSortState() {
     localStorage.setItem('dms_sort_field', sortField);
     localStorage.setItem('dms_sort_asc', sortAsc);
 }
@@ -2718,6 +2238,7 @@ function selectSortField(field) {
         sortField = field;
         sortAsc = sortField === 'checkin_time' || sortField === 'expiry_date' ? false : true;
     }
+    persistSortState();
     applySort();
     renderDevices();
     document.getElementById('sortDropdown').style.display = 'none';
@@ -2813,6 +2334,7 @@ function selectSortFieldFromFab(field) {
         sortField = field;
         sortAsc = sortField === 'checkin_time' || sortField === 'expiry_date' ? false : true;
     }
+    persistSortState();
     applySort();
     renderDevices();
     updateSortBtnIcon();
@@ -2891,17 +2413,7 @@ async function saveNewAnnouncement() {
     finally { _submitLock = false; }
 }
 
-// ===== 图片全屏 =====
-function showImageFullscreen(src) {
-    const existing = document.querySelector('.image-fullscreen-overlay');
-    if (existing) existing.remove();
-    const overlay = document.createElement('div');
-    overlay.className = 'image-fullscreen-overlay';
-    overlay.innerHTML = `<div class="image-fullscreen-close" onclick="this.parentElement.remove()"><i class="bi bi-x-lg"></i></div><img src="${src}" class="image-fullscreen-img" />`;
-    overlay.onclick = () => overlay.remove();
-    overlay.querySelector('img').onclick = e => e.stopPropagation();
-    document.body.appendChild(overlay);
-}
+// ===== 图片全屏（showImageFullscreen 已抽至 common.js） =====
 
 
 
@@ -2962,12 +2474,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Step3: ≤1366px → 自动切换卡片视图，恢复宽度后切回表格
 // Step4: ≤768px  → 移动端视图（CSS @media 768px 自动适配）
 let resizeTimer;
+let _lastInnerWidth = window.innerWidth;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
+        const w = window.innerWidth;
+        // 仅当跨过 1500px 阈值（标签列显示 1→2 个变化）且仍在表格视图时才需要重渲染
+        const crossedThreshold = (_lastInnerWidth < 1500) !== (w < 1500);
+        _lastInnerWidth = w;
         applyViewByWidth(false);
-        // 表格视图下宽度变化可能触发标签数变化，重新渲染
-        if (viewMode === 'table') renderDevices();
+        if (viewMode === 'table' && crossedThreshold) renderDevices();
     }, 200);
 });
 
