@@ -2,5 +2,7 @@ node_modules/
 *.log
 .DS_Store
 .env
-.env.example
 .codebuddy/
+.vscode/
+.idea/
+*.code-workspace
