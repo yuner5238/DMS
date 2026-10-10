@@ -5,6 +5,14 @@
 // S3 存储根目录前缀（与 server/s3.config.js 保持一致）
 const S3_BASE = 'DMS storage';
 
+// ============ 时间统一（方案B）============
+// 全站唯一"现在"：存北京时间墙钟字符串。
+// D1 的 CURRENT_TIMESTAMP 固定为 UTC，因此所有时间必须由应用层显式提供
+function nowBeijing() {
+    return new Date(Date.now() + 8 * 3600 * 1000)
+        .toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // ============ 路由处理 ============
 export default {
     async fetch(request, env, ctx) {
@@ -163,9 +171,10 @@ async function createWarehouse(request, env) {
     const { name, description } = await request.json();
     if (!name) return jsonResponse({ error: '仓库名称不能为空' }, 400);
 
+    const now = nowBeijing();  // 方案B：D1 默认值是 UTC，必须显式写北京时间
     const result = await env.DB.prepare(
-        'INSERT INTO warehouses (name, description) VALUES (?, ?)'
-    ).bind(name, description || '').run();
+        'INSERT INTO warehouses (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)'
+    ).bind(name, description || '', now, now).run();
 
     return jsonResponse({ id: result.meta.last_row_id, name, description });
 }
@@ -173,8 +182,8 @@ async function createWarehouse(request, env) {
 async function updateWarehouse(request, env, id) {
     const { name, description } = await request.json();
     await env.DB.prepare(
-        'UPDATE warehouses SET name=?, description=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
-    ).bind(name, description || '', id).run();
+        'UPDATE warehouses SET name=?, description=?, updated_at=? WHERE id=?'
+    ).bind(name, description || '', nowBeijing(), id).run();
 
     return jsonResponse({ id, name, description });
 }
@@ -235,13 +244,14 @@ async function createDevice(request, env) {
     if (!name) return jsonResponse({ error: '设备名称不能为空' }, 400);
 
     const locStatus = location_status || 'in_stock';
-    const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
+    const checkinTime = checkin_time || (locStatus === 'in_stock' ? nowBeijing() : null);
     const tags = tag_names || tag_name || '';
 
+    const now = nowBeijing();  // 方案B：D1 默认值是 UTC，必须显式写北京时间
     const result = await env.DB.prepare(
-        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-        device_id || null, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null
+        device_id || null, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null, now, now
     ).run();
 
     return jsonResponse({ id: result.meta.last_row_id, warehouseName, name });
@@ -293,14 +303,14 @@ async function updateDevice(request, env, id) {
     }
 
     await env.DB.prepare(
-        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, spec_model=?, source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+        `UPDATE devices SET device_id=?, warehouse_name=?, name=?, tag_names=?, status=?, quantity=?, storage_location=?, location_status=?, destination=?, remark=?, expiry_date=?, checkin_time=?, checkout_time=?, responsible_person=?, department_path=?, serial_number=?, spec_model=?, source=?, updated_at=? WHERE id=?`
     ).bind(
         merged.device_id || null, merged.warehouse_name || '', merged.name || '', merged.tag_names || '',
         merged.status || '正常', merged.quantity || 1, merged.storage_location || '',
         merged.location_status || 'in_stock', merged.destination || '', merged.remark || '',
         merged.expiry_date || null, merged.checkin_time || null, merged.checkout_time || null,
         merged.responsible_person || null, merged.department_path || null, merged.serial_number || null,
-        merged.spec_model || null, merged.source || null, id
+        merged.spec_model || null, merged.source || null, nowBeijing(), id
     ).run();
 
     return jsonResponse({ id, warehouseName: merged.warehouse_name, name: merged.name });
@@ -423,6 +433,7 @@ async function importBatchDevices(request, env) {
             responsible_person: 'responsible_person',
             storage_location: 'storage_location',
             status: 'status',
+            location_status: 'location_status',
             destination: 'destination',
             remark: 'remark',
         };
@@ -508,15 +519,22 @@ async function importBatchDevices(request, env) {
 
     for (const device of devices) {
         try {
+            // 在库状态：显式值优先（兼容中英文写法）；未指定时按"去向"是否有值自动推断，
+            // 避免落库出 location_status='in_stock' 却带 destination 的矛盾数据
+            const rawLoc = String(device.location_status || '').trim();
+            const locStatus = /^(checked_out|已出库|出库)$/i.test(rawLoc) ? 'checked_out'
+                : /^(in_stock|在库|库存)$/i.test(rawLoc) ? 'in_stock'
+                : (device.destination ? 'checked_out' : 'in_stock');
             await env.DB.prepare(
-                `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(
                 device.device_id, device.warehouse_name, device.name,
                 device.tag_names || '', device.status || '正常', device.quantity || 1,
-                device.storage_location || '', device.destination || '', device.remark || '',
+                device.storage_location || '', locStatus, device.destination || '', device.remark || '',
                 device.expiry_date || null, device.checkin_time || null, device.checkout_time || null,
                 device.responsible_person || null, device.department_path || null,
-                device.serial_number || null, device.spec_model || null, device.source || null
+                device.serial_number || null, device.spec_model || null, device.source || null,
+                nowBeijing(), nowBeijing()  // 方案B：D1 默认值是 UTC，必须显式写北京时间
             ).run();
             inserted++;
         } catch (err) {
@@ -536,13 +554,14 @@ async function importBatchDevices(request, env) {
 // ============ 临期设备 ============
 
 async function getExpiringDevices(request, env) {
+    // 方案B：库中日期按北京时间口径存储，"now" 需 +8 小时修正为北京时间
     const result = await env.DB.prepare(
         `SELECT id, device_id, name, expiry_date, location_status,
-            CAST(julianday(expiry_date) - julianday('now') AS INTEGER) AS remaining_days
+            CAST(julianday(expiry_date) - julianday('now', '+8 hours') AS INTEGER) AS remaining_days
         FROM devices
         WHERE expiry_date IS NOT NULL
-        AND expiry_date >= date('now')
-        AND CAST(julianday(expiry_date) - julianday('now') AS INTEGER) <= 7
+        AND expiry_date >= date('now', '+8 hours')
+        AND CAST(julianday(expiry_date) - julianday('now', '+8 hours') AS INTEGER) <= 7
         ORDER BY remaining_days ASC
         LIMIT 10`
     ).all();
@@ -560,14 +579,10 @@ async function createAnnouncement(request, env) {
     const { content } = await request.json();
     if (!content) return jsonResponse({ success: false, error: '公告内容不能为空' }, 400);
 
-    // 获取北京时间（UTC+8）
-    const now = new Date();
-    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-    const beijingTimeStr = beijingTime.toISOString().slice(0, 19).replace('T', ' ');
-
+    // 方案B：统一走 nowBeijing()（北京时间墙钟字符串）
     const result = await env.DB.prepare(
         'INSERT INTO announcements (content, created_at) VALUES (?, ?)'
-    ).bind(content, beijingTimeStr).run();
+    ).bind(content, nowBeijing()).run();
 
     const announcement = await env.DB.prepare('SELECT * FROM announcements WHERE id=?').bind(result.meta.last_row_id).first();
     return jsonResponse({ success: true, data: announcement });

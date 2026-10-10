@@ -5,15 +5,21 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const active = process.env.S3_ACTIVE || 'cstcloud';
 
-const getConfig = (type) => ({
-    endpoint: process.env[`S3_${type}_ENDPOINT`] || '',
-    region: process.env[`S3_${type}_REGION`] || 'us-east-1',
-    bucket: process.env[`S3_${type}_BUCKET`] || '',
-    publicUrl: process.env[`S3_${type}_PUBLIC_URL`] || '',
-    accessKey: process.env[`S3_${type}_ACCESS_KEY`] || '',
-    secretKey: process.env[`S3_${type}_SECRET_KEY`] || '',
-    basePrefix: 'DMS storage/',  // bucket 内根目录前缀，隔离不同项目
-});
+// 平台 → .env 键前缀映射（cstcloud 已统一为 CSTCLOUD_S3_*；hi168 保留 S3_hi168_*）
+const PREFIX = { cstcloud: "CSTCLOUD_S3", hi168: "S3_hi168" };
+
+const getConfig = (type) => {
+    const p = PREFIX[type] || `S3_${type}`;
+    return {
+        endpoint: process.env[`${p}_ENDPOINT`] || '',
+        region: process.env[`${p}_REGION`] || 'us-east-1',
+        bucket: process.env[`${p}_BUCKET`] || '',
+        publicUrl: process.env[`${p}_PUBLIC_URL`] || '',
+        accessKey: process.env[`${p}_ACCESS_KEY`] || '',
+        secretKey: process.env[`${p}_SECRET_KEY`] || '',
+        basePrefix: 'DMS storage/',  // bucket 内根目录前缀，隔离不同项目
+    };
+};
 
 const s3Config = getConfig(active);
 

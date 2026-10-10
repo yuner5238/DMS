@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设备详情 — DMS</title>
-    <link rel="stylesheet" href="css/style.css?v=90">
+    <link rel="stylesheet" href="css/style.css?v=94">
     <link rel="stylesheet" href="css/bootstrap-icons.css">
     <style>
         /* Device detail page — override body scroll lock */
@@ -742,7 +742,7 @@
     <!-- ================================================================
          APPLICATION LOGIC (fully self-contained for detail page)
          ================================================================ -->
-    <script src="js/common.js?v=1"></script>
+    <script src="js/common.js?v=2"></script>
     <script>
         // ===== API 配置 =====
         const API_BASE = '/api';
@@ -798,10 +798,9 @@
         function renderDeviceDetail(device) {
             currentDevice = device;
             const container = document.getElementById('detailContainer');
-            let locationText = device.storage_location || '在库';
-            if (device.location_status === 'checked_out') {
-                locationText = device.destination || '已出库';
-            }
+            // 存放位置：仅显示 storage_location（在库/已出库由"在库状态"字段单独体现）
+            // 为空时显示「-」，不再用状态文案兜底，避免位置处出现"在库/已出库"
+            const locationText = device.storage_location || '-';
             const statusBadge = `<span class="dp-status ${statusClass[device.status] || 'status-normal'}"><span class="status-dot"></span>${device.status || '未知'}</span>`;
             const html = `
                 <div class="dp-card">

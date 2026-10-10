@@ -29,7 +29,7 @@ const COLUMN_DEFS = [
     { key: 'tags',        label: '标签',     dataCol: 'tags' },
     { key: 'department',  label: '所属路径', dataCol: 'department', defaultVisible: false },
     { key: 'responsible', label: '负责人',   dataCol: 'responsible', defaultVisible: false },
-    { key: 'location',    label: '位置/去向', dataCol: 'location' },
+    { key: 'location',    label: '存放位置', dataCol: 'location' },
     { key: 'status',      label: '状态',     dataCol: 'status',      defaultVisible: false },
     { key: 'expiry',      label: '到期日期', dataCol: 'expiry' },
     { key: 'checkin',     label: '入库时间', dataCol: 'checkin',      defaultVisible: false },
@@ -40,8 +40,8 @@ const COLUMN_DEFS = [
 const COLUMN_VERSION = 7;
 let columnVisibility = (() => {
     try {
-        const savedVersion = localStorage.getItem('dms_column_version');
-        const saved = localStorage.getItem('dms_column_visibility');
+        const savedVersion = store.get('dms_column_version');
+        const saved = store.get('dms_column_visibility');
         if (saved && Number(savedVersion) === COLUMN_VERSION) {
             const parsed = JSON.parse(saved);
             COLUMN_DEFS.forEach(c => { if (!(c.key in parsed)) parsed[c.key] = c.defaultVisible !== false; });
@@ -50,8 +50,8 @@ let columnVisibility = (() => {
     } catch (e) {}
     const defaults = {};
     COLUMN_DEFS.forEach(c => defaults[c.key] = c.defaultVisible !== false);
-    localStorage.setItem('dms_column_version', COLUMN_VERSION);
-    localStorage.setItem('dms_column_visibility', JSON.stringify(defaults)); // 版本重置时立即落盘，避免旧配置在第二个会话复活
+    store.set('dms_column_version', COLUMN_VERSION);
+    store.set('dms_column_visibility', JSON.stringify(defaults)); // 版本重置时立即落盘，避免旧配置在第二个会话复活
     return defaults;
 })();
 
@@ -59,8 +59,8 @@ let columnVisibility = (() => {
 const ORDERABLE_KEYS = COLUMN_DEFS.filter(c => c.key !== 'actions' && c.key !== 'batch-check').map(c => c.key);
 let columnOrder = (() => {
     try {
-        const savedVersion = localStorage.getItem('dms_column_order_version');
-        const saved = localStorage.getItem('dms_column_order');
+        const savedVersion = store.get('dms_column_order_version');
+        const saved = store.get('dms_column_order');
         // 版本匹配时才使用缓存的列顺序
         if (saved && savedVersion && Number(savedVersion) === COLUMN_VERSION) {
             const parsed = JSON.parse(saved);
@@ -78,18 +78,18 @@ let columnOrder = (() => {
                 }
             });
             if (valid.length > 0) {
-                localStorage.setItem('dms_column_order_version', COLUMN_VERSION);
+                store.set('dms_column_order_version', COLUMN_VERSION);
                 return valid;
             }
         }
     } catch (e) {}
-    localStorage.setItem('dms_column_order_version', COLUMN_VERSION);
-    localStorage.setItem('dms_column_order', JSON.stringify([...ORDERABLE_KEYS])); // 同上：立即落盘默认顺序
+    store.set('dms_column_order_version', COLUMN_VERSION);
+    store.set('dms_column_order', JSON.stringify([...ORDERABLE_KEYS])); // 同上：立即落盘默认顺序
     return [...ORDERABLE_KEYS];
 })();
 
 function saveColumnOrder() {
-    localStorage.setItem('dms_column_order', JSON.stringify(columnOrder));
+    store.set('dms_column_order', JSON.stringify(columnOrder));
 }
 
 // 获取渲染用列顺序（batch-check → 可排序列 → actions）
@@ -113,7 +113,7 @@ function applyColumnVisibility() {
             if (!visibleCols.has(d.dataCol)) table.classList.add('hide-col-' + d.dataCol);
         });
     }
-    localStorage.setItem('dms_column_visibility', JSON.stringify(columnVisibility));
+    store.set('dms_column_visibility', JSON.stringify(columnVisibility));
 }
 
 // 列显隐 CSS 规则只需生成一次：#deviceTable.hide-col-x [data-col="x"]{display:none}
@@ -420,10 +420,10 @@ async function executeBatchDelete() {
                 await Promise.allSettled([loadDevices(), loadWarehouses(), loadTagStats(), loadExpiringDevices()]);
             }
         } else {
-            alert('批量删除失败: ' + (result.error || '未知错误'));
+            showToast('批量删除失败: ' + (result.error || '未知错误'), 'error');
         }
     } catch (e) {
-        alert('批量删除失败: ' + e.message);
+        showToast('批量删除失败: ' + e.message, 'error');
     }
 }
 
@@ -1267,7 +1267,7 @@ function renderTable(devices) {
             tags:         `<td data-col="tags" data-label="标签">${renderTagBadges(d, window.innerWidth < 1500 ? 1 : 2)}</td>`,
             department:   `<td data-col="department" data-label="部门">${d.department_path ? escapeHtml(d.department_path) : '<span class="text-muted">-</span>'}</td>`,
             responsible:  `<td data-col="responsible" data-label="负责人">${d.responsible_person ? escapeHtml(d.responsible_person) : '<span class="text-muted">-</span>'}</td>`,
-            location:     `<td data-col="location" data-label="位置/去向"${(isOut ? d.destination : d.storage_location) ? ` title="${escapeAttr(isOut ? d.destination : d.storage_location)}"` : ''}>${escapeHtml(isOut ? (d.destination || '已出库') : (d.storage_location || '在库'))}</td>`,
+            location:     `<td data-col="location" data-label="存放位置"${d.storage_location ? ` title="${escapeAttr(d.storage_location)}"` : ''}>${d.storage_location ? escapeHtml(d.storage_location) : '<span class="text-muted">-</span>'}</td>`,
             status:       `<td data-col="status" data-label="状态"><span class="status-badge ${statusClass[d.status] || ''}">${escapeHtml(d.status || '-')}</span></td>`,
             expiry:       `<td data-col="expiry" data-label="到期日">${formatExpiryBadge(d.expiry_date)}</td>`,
             checkin:      `<td data-col="checkin" data-label="入库时间">${d.checkin_time ? formatDate(d.checkin_time) : '<span class="text-muted">-</span>'}</td>`,
@@ -1328,9 +1328,12 @@ function renderList(devices) {
         const specInlineHtml = d.spec_model ? `<span class="device-card-spec-inline">${escapeHtml(d.spec_model)}</span>` : '';
         // 到期日期
         const expiryHtml = d.expiry_date ? `<span class="device-card-expiry-inline">${formatExpiryBadge(d.expiry_date)}</span>` : '';
-        // 位置/去向
-        const locText = isOut ? (d.destination || '已出库') : (d.storage_location || '在库');
-        const locationHtml = `<div class="device-card-location"><i class="bi bi-geo-alt"></i> ${escapeHtml(locText)}</div>`;
+        // 位置：显示存放位置 storage_location
+        // （在库/已出库状态已由卡片顶部 status-badge 体现，此处不再切换为去向 destination；
+        //   存放位置为空时整行不渲染，避免把状态文案混入位置信息）
+        const locationHtml = d.storage_location
+            ? `<div class="device-card-location"><i class="bi bi-geo-alt"></i> ${escapeHtml(d.storage_location)}</div>`
+            : '';
         // 备注（点击打开弹窗，不跳转详情）
         const remarkHtml = d.remark
             ? `<div class="device-card-remark" onclick="event.stopPropagation();showRemarkPreview(${d.id},'${escapeOnClick(d.name)}')"><i class="bi bi-chat-left-text"></i> ${escapeHtml(d.remark)}</div>`
@@ -1519,7 +1522,7 @@ function updateTagDatalist() {
     const datalist = document.getElementById('tagSuggestionsList');
     if (!datalist) return;
     const allTags = collectAllTagNames();
-    datalist.innerHTML = allTags.map(t => `<option value="${t}">`).join('');
+    datalist.innerHTML = allTags.map(t => `<option value="${escapeAttr(t)}">`).join('');
 }
 
 // 渲染弹窗中的标签 badges
@@ -1952,7 +1955,7 @@ function openImportModal() {
             <div class="form-group"><label class="form-label">选择导入文件（.xlsx / .csv）</label>
                 <input type="file" class="form-input" id="importFile" accept=".xlsx,.xls,.csv" style="padding:6px;">
             </div>
-            <div class="form-hint">第一行为表头，支持：仓库名称、设备名称、规格型号、序列号、来源、数量、标签、所属路径、负责人、位置、状态、到期日期、入库时间、去向、备注</div>
+            <div class="form-hint">第一行为表头，支持：仓库名称、设备名称、规格型号、序列号、来源、数量、标签、所属路径、负责人、位置、状态、到期日期、入库时间、去向、在库状态、备注（"在库状态"填「已出库」即视为出库，留空则按"去向"是否填写自动推断）</div>
             <div class="form-group" style="margin-top:12px;">
                 <label class="form-label">下载模板</label>
                 <button class="btn btn-secondary btn-sm" onclick="downloadTemplate()"><i class="bi bi-download"></i> 下载导入模板</button>
@@ -2169,9 +2172,9 @@ const SORT_FIELDS = [
     { key: 'checkin_time', label: '入库时间' },
     { key: 'expiry_date', label: '到期日期' },
 ];
-let sortField = localStorage.getItem('dms_sort_field') || 'checkin_time';
+let sortField = store.get('dms_sort_field') || 'checkin_time';
 let sortAsc = (() => {
-    const saved = localStorage.getItem('dms_sort_asc');
+    const saved = store.get('dms_sort_asc');
     return saved === null ? false : saved === 'true';
 })();
 
@@ -2195,8 +2198,8 @@ function applySort() {
 
 // 排序条件变化时持久化（selectSortField / selectSortFieldFromFab 调用）
 function persistSortState() {
-    localStorage.setItem('dms_sort_field', sortField);
-    localStorage.setItem('dms_sort_asc', sortAsc);
+    store.set('dms_sort_field', sortField);
+    store.set('dms_sort_asc', sortAsc);
 }
 
 function toggleSort(e) {
@@ -2207,19 +2210,7 @@ function toggleSort(e) {
     const isOpen = menu.style.display === 'block';
     if (isOpen) { menu.style.display = 'none'; return; }
 
-    // 定位到按钮下方（以 header-row 为基准）
-    const container = btn.closest('.header-row');
-    const containerRect = container ? container.getBoundingClientRect() : null;
-    const btnRect = btn.getBoundingClientRect();
-    if (containerRect) {
-        menu.style.left = (btnRect.left - containerRect.left) + 'px';
-        menu.style.top = (btnRect.bottom - containerRect.top + 4) + 'px';
-    } else {
-        menu.style.left = btnRect.left + 'px';
-        menu.style.top = (btnRect.bottom + 4) + 'px';
-    }
-
-    const currentLabel = SORT_FIELDS.find(f => f.key === sortField)?.label || '';
+    // 先渲染内容：菜单宽度由内容决定，必须先渲染才能测量真实宽度
     menu.innerHTML = SORT_FIELDS.map(f => {
         const active = f.key === sortField;
         const arrow = active ? (sortAsc ? ' ↑' : ' ↓') : '';
@@ -2228,7 +2219,33 @@ function toggleSort(e) {
             <span class="sort-arrow">${arrow}</span>
         </div>`;
     }).join('');
+
+    // 不可见地显示一次，测量真实尺寸（边界检测需要宽度）
+    menu.style.visibility = 'hidden';
     menu.style.display = 'block';
+    const menuWidth = menu.offsetWidth;
+
+    // 定位到按钮下方（以 header-row 为基准），并做左右边界检测
+    const container = btn.closest('.header-row');
+    const containerRect = container ? container.getBoundingClientRect() : null;
+    const btnRect = btn.getBoundingClientRect();
+    if (containerRect) {
+        let left = btnRect.left - containerRect.left;
+        // 右侧空间不足（移动端筛选按钮位于屏幕最右）→ 改为右对齐、向左展开
+        if (left + menuWidth > containerRect.width) {
+            left = (btnRect.right - containerRect.left) - menuWidth;
+        }
+        if (left < 0) left = 0; // 左侧兜底，防止反向溢出
+        menu.style.left = left + 'px';
+        menu.style.top = (btnRect.bottom - containerRect.top + 4) + 'px';
+    } else {
+        let left = btnRect.left;
+        if (left + menuWidth > window.innerWidth) left = Math.max(8, window.innerWidth - menuWidth - 8);
+        if (left < 0) left = 8;
+        menu.style.left = left + 'px';
+        menu.style.top = (btnRect.bottom + 4) + 'px';
+    }
+    menu.style.visibility = '';
 }
 
 function selectSortField(field) {
@@ -2488,24 +2505,23 @@ window.addEventListener('resize', () => {
 });
 
 function applyViewByWidth(isInit) {
+    // 说明：此处曾给 body 加/移除 is-mobile 类，但 style.css 中并无对应规则（死代码），
+    // 移动端适配实际由 CSS @media (max-width: 768px) + 下方切卡片视图完成，故已移除该类操作。
     const w = window.innerWidth;
     if (w < 768) {
-        // Step4: 移动端 → 卡片 + body 标记
-        document.body.classList.add('is-mobile');
+        // Step4: 移动端 → 卡片视图
         if (viewMode !== 'list') {
             autoSwitchedToCard = true;
             switchView('list', true);
         }
     } else if (w < 1366) {
         // Step3: 卡片视图
-        document.body.classList.remove('is-mobile');
         if (viewMode === 'table') {
             autoSwitchedToCard = true;
             switchView('list', true);
         }
     } else {
         // ≥1366: 恢复宽度后切回表格视图；仅当当前卡片视图是系统自动切换的（用户手动选的卡片视图不动）
-        document.body.classList.remove('is-mobile');
         if (autoSwitchedToCard && viewMode === 'list') {
             autoSwitchedToCard = false;
             switchView('table', true);
@@ -2533,10 +2549,10 @@ async function backfillDeviceCodes() {
         const res = await fetch(`${API_BASE}/devices/backfill-codes`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '补全失败');
-        alert(data.message);
+        showToast(data.message || '设备ID补全完成', 'success');
         loadDevices();
     } catch (e) {
-        alert('补全设备ID失败: ' + e.message);
+        showToast('补全设备ID失败: ' + e.message, 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;
@@ -2559,14 +2575,14 @@ async function clearCurrentWarehouse() {
         });
         const data = await res.json();
         if (data.success) {
-            alert(`已清空 ${data.deleted} 台设备`);
+            showToast(`已清空 ${data.deleted} 台设备`, 'success');
             await loadDevices();
             await loadTagStats();
         } else {
-            alert('清空失败: ' + (data.error || '未知错误'));
+            showToast('清空失败: ' + (data.error || '未知错误'), 'error');
         }
     } catch (e) {
-        alert('清空失败: ' + e.message);
+        showToast('清空失败: ' + e.message, 'error');
     }
 }
 

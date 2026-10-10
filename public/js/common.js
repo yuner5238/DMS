@@ -19,6 +19,14 @@ window.RT = Object.assign({
     _targetEditorId: null,   // insertImageToRemark 传入的编辑器ID
 }, window.RT || {});
 
+// localStorage 安全封装：Safari 无痕模式/存储被禁用/配额写满时访问会直接抛异常，
+// 未加保护会导致调用处顶层脚本中断（整页白屏），故统一走此封装。
+const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    remove(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
 // ===== 转义工具 =====
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
 function escapeAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }

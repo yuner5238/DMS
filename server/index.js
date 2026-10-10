@@ -22,6 +22,51 @@ const PORT = process.env.PORT || 3000;
 // gzip/br 压缩：JS/CSS/JSON 等文本资源传输量降 70%+
 app.use(compression());
 
+// ===== API 访问控制（安全加固）=====
+// 背景：本系统无登录体系，服务端口一旦暴露到公网，任何人都能增删改设备数据。
+// 策略：默认只放行内网/本机来源，公网请求返回 403。前端零改动，内网使用无感。
+//
+// 可选配置（写在 .env 中）：
+//   ALLOWED_IPS=1.2.3.4,5.6.7.8   追加允许访问的地址（与内置内网段合并生效）
+//   DISABLE_IP_FILTER=true         完全关闭该限制（服务已置于 VPN / 反向代理之后时使用）
+//
+// 注意：若通过反向代理（Nginx / Cloudflare Tunnel 等）访问，需设置 app.set('trust proxy', true)，
+// 否则此处拿到的会是代理自身的地址；临时方案是先设 DISABLE_IP_FILTER=true。
+const EXTRA_ALLOWED_IPS = (process.env.ALLOWED_IPS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+const IP_FILTER_DISABLED = String(process.env.DISABLE_IP_FILTER || '').toLowerCase() === 'true';
+
+// IPv4-mapped IPv6（::ffff:192.168.1.1）还原为纯 IPv4
+function normalizeIp(raw) {
+    return String(raw || '').replace(/^::ffff:/i, '');
+}
+
+function isPrivateIpv4(ip) {
+    const p = ip.split('.').map(Number);
+    if (p.length !== 4 || p.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+    if (p[0] === 10) return true;                                   // 10.0.0.0/8
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;      // 172.16.0.0/12
+    if (p[0] === 192 && p[1] === 168) return true;                  // 192.168.0.0/16
+    if (p[0] === 127) return true;                                  // 127.0.0.0/8 本机
+    if (p[0] === 169 && p[1] === 254) return true;                  // 链路本地
+    return false;
+}
+
+function isAllowedIp(ip) {
+    if (!ip) return false;
+    if (ip === '::1' || ip === 'localhost') return true;
+    if (isPrivateIpv4(ip)) return true;
+    return EXTRA_ALLOWED_IPS.includes(ip);
+}
+
+app.use('/api', (req, res, next) => {
+    if (IP_FILTER_DISABLED) return next();
+    const ip = normalizeIp(req.ip || (req.socket && req.socket.remoteAddress) || '');
+    if (isAllowedIp(ip)) return next();
+    console.warn(`[访问控制] 已拒绝 ${ip} 的 API 请求: ${req.method} ${req.originalUrl}`);
+    res.status(403).json({ error: '访问被拒绝：该服务仅允许内网访问' });
+});
+
 // Multer：内存存储
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -92,6 +137,11 @@ pool.on('error', (err) => {
     console.error('[MySQL Pool Error]', err.code, err.message);
 });
 
+// 方案B兜底：会话时区固定 +08:00，防止任何漏网的 DB 端默认时间（CURRENT_TIMESTAMP）写出非北京时间
+pool.on('connection', (conn) => {
+    conn.query("SET time_zone = '+08:00'");
+});
+
 // 测试连接
 pool.getConnection((err, connection) => {
     if (err) {
@@ -112,6 +162,18 @@ pool.getConnection((err, connection) => {
 app.use(cors());
 app.use(bodyParser.json());
 
+// ============ 时间统一（方案B）============
+// 全站唯一"现在"：存北京时间墙钟字符串，绝不依赖服务器本地时区或 DB 默认值
+function nowBeijing() {
+    return new Date(Date.now() + 8 * 3600 * 1000)
+        .toISOString().slice(0, 19).replace('T', ' ');
+}
+// 北京时间的"今天"（YYYY-MM-DD），用于与 DATE 字段比较
+function beijingToday() {
+    return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+
 // ★ 导入导出列映射：模板表头 → 数据库列 → 类型
 const IMPORT_COLUMNS = [
     { header: '仓库名称',      dbCol: 'warehouse_name',      type: 'string' },
@@ -130,6 +192,7 @@ const IMPORT_COLUMNS = [
     { header: '入库时间',      dbCol: 'checkin_time',        type: 'datetime' },
     { header: '出库时间',      dbCol: 'checkout_time',       type: 'datetime' },
     { header: '去向',         dbCol: 'destination',          type: 'string' },
+    { header: '在库状态',      dbCol: 'location_status',      type: 'string' },  // 填「已出库/出库/checked_out」视为出库；留空则按"去向"是否填写自动推断
     { header: '备注',         dbCol: 'remark',              type: 'string' },
 ];
 
@@ -235,9 +298,10 @@ app.get('/api/warehouses', async (req, res) => {
 app.post('/api/warehouses', async (req, res) => {
     try {
         const { name, description } = req.body;
+        const now = nowBeijing();  // 方案B：显式写北京时间，不依赖 DB 默认值（会话时区不可控）
         const result = await query(
-            'INSERT INTO warehouses (name, description) VALUES (?, ?)',
-            [name, description || '']
+            'INSERT INTO warehouses (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            [name, description || '', now, now]
         );
         res.json({ id: result.insertId, name, description });
     } catch (err) {
@@ -250,8 +314,8 @@ app.put('/api/warehouses/:id', async (req, res) => {
     try {
         const { name, description } = req.body;
         await query(
-            'UPDATE warehouses SET name=?, description=? WHERE id=?',
-            [name, description, req.params.id]
+            'UPDATE warehouses SET name=?, description=?, updated_at=? WHERE id=?',
+            [name, description, nowBeijing(), req.params.id]
         );
         res.json({ id: req.params.id, name, description });
     } catch (err) {
@@ -369,14 +433,16 @@ app.get('/api/devices', async (req, res) => {
 // ============ 临期设备 API（用于侧边栏临期列表）============
 app.get('/api/devices/expiring', async (req, res) => {
     try {
-        const sql = `SELECT id, device_id, name, expiry_date, location_status, DATEDIFF(expiry_date, CURDATE()) AS remaining_days
+        // 方案B：库中日期按北京时间口径存储，"今天"必须用北京时间，不能用服务器时区的 CURDATE()
+        const today = beijingToday();
+        const sql = `SELECT id, device_id, name, expiry_date, location_status, DATEDIFF(expiry_date, ?) AS remaining_days
             FROM devices
             WHERE expiry_date IS NOT NULL
-            AND expiry_date >= CURDATE()
-            AND DATEDIFF(expiry_date, CURDATE()) <= 7
+            AND expiry_date >= ?
+            AND DATEDIFF(expiry_date, ?) <= 7
             ORDER BY remaining_days ASC
             LIMIT 10`;
-        const result = await query(sql);
+        const result = await query(sql, [today, today, today]);
         res.json(result);
     } catch (err) {
         console.error('获取临期设备失败:', err);
@@ -550,17 +616,18 @@ function parseCSVLine(line) {
     return result;
 }
 
-// 解析日期字符串
+// 解析日期字符串（方案B：用户输入按北京时间墙钟理解，不做时区换算）
 function parseDate(val) {
     if (!val || !String(val).trim()) return null;
     const v = String(val).trim();
-    // 尝试多种格式
-    const d1 = new Date(v);
-    if (!isNaN(d1.getTime())) return d1.toISOString().split('T')[0];
-    // 尝试处理数字（Excel序列号）
+    // 1) 直接匹配 YYYY-MM-DD / YYYY/M/D 前缀，零时区换算（修复跨时区日期偏一天的旧问题）
+    const m = v.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (m) {
+        return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    }
+    // 2) Excel 日期序列号（日历日期，与时区无关）
     const num = parseFloat(v);
     if (!isNaN(num) && num > 30000 && num < 100000) {
-        // Excel 日期序列号 (1900-01-01 + days)
         const d = new Date((num - 25569) * 86400 * 1000);
         if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
     }
@@ -570,8 +637,18 @@ function parseDate(val) {
 function parseDateTime(val) {
     if (!val || !String(val).trim()) return null;
     const v = String(val).trim();
+    // 1) YYYY-MM-DD [HH:MM[:SS]]（[T] 分隔也支持），按北京时间墙钟原样保存
+    const m = v.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+        const [, y, mo, d, h = '00', mi = '00', s = '00'] = m;
+        return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')} ` +
+               `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    // 2) 兜底：Date 解析（如 Excel 序列时间），换算为北京时间墙钟
     const d = new Date(v);
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 19).replace('T', ' ');
+    if (!isNaN(d.getTime())) {
+        return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    }
     return null;
 }
 
@@ -591,16 +668,25 @@ async function fetchExistingDeviceIds(ids) {
 // ★ 导入性能辅助：分批多值 INSERT（每批100条）；整批失败时回退逐条插入，保留"失败跳过并报告"容错
 async function insertDevicesBatch(devices, onRowError) {
     let inserted = 0;
-    const COLS = '(device_id, warehouse_name, name, tag_names, status, quantity, storage_location, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source)';
-    const ROW_PLACEHOLDER = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    const toValues = d => [
-        d.device_id, d.warehouse_name, d.name,
-        d.tag_names || '', d.status || '正常', d.quantity || 1,
-        d.storage_location || '', d.destination || '', d.remark || '',
-        d.expiry_date || null, d.checkin_time || null, d.checkout_time || null,
-        d.responsible_person || null, d.department_path || null,
-        d.serial_number || null, d.spec_model || null, d.source || null
-    ];
+    const COLS = '(device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, checkout_time, responsible_person, department_path, serial_number, spec_model, source, created_at, updated_at)';
+    const ROW_PLACEHOLDER = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const toValues = d => {
+        // 在库状态：显式值优先（兼容中英文写法）；未指定时按"去向"是否有值自动推断，
+        // 避免落库出 location_status='in_stock' 却带 destination 的矛盾数据
+        const rawLoc = String(d.location_status || '').trim();
+        const locStatus = /^(checked_out|已出库|出库)$/i.test(rawLoc) ? 'checked_out'
+            : /^(in_stock|在库|库存)$/i.test(rawLoc) ? 'in_stock'
+            : (d.destination ? 'checked_out' : 'in_stock');
+        return [
+            d.device_id, d.warehouse_name, d.name,
+            d.tag_names || '', d.status || '正常', d.quantity || 1,
+            d.storage_location || '', locStatus, d.destination || '', d.remark || '',
+            d.expiry_date || null, d.checkin_time || null, d.checkout_time || null,
+            d.responsible_person || null, d.department_path || null,
+            d.serial_number || null, d.spec_model || null, d.source || null,
+            nowBeijing(), nowBeijing()  // 方案B：显式北京时间，不依赖 DB 默认值
+        ];
+    };
     for (let i = 0; i < devices.length; i += 100) {
         const batch = devices.slice(i, i + 100);
         try {
@@ -821,6 +907,7 @@ app.post('/api/devices/import-batch', async (req, res) => {
                 responsible_person: 'responsible_person',
                 storage_location: 'storage_location',
                 status: 'status',
+                location_status: 'location_status',
                 destination: 'destination',
                 remark: 'remark',
             };
@@ -957,7 +1044,7 @@ app.post('/api/devices', async (req, res) => {
         if (!name) return res.status(400).json({ error: '设备名称不能为空' });
         
         const locStatus = location_status || 'in_stock';
-        const checkinTime = checkin_time || (locStatus === 'in_stock' ? new Date().toISOString() : null);
+        const checkinTime = checkin_time || (locStatus === 'in_stock' ? nowBeijing() : null);
         // 兼容旧版 tag_name，新版用 tag_names（逗号分隔多标签）
         const tags = tag_names || tag_name || '';
         
@@ -975,9 +1062,10 @@ app.post('/api/devices', async (req, res) => {
             finalDeviceId = String(nextCode).padStart(6, '0');
         }
 
+        const now = nowBeijing();  // 方案B：显式写北京时间，不依赖 DB 默认值
         const result = await query(
-            `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [finalDeviceId, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null]
+            `INSERT INTO devices (device_id, warehouse_name, name, tag_names, status, quantity, storage_location, location_status, destination, remark, expiry_date, checkin_time, responsible_person, department_path, serial_number, spec_model, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [finalDeviceId, warehouseName || null, name, tags, status || '正常', quantity || 1, storage_location || '', locStatus, destination || '', remark || '', expiry_date || null, checkinTime, responsible_person || null, department_path || null, serial_number || null, spec_model || null, source || null, now, now]
         );
         
         // 返回完整记录（前端局部更新用，免全量刷新）
@@ -1033,8 +1121,9 @@ app.put('/api/devices/:id', async (req, res) => {
             return res.status(400).json({ error: '没有提供要更新的字段' });
         }
 
-        // 始终更新 updated_at
-        setClauses.push('updated_at=CURRENT_TIMESTAMP');
+        // 始终更新 updated_at（方案B：北京时间字符串）
+        setClauses.push('updated_at=?');
+        values.push(nowBeijing());
         values.push(req.params.id);
 
         const sql = `UPDATE devices SET ${setClauses.join(', ')} WHERE id=?`;
@@ -1113,14 +1202,10 @@ app.post('/api/announcements', async (req, res) => {
             return res.status(400).json({ success: false, error: '公告内容不能为空' });
         }
 
-        // 获取北京时间（UTC+8）
-        const now = new Date();
-        const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-        const beijingTimeStr = beijingTime.toISOString().slice(0, 19).replace('T', ' ');
-
+        // 方案B：统一走 nowBeijing()（北京时间墙钟字符串）
         const result = await query(
             'INSERT INTO announcements (content, created_at) VALUES (?, ?)',
-            [content, beijingTimeStr]
+            [content, nowBeijing()]
         );
 
         const announcements = await query('SELECT * FROM announcements WHERE id=?', [result.insertId]);

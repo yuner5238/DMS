@@ -112,6 +112,9 @@ html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* 消除移动端点击时浏览器默认的高亮闪色（iOS Safari / Android Chrome）。
+       默认高亮为半透明色块，点一下闪一下；此处关闭后由下方各元素的 :active 提供可控反馈 */
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -181,7 +184,9 @@ a:hover { color: var(--primary); }
     color: var(--text-secondary);
     transition: background 0.2s ease, color 0.2s ease;
 }
-.sidebar-close-btn:hover { background: var(--sidebar-hover); color: var(--text-primary); }
+@media (hover: hover) {
+    .sidebar-close-btn:hover { background: var(--sidebar-hover); color: var(--text-primary); }
+}
 
 .close-line {
     display: block;
@@ -398,9 +403,11 @@ a:hover { color: var(--primary); }
     border: 1px solid transparent;
 }
 
-.tag-item:hover {
-    background: var(--sidebar-hover);
-    color: var(--text-secondary);
+@media (hover: hover) {
+    .tag-item:hover {
+        background: var(--sidebar-hover);
+        color: var(--text-secondary);
+    }
 }
 
 .tag-item.active {
@@ -437,8 +444,10 @@ a:hover { color: var(--primary); }
     transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
-.sidebar-footer-btn:hover {
-    opacity: 0.92;
+@media (hover: hover) {
+    .sidebar-footer-btn:hover {
+        opacity: 0.92;
+    }
 }
 
 .sidebar-footer-btn i {
@@ -589,10 +598,12 @@ a:hover { color: var(--primary); }
     transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.mobile-bell-btn:hover,
-.mobile-avatar-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .mobile-bell-btn:hover,
+    .mobile-avatar-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
 }
 
 .mobile-bell-badge {
@@ -658,10 +669,12 @@ a:hover { color: var(--primary); }
     transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.header-bell-btn:hover,
-.header-avatar-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .header-bell-btn:hover,
+    .header-avatar-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
 }
 
 .header-bell-badge {
@@ -704,9 +717,11 @@ a:hover { color: var(--primary); }
     color: var(--text-secondary);
 }
 
-.sidebar-stat-item:hover {
-    background: var(--sidebar-hover);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .sidebar-stat-item:hover {
+        background: var(--sidebar-hover);
+        color: var(--text-primary);
+    }
 }
 
 .sidebar-stat-dot {
@@ -1515,9 +1530,8 @@ td[data-col="checkin"] {
     cursor: pointer;
     flex-shrink: 0;
 }
-    margin: 0;
-    flex-shrink: 0;
-}
+/* 注：此处原有一段无选择器的孤立声明块（margin:0; flex-shrink:0）属语法错误，
+   浏览器一直忽略它，已清除以恢复 CSS 语法有效性 */
 .column-settings-item span { user-select: none; }
 
 /* 辅助类 */
@@ -1645,8 +1659,10 @@ td[data-col="checkin"] {
     flex-direction: column;
     gap: 8px;
 }
-.device-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+@media (hover: hover) {
+    .device-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
 }
 
 .device-card-top-row {
@@ -2129,33 +2145,7 @@ td[data-col="checkin"] {
     gap: 8px;
 }
 
-/* ==========================================================================
-   IMAGE GRID & BROWSER
-   ========================================================================== */
-.image-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.image-grid-item {
-    aspect-ratio: 1;
-    border-radius: var(--radius-xs);
-    overflow: hidden;
-    cursor: pointer;
-    position: relative;
-    border: 1px solid var(--border);
-    transition: opacity var(--transition-fast);
-}
-
-.image-grid-item:hover { opacity: 0.85; }
-
-.image-grid-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+/* 图片网格样式统一收敛到下方「IMAGE BROWSER」区块（此处旧定义已删除，避免重复覆盖） */
 
 /* ---- Image Fullscreen Overlay (dynamic) ---- */
 .image-fullscreen-overlay {
@@ -2417,6 +2407,10 @@ td[data-col="checkin"] {
     .toolbar { display: none !important; }
     .header-actions { display: none; }
     #sortBtn { display: none; }
+
+    /* 排序下拉：移动端筛选按钮（#searchFilterBtn）位于屏幕最右，限制菜单最大宽度以防极端窄屏溢出
+       （展开方向由 app.js 的 toggleSort 做边界检测，越界时自动改为向左展开） */
+    .sort-dropdown { max-width: calc(100vw - 24px); }
 
     .content-header { padding: 10px 12px 0; }
     .content-body { padding: 0 12px 12px; }
@@ -2732,6 +2726,7 @@ td[data-col="checkin"] {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 8px;
+    margin-top: 8px;
     max-height: 400px;
     overflow-y: auto;
     padding: 4px;
@@ -2746,7 +2741,7 @@ td[data-col="checkin"] {
     aspect-ratio: 1;
     transition: all 0.15s;
 }
-.image-grid-item:hover { border-color: var(--text-muted); }
+.image-grid-item:hover { border-color: var(--text-muted); opacity: 0.85; }
 .image-grid-item.selected {
     border-color: var(--primary);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
@@ -3174,7 +3169,16 @@ td[data-col="checkin"] {
     color: var(--text-secondary);
     padding: 0;
 }
-.sidebar-toggle-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+/* hover 仅在真实支持悬停的设备生效，避免触摸设备把"按下"误判为 hover 并产生粘滞残留 */
+@media (hover: hover) {
+    .sidebar-toggle-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+}
+/* 按压反馈：替代已被全局关闭的浏览器默认高亮，点击有明确回应但不闪色 */
+.sidebar-toggle-btn:active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: scale(0.9);
+}
 
 .hamburger-line {
     display: block;
@@ -3444,9 +3448,11 @@ td[data-col="checkin"] {
     to   { opacity: 1; transform: translateX(0); }
 }
 
-.fab-menu-item:hover {
-    background: var(--bg-hover);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+@media (hover: hover) {
+    .fab-menu-item:hover {
+        background: var(--bg-hover);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+    }
 }
 
 .fab-menu-icon {
@@ -3552,4 +3558,100 @@ td[data-col="checkin"] {
         padding: 9px 14px;
         font-size: 13px;
     }
+}
+
+/* ==========================================================================
+   Bootstrap 遗留类兼容
+   bootstrap.min.css 已作为死文件移除（全项目无引用），但代码中仍在使用
+   以下类名。此处补齐定义，避免图标不换行、按钮无样式、加载动画不可见。
+   ========================================================================== */
+
+/* 图标独占一行 */
+.d-block { display: block !important; }
+
+/* 次要描边按钮（图片浏览器"选中未使用"等） */
+.btn-outline-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: var(--text-xs);
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.btn-outline-secondary:hover { border-color: var(--text-primary); color: var(--text-primary); }
+.btn-outline-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 加载指示器：复用文件上方已定义的 @keyframes spin */
+.spinner-border,
+.spinner-border-sm {
+    display: inline-block;
+    vertical-align: middle;
+    border-radius: 50%;
+    border-style: solid;
+    animation: spin 0.6s linear infinite;
+}
+.spinner-border {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+}
+.spinner-border-sm {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
+    border-color: var(--border);
+    border-top-color: var(--primary);
+}
+
+/* ==========================================================================
+   移动端按压反馈
+   全局已关闭 -webkit-tap-highlight-color（浏览器默认点击高亮会"闪一下色"），
+   此处为可点击元素补上统一、可控的按压反馈，避免出现"点了没反应"。
+   注：.fab-btn / .toolbar-btn / .drag-handle 已有各自的 :active 定义，未列入。
+   ========================================================================== */
+
+/* 圆形图标按钮：轻微缩放 + 背景加深 */
+.sidebar-close-btn:active,
+.mobile-bell-btn:active,
+.mobile-avatar-btn:active,
+.header-bell-btn:active,
+.header-avatar-btn:active {
+    background: var(--bg-hover);
+    transform: scale(0.9);
+}
+
+/* 常规按钮 / 可点击块：背景加深 */
+.sidebar-footer-btn:active,
+.batch-toggle-btn:active,
+.view-toggle-btn:active,
+.expiring-more-btn:active,
+.warehouse-show-more:active,
+.ann-dropdown-add-btn:active,
+.fab-menu-item:active {
+    background: var(--bg-hover);
+}
+
+/* 列表项 / 下拉项：背景加深 */
+.sidebar-stat-item:active,
+.tag-item:active,
+.ann-dropdown-item:active,
+.column-settings-item:active,
+#warehouseList li:active,
+#expiringList li:active {
+    background: var(--bg-hover);
+}
+
+/* 设备卡片：轻微降低不透明度（与图片网格的悬停反馈保持一致的观感） */
+.device-card:active {
+    opacity: 0.85;
 }
