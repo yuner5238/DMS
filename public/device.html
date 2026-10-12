@@ -1107,7 +1107,7 @@
         }
 
         async function deleteDevice(id, name) {
-            if (!confirm(`确定要删除设备"${name}"吗？`)) return;
+            if (!confirm(`确定要删除设备"${name}"吗？该设备的附件与图片将一并删除，此操作不可撤销。`)) return;
             try {
                 const res = await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('删除失败');

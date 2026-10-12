@@ -39,7 +39,7 @@ export default {
             }
             if (path.match(/^\/api\/warehouses\/\d+$/) && method === 'DELETE') {
                 const id = path.split('/').pop();
-                return await deleteWarehouse(env, id);
+                return await deleteWarehouse(env, id, ctx);
             }
 
             // ===== 设备 API =====
@@ -59,7 +59,7 @@ export default {
             }
             if (path.match(/^\/api\/devices\/\d+$/) && method === 'DELETE') {
                 const id = path.split('/').pop();
-                return await deleteDevice(env, id);
+                return await deleteDevice(env, id, ctx);
             }
             // 通过设备码(device_id)查询设备
             if (path.match(/^\/api\/devices\/by-code\/[^/]+$/) && method === 'GET') {
@@ -76,11 +76,11 @@ export default {
             }
             // 批量删除设备
             if (path === '/api/devices/batch-delete' && method === 'POST') {
-                return await batchDeleteDevices(request, env);
+                return await batchDeleteDevices(request, env, ctx);
             }
             // 清空当前仓库所有设备
             if (path === '/api/devices/clear-warehouse' && method === 'POST') {
-                return await clearWarehouse(request, env);
+                return await clearWarehouse(request, env, ctx);
             }
             // 批量粘贴导入设备
             if (path === '/api/devices/import-batch' && method === 'POST') {
@@ -188,17 +188,33 @@ async function updateWarehouse(request, env, id) {
     return jsonResponse({ id, name, description });
 }
 
-async function deleteWarehouse(env, id) {
+async function deleteWarehouse(env, id, ctx) {
     const warehouse = await env.DB.prepare(
         'SELECT name FROM warehouses WHERE id=?'
     ).bind(id).first();
 
+    let cleanedDevices = 0;
     if (warehouse) {
+        // 先取出该仓库下所有设备的编号（删除后查不到）
+        const devs = await env.DB.prepare(
+            'SELECT device_id FROM devices WHERE warehouse_name=?'
+        ).bind(warehouse.name).all();
         await env.DB.prepare('DELETE FROM devices WHERE warehouse_name=?').bind(warehouse.name).run();
+        const codes = (devs.results || []).map(r => r.device_id).filter(Boolean);
+        if (codes.length) {
+            await reserveDeviceCodes(env, codes);
+            cleanedDevices = codes.length;
+            // 串行队列，避免一次并发过多触发 S3 限流
+            if (ctx && ctx.waitUntil) {
+                ctx.waitUntil((async () => {
+                    for (const c of codes) await cleanupDeviceFiles(env, c);
+                })());
+            }
+        }
     }
 
     await env.DB.prepare('DELETE FROM warehouses WHERE id=?').bind(id).run();
-    return jsonResponse({ success: true });
+    return jsonResponse({ success: true, cleanedDevices });
 }
 
 // ============ 设备操作 ============
@@ -316,9 +332,125 @@ async function updateDevice(request, env, id) {
     return jsonResponse({ id, warehouseName: merged.warehouse_name, name: merged.name });
 }
 
-async function deleteDevice(env, id) {
+// ============ 设备编号不复用（墓碑表）============
+// 背景同 server/index.js：设备ID 原用 MAX+1 生成，删除设备后该编号会被下一台设备复用；
+// 而 S3 上 attachments/{device_id}/、images/{device_id}/ 是按编号分目录的，
+// 编号一旦复用，新设备会"看到"前任遗留的附件与图片（数据串档）。
+// 方案：墓碑表 device_code_used 记录所有曾用过的编号，取编号时与 devices 求联合最大值。
+// 注意：D1 底座是 SQLite，语法为 INSERT OR IGNORE；且 SQLite 默认没有 REGEXP 算子，
+//      这里用 LENGTH(device_id)=6 判定是否为 6 位数字编号。
+async function ensureDeviceCodeUsedTable(env) {
+    try {
+        await env.DB.prepare(
+            'CREATE TABLE IF NOT EXISTS device_code_used (device_id TEXT PRIMARY KEY, used_at TEXT)'
+        ).run();
+        await env.DB.prepare(
+            `INSERT OR IGNORE INTO device_code_used (device_id, used_at)
+             SELECT device_id, ? FROM devices WHERE device_id IS NOT NULL AND LENGTH(device_id) = 6`
+        ).bind(nowBeijing()).run();
+    } catch (err) {
+        console.error('[编号墓碑] 初始化失败（不影响主流程）:', err.message);
+    }
+}
+
+// 记录已删除设备的编号，防止被复用
+async function reserveDeviceCodes(env, deviceIds) {
+    const ids = [...new Set((deviceIds || []).map(v => String(v || '').trim()).filter(v => /^[0-9]{6}$/.test(v)))];
+    if (!ids.length) return;
+    try {
+        await ensureDeviceCodeUsedTable(env);
+        // D1 不支持数组绑定，逐条写入
+        for (const id of ids) {
+            await env.DB.prepare(
+                'INSERT OR IGNORE INTO device_code_used (device_id, used_at) VALUES (?, ?)'
+            ).bind(id, nowBeijing()).run();
+        }
+    } catch (err) {
+        console.error('[编号墓碑] 写入失败（该编号将来可能被复用）:', err.message);
+    }
+}
+
+// 取下一个永不复用的设备编号（墓碑表与 devices 求联合最大值 + 二次校验占用）
+async function getNextFreeDeviceCode(env) {
+    await ensureDeviceCodeUsedTable(env);
+    const r = await env.DB.prepare(
+        `SELECT MAX(c) AS max_code FROM (
+             SELECT CAST(device_id AS INTEGER) AS c FROM devices WHERE device_id IS NOT NULL AND LENGTH(device_id) = 6
+             UNION ALL
+             SELECT CAST(device_id AS INTEGER) AS c FROM device_code_used WHERE device_id IS NOT NULL AND LENGTH(device_id) = 6
+         )`
+    ).first();
+    let code = (r && r.max_code ? Number(r.max_code) : 0) + 1;
+    while (code <= 999999) {
+        const padded = String(code).padStart(6, '0');
+        const used = await env.DB.prepare('SELECT id FROM devices WHERE device_id=? LIMIT 1').bind(padded).first();
+        if (!used) return code;
+        code += 1;
+    }
+    return null; // 编号用尽
+}
+
+// ============ 删除设备时清理 S3 附件与图片 ============
+// 设计要点：前缀严格限定 attachments/{code}/ 与 images/{code}/，绝不越界；
+//      失败只记日志、不回滚数据库删除（S3 删除不可撤销），残留由孤儿清理脚本兜底。
+async function cleanupDeviceFiles(env, deviceId) {
+    const code = String(deviceId || '').trim();
+    if (!/^[0-9]{6}$/.test(code)) return 0;
+    const prefixes = [`${S3_BASE}/attachments/${code}/`, `${S3_BASE}/images/${code}/`];
+    let deleted = 0;
+    try {
+        for (const prefix of prefixes) {
+            let token = null;
+            do {
+                const listUrl = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}`);
+                listUrl.searchParams.set('list-type', '2');
+                listUrl.searchParams.set('prefix', prefix);
+                listUrl.searchParams.set('max-keys', '500');
+                if (token) listUrl.searchParams.set('continuation-token', token);
+                const signedList = await signS3Request(env, 'GET', listUrl);
+                const resp = await fetch(listUrl.toString(), { headers: signedList.headers });
+                if (!resp.ok) {
+                    console.error('[S3清理] 列目录失败:', prefix, resp.status, (await resp.text()).slice(0, 300));
+                    break;
+                }
+                const xml = await resp.text();
+                const contents = xml.match(/<Contents>[\s\S]*?<\/Contents>/g) || [];
+                for (const item of contents) {
+                    const m = item.match(/<Key>([\s\S]*?)<\/Key>/);
+                    if (!m || !m[1]) continue;
+                    const key = m[1]
+                        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+                        .replace(/&amp;/g, '&');
+                    if (!key || key.endsWith('/')) continue;
+                    const delUrl = new URL(`${env.S3_ENDPOINT}/${env.S3_BUCKET}/${safeEncodeS3Path(key)}`);
+                    const signedDel = await signS3Request(env, 'DELETE', delUrl, null, null, key);
+                    const delResp = await fetch(delUrl.toString(), { method: 'DELETE', headers: signedDel.headers });
+                    if (delResp.ok) deleted++;
+                }
+                const nextMatch = xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/);
+                token = /<IsTruncated>true<\/IsTruncated>/.test(xml) && nextMatch ? nextMatch[1] : null;
+            } while (token);
+        }
+        console.log(`[S3清理] 设备 ${code}：已删除 ${deleted} 个附件/图片对象`);
+    } catch (err) {
+        console.error(`[S3清理] 设备 ${code} 清理失败（数据库记录已删除，残留需用孤儿清理脚本处理）:`, err.message);
+    }
+    return deleted;
+}
+
+// 删除设备（同时清理该设备的 S3 附件与图片）
+async function deleteDevice(env, id, ctx) {
+    // 先取出设备编号（删除后查不到）
+    const existing = await env.DB.prepare('SELECT device_id FROM devices WHERE id=?').bind(id).first();
     await env.DB.prepare('DELETE FROM devices WHERE id=?').bind(id).run();
-    return jsonResponse({ success: true });
+    const code = existing && existing.device_id;
+    if (code) {
+        await reserveDeviceCodes(env, [code]);
+        // 异步清理，不阻塞响应
+        if (ctx && ctx.waitUntil) ctx.waitUntil(cleanupDeviceFiles(env, code));
+    }
+    return jsonResponse({ success: true, cleanedDevices: code ? 1 : 0 });
 }
 
 // 通过设备码(device_id)查询设备
@@ -328,14 +460,11 @@ async function getDeviceByCode(env, code) {
     return jsonResponse(device);
 }
 
-// 生成下一个设备码（6位数字）
+// 生成下一个设备码（6位数字，编号永不复用）
 async function getNextDeviceCode(env) {
-    const result = await env.DB.prepare(
-        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
-    ).first();
-    const maxCode = result && result.max_code ? result.max_code : 0;
-    const nextCode = String(maxCode + 1).padStart(6, '0');
-    return jsonResponse({ code: nextCode });
+    const code = await getNextFreeDeviceCode(env);
+    if (code === null) return jsonResponse({ error: '设备ID已用尽（超过999999）' }, 500);
+    return jsonResponse({ code: String(code).padStart(6, '0') });
 }
 
 // 批量补全缺失 device_id 的旧设备
@@ -344,10 +473,8 @@ async function backfillDeviceCodes(env) {
         "SELECT id FROM devices WHERE device_id IS NULL OR device_id = '' ORDER BY id"
     ).all();
 
-    const maxResult = await env.DB.prepare(
-        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
-    ).first();
-    let maxCode = maxResult && maxResult.max_code ? maxResult.max_code : 0;
+    // 编号同样取「墓碑表 + devices」联合最大值，保证补全时不与已删除编号冲突
+    let maxCode = (await getNextFreeDeviceCode(env)) - 1;
 
     let count = 0;
     for (const device of devices.results) {
@@ -361,29 +488,57 @@ async function backfillDeviceCodes(env) {
 }
 
 // 批量删除设备
-async function batchDeleteDevices(request, env) {
+async function batchDeleteDevices(request, env, ctx) {
     const { ids } = await request.json();
     if (!Array.isArray(ids) || ids.length === 0) {
         return jsonResponse({ error: '请提供要删除的设备ID列表' }, 400);
     }
     // D1 需要逐个绑定参数，构建 IN (?, ?, ...) 语句
     const placeholders = ids.map(() => '?').join(',');
+    // 先取出将被删除的设备编号（删除后查不到）
+    const rows = await env.DB.prepare(
+        `SELECT device_id FROM devices WHERE id IN (${placeholders})`
+    ).bind(...ids).all();
     const result = await env.DB.prepare(
         `DELETE FROM devices WHERE id IN (${placeholders})`
     ).bind(...ids).run();
-    return jsonResponse({ success: true, deleted: result.meta?.changes || ids.length });
+    const codes = (rows.results || []).map(r => r.device_id).filter(Boolean);
+    if (codes.length) {
+        await reserveDeviceCodes(env, codes);
+        // 串行队列，避免一次并发过多触发 S3 限流
+        if (ctx && ctx.waitUntil) {
+            ctx.waitUntil((async () => {
+                for (const c of codes) await cleanupDeviceFiles(env, c);
+            })());
+        }
+    }
+    return jsonResponse({ success: true, deleted: result.meta?.changes || ids.length, cleanedDevices: codes.length });
 }
 
 // 清空当前仓库所有设备
-async function clearWarehouse(request, env) {
+async function clearWarehouse(request, env, ctx) {
     const { warehouseName } = await request.json();
+    // 先取出将被删除的设备编号
+    const rows = warehouseName
+        ? await env.DB.prepare('SELECT device_id FROM devices WHERE warehouse_name=?').bind(warehouseName).all()
+        : await env.DB.prepare('SELECT device_id FROM devices').all();
     let result;
     if (warehouseName) {
         result = await env.DB.prepare('DELETE FROM devices WHERE warehouse_name=?').bind(warehouseName).run();
     } else {
         result = await env.DB.prepare('DELETE FROM devices').run();
     }
-    return jsonResponse({ success: true, deleted: result.meta?.changes || 0 });
+    const codes = (rows.results || []).map(r => r.device_id).filter(Boolean);
+    if (codes.length) {
+        await reserveDeviceCodes(env, codes);
+        // 串行队列，避免一次并发过多触发 S3 限流
+        if (ctx && ctx.waitUntil) {
+            ctx.waitUntil((async () => {
+                for (const c of codes) await cleanupDeviceFiles(env, c);
+            })());
+        }
+    }
+    return jsonResponse({ success: true, deleted: result.meta?.changes || 0, cleanedDevices: codes.length });
 }
 
 // 批量粘贴导入设备
@@ -404,11 +559,9 @@ async function importBatchDevices(request, env) {
     const errors = [];
     const devices = [];
 
-    // 预取最大 device_id
-    const maxRows = await env.DB.prepare(
-        "SELECT MAX(CAST(device_id AS INTEGER)) as max_code FROM devices WHERE device_id IS NOT NULL AND device_id != ''"
-    ).first();
-    let batchNextId = (maxRows?.max_code || 0) + 1;
+    // 预取下一个可用编号（联合墓碑表，保证不复用已删除编号）
+    const firstFree = await getNextFreeDeviceCode(env);
+    let batchNextId = firstFree === null ? 999999 : firstFree;
 
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -788,6 +941,10 @@ async function listAttachments(env, deviceId) {
     try {
         const resp = await fetch(s3Url.toString(), { headers: signedRequest.headers });
         if (!resp.ok) {
+            // ★ 必须打出状态码与响应体，否则线上 502 只能靠猜：
+            //   403 = 密钥无效/签名不符；404 = bucket 或前缀不存在；400 = 请求参数问题
+            const body = await resp.text();
+            console.error('[S3附件列表] HTTP', resp.status, '| prefix=', prefix, '| body=', body.slice(0, 500));
             return jsonResponse({ error: 'S3 请求失败' }, 502);
         }
         const xml = await resp.text();

@@ -328,14 +328,23 @@ app.delete('/api/warehouses/:id', async (req, res) => {
     try {
         // 先获取仓库名称
         const warehouses = await query('SELECT name FROM warehouses WHERE id=?', [req.params.id]);
+        let cleanedDevices = 0;
         if (warehouses.length > 0) {
             const warehouseName = warehouses[0].name;
+            // 先取出该仓库下所有设备的编号（删除后查不到）
+            const devRows = await query('SELECT device_id FROM devices WHERE warehouse_name=?', [warehouseName]);
             // 删除该仓库下的所有设备
             await query('DELETE FROM devices WHERE warehouse_name=?', [warehouseName]);
+            const codes = devRows.map(r => r.device_id).filter(Boolean);
+            if (codes.length) {
+                await reserveDeviceCodes(codes);
+                cleanedDevices = codes.length;
+                codes.forEach(code => { setImmediate(() => { cleanupDeviceFiles(code); }); });
+            }
         }
         // 删除仓库
         await query('DELETE FROM warehouses WHERE id=?', [req.params.id]);
-        res.json({ success: true });
+        res.json({ success: true, cleanedDevices });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -344,19 +353,15 @@ app.delete('/api/warehouses/:id', async (req, res) => {
 // ============ 设备 API ============
 
 // 生成下一个可用的6位设备ID码
+// 口径：联合 devices 与墓碑表 device_code_used 取最大编号，保证编号永不复用；
+//      再逐个校验是否被占用，抵御并发写入与历史脏数据
 app.get('/api/devices/next-code', async (req, res) => {
     try {
-        // 查找当前最大的纯数字设备ID
-        const rows = await query(
-            `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
-        );
-        const maxCode = rows[0]?.max_code || 0;
-        const nextCode = maxCode + 1;
-        if (nextCode > 999999) {
+        const nextCode = await allocateDeviceCode();
+        if (nextCode === null) {
             return res.status(500).json({ error: '设备ID已用尽（超过999999）' });
         }
-        const code = String(nextCode).padStart(6, '0');
-        res.json({ code });
+        res.json({ code: String(nextCode).padStart(6, '0') });
     } catch (err) {
         console.error('生成设备ID失败:', err);
         res.status(500).json({ error: err.message });
@@ -1051,12 +1056,9 @@ app.post('/api/devices', async (req, res) => {
         // 如果没有传 device_id，自动生成一个
         let finalDeviceId = device_id || null;
         if (!finalDeviceId) {
-            const maxRows = await query(
-                `SELECT MAX(CAST(device_id AS UNSIGNED)) as max_code FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
-            );
-            const maxCode = maxRows[0]?.max_code || 0;
-            const nextCode = maxCode + 1;
-            if (nextCode > 999999) {
+            // 编号永不复用：联合 devices 与墓碑表取最大值，并二次校验占用
+            const nextCode = await allocateDeviceCode();
+            if (nextCode === null) {
                 return res.status(500).json({ error: '设备ID已用尽（超过999999）' });
             }
             finalDeviceId = String(nextCode).padStart(6, '0');
@@ -1140,11 +1142,125 @@ app.put('/api/devices/:id', async (req, res) => {
     }
 });
 
-// 删除设备
+// ============ 设备编号不复用（墓碑表）============
+// 背景：设备ID 原用 MAX+1 生成，删除设备后该编号会被下一台设备复用；
+//      而 S3 上 attachments/{device_id}/、images/{device_id}/ 是按编号分目录的，
+//      编号一旦复用，新设备会"看到"前任遗留的附件与图片（数据串档）。
+// 方案：墓碑表 device_code_used 记录所有曾用过的编号，生成新编号时取
+//      devices 与墓碑表的联合最大值，保证编号永不复用。
+async function ensureDeviceCodeUsedTable() {
+    try {
+        await query(`CREATE TABLE IF NOT EXISTS device_code_used (
+            device_id VARCHAR(6) NOT NULL,
+            used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (device_id)
+        )`);
+        // 回填：把现有设备编号写入墓碑表（幂等，可重复执行）
+        await query(
+            `INSERT IGNORE INTO device_code_used (device_id)
+             SELECT device_id FROM devices WHERE device_id REGEXP '^[0-9]{6}$'`
+        );
+    } catch (err) {
+        console.error('[编号墓碑] 初始化失败（不影响主流程）:', err.message);
+    }
+}
+
+// 记录已删除设备的编号，防止被复用
+async function reserveDeviceCodes(deviceIds) {
+    const ids = [...new Set((deviceIds || []).map(v => String(v || '').trim()).filter(v => /^[0-9]{6}$/.test(v)))];
+    if (!ids.length) return;
+    try {
+        await ensureDeviceCodeUsedTable();
+        const values = ids.map(() => '(?, CURRENT_TIMESTAMP)').join(',');
+        await query(`INSERT IGNORE INTO device_code_used (device_id, used_at) VALUES ${values}`, ids);
+    } catch (err) {
+        console.error('[编号墓碑] 写入失败（该编号将来可能被复用）:', err.message);
+    }
+}
+
+// 取下一个永不复用的设备编号
+async function getNextFreeDeviceCode() {
+    await ensureDeviceCodeUsedTable();
+    const rows = await query(
+        `SELECT MAX(c) AS max_code FROM (
+             SELECT CAST(device_id AS UNSIGNED) AS c FROM devices WHERE device_id REGEXP '^[0-9]{6}$'
+             UNION ALL
+             SELECT CAST(device_id AS UNSIGNED) AS c FROM device_code_used WHERE device_id REGEXP '^[0-9]{6}$'
+         ) t`
+    );
+    return Number(rows[0]?.max_code || 0) + 1;
+}
+
+// 分配一个确定未被占用的设备编号（墓碑表取最大值 + 二次校验）
+async function allocateDeviceCode() {
+    let code = await getNextFreeDeviceCode();
+    while (code <= 999999) {
+        const padded = String(code).padStart(6, '0');
+        const used = await query('SELECT id FROM devices WHERE device_id=? LIMIT 1', [padded]);
+        if (!used.length) return code;
+        code += 1;
+    }
+    return null; // 编号用尽
+}
+
+// ============ 删除设备时清理 S3 附件与图片 ============
+// 设计要点：
+//   1) 前缀严格限定为 attachments/{code}/ 与 images/{code}/，绝不越界删其他目录
+//   2) 分批并发删除（每批 10 个），批间让出事件循环，避免长时间占用连接
+//   3) 失败只记日志、不回滚数据库删除（S3 删除本身不可撤销），残留由孤儿清理脚本兜底
+async function cleanupDeviceFiles(deviceId) {
+    const code = String(deviceId || '').trim();
+    if (!/^[0-9]{6}$/.test(code)) return 0;
+    const prefixes = [
+        `${s3Config.basePrefix}attachments/${code}/`,
+        `${s3Config.basePrefix}images/${code}/`,
+    ];
+    let deleted = 0;
+    try {
+        for (const prefix of prefixes) {
+            let token;
+            do {
+                const resp = await s3.send(new ListObjectsV2Command({
+                    Bucket: s3Config.bucket,
+                    Prefix: prefix,
+                    MaxKeys: 1000,
+                    ContinuationToken: token,
+                }));
+                const keys = (resp.Contents || [])
+                    .filter(o => !o.Key.endsWith('/'))
+                    .map(o => o.Key);
+                for (let i = 0; i < keys.length; i += 10) {
+                    const batch = keys.slice(i, i + 10);
+                    const results = await Promise.all(batch.map(k =>
+                        s3.send(new DeleteObjectCommand({ Bucket: s3Config.bucket, Key: k }))
+                            .then(() => 1).catch(() => 0)
+                    ));
+                    deleted += results.reduce((a, b) => a + b, 0);
+                    await new Promise(r => setImmediate(r));
+                }
+                token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+            } while (token);
+        }
+        console.log(`[S3清理] 设备 ${code}：已删除 ${deleted} 个附件/图片对象`);
+    } catch (err) {
+        console.error(`[S3清理] 设备 ${code} 清理失败（数据库记录已删除，残留文件需用孤儿清理脚本处理）:`, err.message);
+    }
+    return deleted;
+}
+
+// 删除设备（同时清理该设备的 S3 附件与图片）
 app.delete('/api/devices/:id', async (req, res) => {
     try {
+        // 先取出设备编号（删除后查不到），用于墓碑登记与 S3 目录定位
+        const rows = await query('SELECT device_id FROM devices WHERE id=?', [req.params.id]);
         await query('DELETE FROM devices WHERE id=?', [req.params.id]);
-        res.json({ success: true });
+        const codes = rows.map(r => r.device_id).filter(Boolean);
+        if (codes.length) {
+            await reserveDeviceCodes(codes);
+            // 异步清理，不阻塞响应
+            codes.forEach(code => { setImmediate(() => { cleanupDeviceFiles(code); }); });
+        }
+        res.json({ success: true, cleanedDevices: codes });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1158,8 +1274,15 @@ app.post('/api/devices/batch-delete', async (req, res) => {
             return res.status(400).json({ error: '请提供要删除的设备ID列表' });
         }
         const placeholders = ids.map(() => '?').join(',');
+        // 先取出将被删除的设备编号（删除后查不到），用于墓碑登记与 S3 目录定位
+        const rows = await query(`SELECT device_id FROM devices WHERE id IN (${placeholders})`, ids);
         const result = await query(`DELETE FROM devices WHERE id IN (${placeholders})`, ids);
-        res.json({ success: true, deleted: result.affectedRows || ids.length });
+        const codes = rows.map(r => r.device_id).filter(Boolean);
+        if (codes.length) {
+            await reserveDeviceCodes(codes);
+            codes.forEach(code => { setImmediate(() => { cleanupDeviceFiles(code); }); });
+        }
+        res.json({ success: true, deleted: result.affectedRows || ids.length, cleanedDevices: codes.length });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1169,6 +1292,13 @@ app.post('/api/devices/batch-delete', async (req, res) => {
 app.post('/api/devices/clear-warehouse', async (req, res) => {
     try {
         const { warehouseName } = req.body;
+        // 先取出将被删除的设备编号
+        const rows = await query(
+            warehouseName
+                ? 'SELECT device_id FROM devices WHERE warehouse_name=?'
+                : 'SELECT device_id FROM devices',
+            warehouseName ? [warehouseName] : []
+        );
         let result;
         if (warehouseName) {
             result = await query('DELETE FROM devices WHERE warehouse_name=?', [warehouseName]);
@@ -1176,7 +1306,12 @@ app.post('/api/devices/clear-warehouse', async (req, res) => {
             // 未指定仓库 = 清空全部设备
             result = await query('DELETE FROM devices');
         }
-        res.json({ success: true, deleted: result.affectedRows || 0 });
+        const codes = rows.map(r => r.device_id).filter(Boolean);
+        if (codes.length) {
+            await reserveDeviceCodes(codes);
+            codes.forEach(code => { setImmediate(() => { cleanupDeviceFiles(code); }); });
+        }
+        res.json({ success: true, deleted: result.affectedRows || 0, cleanedDevices: codes.length });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

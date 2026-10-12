@@ -401,7 +401,7 @@ function renderBatchToolbarHTML() {
 
 async function executeBatchDelete() {
     if (selectedDeviceIds.size === 0) return;
-    if (!confirm(`确定要删除选中的 ${selectedDeviceIds.size} 个设备吗？此操作不可撤销。`)) return;
+    if (!confirm(`确定要删除选中的 ${selectedDeviceIds.size} 个设备吗？这些设备的附件与图片将一并删除，此操作不可撤销。`)) return;
     const ids = Array.from(selectedDeviceIds);
     try {
         const res = await fetch(`${API_BASE}/devices/batch-delete`, {
@@ -1756,7 +1756,7 @@ function deleteDeviceFromModal() {
 }
 
 async function deleteDevice(id, name) {
-    if (!confirm(`确定要删除设备"${name}"吗？此操作不可撤销。`)) return;
+    if (!confirm(`确定要删除设备"${name}"吗？该设备的附件与图片将一并删除，此操作不可撤销。`)) return;
     try {
         const r = await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
@@ -1908,7 +1908,7 @@ async function saveWarehouseEdit() {
 }
 
 async function deleteWarehouse(id, name) {
-    if (!confirm(`确定要删除仓库"${name}"吗？该仓库下的所有设备也将被删除。`)) return;
+    if (!confirm(`确定要删除仓库"${name}"吗？该仓库下的所有设备及其附件与图片也将被删除。`)) return;
     try {
         const r = await fetch(`${API_BASE}/warehouses/${id}`, { method:'DELETE' });
         if (!r.ok) throw new Error(await r.text());
@@ -2564,7 +2564,7 @@ async function clearCurrentWarehouse() {
     const isAll = !currentWarehouse || currentWarehouse.id === '__unassigned__';
     const label = isAll ? '全部设备' : `仓库【${currentWarehouse.name}】`;
 
-    if (!confirm(`确定要清空 ${label} 下的所有设备吗？\n\n此操作不可撤销！`)) return;
+    if (!confirm(`确定要清空 ${label} 下的所有设备吗？\n\n这些设备的附件与图片将一并删除，此操作不可撤销！`)) return;
     if (!confirm('再次确认：清空后数据不可恢复，确定继续？')) return;
 
     try {
